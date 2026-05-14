@@ -6,7 +6,8 @@ const Alexandria = {
         clickCount: 0,
         searchTimeout: null,
         trendingData: null,
-        activeContent: { id: null, type: 'movie' }
+        activeContent: { id: null, type: 'movie', season: 1, episode: 1 },
+        autoNext: true
     },
 
     init() {
@@ -421,15 +422,16 @@ const Alexandria = {
     },
 
     renderPlayer() {
-        const { id, type } = this.state.activeContent;
+        const { id, type, season, episode } = this.state.activeContent;
         const embedUrl = type === 'movie' 
             ? `https://www.vidking.net/embed/movie/${id}`
-            : `https://www.vidking.net/embed/tv/${id}/1/1`;
+            : `https://www.vidking.net/embed/tv/${id}/${season}/${episode}`;
 
         this.main.innerHTML = `
             <section class="screening-room">
                 <div class="player-container">
                     <iframe 
+                        id="player-frame"
                         src="${embedUrl}" 
                         width="100%" 
                         height="600" 
@@ -437,11 +439,45 @@ const Alexandria = {
                         allowfullscreen>
                     </iframe>
                 </div>
+                
                 <div class="player-controls">
-                    <button class="btn-secondary" onclick="Alexandria.handleRouting()">BACK TO ARCHIVES</button>
+                    ${type === 'tv' ? `
+                        <div class="episode-selector">
+                            <div class="selector-group">
+                                <label>SEASON</label>
+                                <input type="number" value="${season}" min="1" onchange="Alexandria.changeEpisode('season', this.value)">
+                            </div>
+                            <div class="selector-group">
+                                <label>EPISODE</label>
+                                <input type="number" value="${episode}" min="1" onchange="Alexandria.changeEpisode('episode', this.value)">
+                            </div>
+                            <div class="nav-buttons">
+                                <button class="btn-secondary" onclick="Alexandria.changeEpisode('episode', ${episode - 1})">PREV</button>
+                                <button class="btn-primary" onclick="Alexandria.changeEpisode('episode', ${episode + 1})">NEXT</button>
+                            </div>
+                            <div class="auto-next-toggle">
+                                <label class="switch">
+                                    <input type="checkbox" ${this.state.autoNext ? 'checked' : ''} onchange="Alexandria.toggleAutoNext(this.checked)">
+                                    <span class="slider"></span>
+                                </label>
+                                <span>AUTO NEXT</span>
+                            </div>
+                        </div>
+                    ` : ''}
+                    <button class="btn-secondary back-btn" onclick="Alexandria.handleRouting()">BACK TO ARCHIVES</button>
                 </div>
             </section>
         `;
+    },
+
+    changeEpisode(field, value) {
+        const val = Math.max(1, parseInt(value));
+        this.state.activeContent[field] = val;
+        this.renderPlayer();
+    },
+
+    toggleAutoNext(checked) {
+        this.state.autoNext = checked;
     },
 
     renderAdmin() {
