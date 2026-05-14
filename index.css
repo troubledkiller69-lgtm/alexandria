@@ -1,13 +1,13 @@
 :root {
-    --bg-color: #020202;
-    --text-primary: #ffffff;
-    --text-secondary: #9ca3af;
-    --accent-ice: #00f2ff;
-    --secondary-ice: #00d4ff;
-    --card-bg: #0a0a0a;
-    --border-color: rgba(0, 242, 255, 0.1);
-    --glass-bg: rgba(2, 2, 2, 0.8);
-    --glow-ice: 0 0 20px rgba(0, 242, 255, 0.2);
+    --bg-color: #080808;
+    --text-primary: #f8f1e5; /* Warm Ivory */
+    --text-secondary: #a89f91;
+    --accent-gold: #d4af37; /* Royal Gold */
+    --secondary-gold: #b8860b;
+    --card-bg: #0f0f0f;
+    --border-color: rgba(212, 175, 55, 0.15); /* Gold tint */
+    --glass-bg: rgba(8, 8, 8, 0.9);
+    --glow-gold: 0 0 25px rgba(212, 175, 55, 0.2);
 }
 
 * {
@@ -19,15 +19,16 @@
 body {
     background-color: var(--bg-color);
     color: var(--text-primary);
-    font-family: 'Inter', sans-serif;
+    font-family: 'Lora', serif;
     overflow-x: hidden;
-    line-height: 1.5;
+    line-height: 1.6;
 }
 
 h1, h2, h3 {
-    font-family: 'Inter', sans-serif;
+    font-family: 'Cinzel', serif;
     font-weight: 700;
-    letter-spacing: -0.02em;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
 }
 
 /* Header / Navigation */
@@ -35,23 +36,24 @@ h1, h2, h3 {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 1rem 4rem;
+    padding: 1.5rem 4rem;
     background: var(--glass-bg);
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
+    backdrop-filter: blur(15px);
+    -webkit-backdrop-filter: blur(15px);
     position: sticky;
     top: 0;
     z-index: 100;
-    border-bottom: 1px solid var(--border-color);
+    border-bottom: 2px solid var(--border-color);
+    box-shadow: 0 10px 30px rgba(0,0,0,0.5);
 }
 
 .watchtower h1 {
-    font-size: 1.5rem;
-    font-weight: 800;
-    color: var(--accent-ice);
-    letter-spacing: -1px;
+    font-size: 2rem;
+    font-weight: 900;
+    color: var(--accent-gold);
+    letter-spacing: 4px;
     cursor: pointer;
-    text-shadow: 0 0 10px rgba(0, 242, 255, 0.5);
+    text-shadow: 0 0 15px rgba(212, 175, 55, 0.4);
 }
 
 #tmdb-search:focus { outline: none; border-color: var(--accent-ice); box-shadow: 0 0 15px rgba(0, 242, 255, 0.2); }
@@ -104,14 +106,15 @@ h1, h2, h3 {
 
 .trending-badge {
     display: inline-block;
-    padding: 0.5rem 1rem;
-    background: var(--accent-ice);
+    padding: 0.6rem 1.2rem;
+    background: linear-gradient(135deg, var(--accent-gold), var(--secondary-gold));
     color: #000;
     font-weight: 900;
-    border-radius: 4px;
-    margin-bottom: 1.5rem;
+    border-radius: 2px;
+    margin-bottom: 2rem;
     font-size: 0.8rem;
-    letter-spacing: 1px;
+    letter-spacing: 2px;
+    box-shadow: 0 0 15px rgba(212, 175, 55, 0.3);
 }
 
 /* Sections & Carousels */
@@ -350,15 +353,17 @@ button:focus, .movie-card:focus-within, .nav-link:focus {
 }
 
 .btn-primary {
-    background: var(--accent-ice);
-    color: var(--bg-color);
-    box-shadow: var(--glow-ice);
+    background: linear-gradient(135deg, var(--accent-gold), var(--secondary-gold));
+    color: #000;
+    box-shadow: var(--glow-gold);
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    font-family: 'Cinzel', serif;
 }
 
 .btn-primary:hover {
-    background: var(--secondary-ice);
-    transform: scale(1.05);
-    box-shadow: 0 0 30px rgba(0, 242, 255, 0.4);
+    transform: scale(1.05) translateY(-2px);
+    box-shadow: 0 0 35px rgba(212, 175, 55, 0.4);
 }
 
 .btn-secondary {
