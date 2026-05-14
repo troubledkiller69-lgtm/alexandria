@@ -54,34 +54,54 @@ h1, h2, h3 {
     text-shadow: 0 0 10px rgba(0, 242, 255, 0.5);
 }
 
+#tmdb-search:focus { outline: none; border-color: var(--accent-ice); box-shadow: 0 0 15px rgba(0, 242, 255, 0.2); }
+
+.results-grid { 
+    display: grid; 
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); 
+    gap: 3rem; 
+    width: 100%;
+}
+
+.movie-card { 
+    cursor: pointer; 
+    transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    position: relative;
+}
+.movie-card:hover { transform: translateY(-12px) scale(1.02); filter: drop-shadow(0 0 20px rgba(0, 242, 255, 0.4)); }
+
 .main-nav {
     display: flex;
-    gap: 2.5rem;
+    gap: 3rem;
 }
 
 .nav-link {
     color: var(--text-secondary);
     text-decoration: none;
-    font-weight: 600;
-    font-size: 1rem;
-    transition: color 0.2s ease;
+    font-weight: 800;
+    font-size: 0.9rem;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    transition: all 0.3s ease;
     position: relative;
     padding: 0.5rem 0;
 }
 
 .nav-link:hover, .nav-link.active {
-    color: var(--text-primary);
+    color: var(--accent-ice);
+    text-shadow: 0 0 10px rgba(0, 242, 255, 0.5);
 }
 
 .nav-link.active::after {
     content: "";
     position: absolute;
-    bottom: -22px;
+    bottom: -18px;
     left: 0;
     width: 100%;
-    height: 2px;
+    height: 3px;
     background: var(--accent-ice);
-    box-shadow: 0 0 10px var(--accent-ice);
+    box-shadow: 0 0 15px var(--accent-ice);
+    border-radius: 2px;
 }
 
 .icon-btn {
@@ -109,13 +129,16 @@ h1, h2, h3 {
 }
 
 .hero-minimal h2 {
-    font-size: 3.5rem;
+    font-size: 4rem;
     margin-bottom: 0.5rem;
+    color: var(--text-primary);
+    text-shadow: 0 0 30px rgba(0, 242, 255, 0.2);
 }
 
 .hero-minimal p {
     color: var(--text-secondary);
-    font-size: 1.2rem;
+    font-size: 1.4rem;
+    font-weight: 300;
 }
 
 .view-header {
