@@ -362,7 +362,12 @@ const Alexandria = {
                 transition: all 0.2s ease;
             }
             #tmdb-search:focus { outline: none; border-color: var(--accent-ice); box-shadow: 0 0 15px rgba(0, 242, 255, 0.2); }
-            .results-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 2.5rem; }
+            .results-grid { 
+                display: grid; 
+                grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); 
+                gap: 2.5rem; 
+                margin-top: 2rem;
+            }
             .movie-card { 
                 cursor: pointer; 
                 transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
