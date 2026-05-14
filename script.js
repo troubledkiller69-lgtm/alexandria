@@ -434,8 +434,7 @@ const Alexandria = {
                         width="100%" 
                         height="600" 
                         frameborder="0" 
-                        allowfullscreen 
-                        sandbox="allow-forms allow-scripts allow-pointer-lock allow-same-origin allow-top-navigation">
+                        allowfullscreen>
                     </iframe>
                 </div>
                 <div class="player-controls">
