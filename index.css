@@ -118,6 +118,13 @@ h1, h2, h3 {
 .view-section { margin-bottom: 4rem; padding: 0 4rem; }
 .view-section h3 { font-size: 1.8rem; margin-bottom: 1.5rem; font-weight: 700; color: var(--text-primary); }
 
+.results-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 2rem;
+    width: 100%;
+}
+
 .carousel-wrapper {
     overflow-x: auto;
     padding-bottom: 2rem;
