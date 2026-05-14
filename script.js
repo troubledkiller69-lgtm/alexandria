@@ -100,41 +100,50 @@ const Alexandria = {
     },
 
     async renderHome() {
-        this.main.innerHTML = `
-            <section class="home-view">
-                <div class="hero-minimal">
-                    <h2>Welcome back to Alexandria.</h2>
-                    <p>Everything you love. All in one place.</p>
-                </div>
-                
-                <div class="view-section">
-                    <h3>Trending Movies</h3>
-                    <div class="results-grid" id="trending-movies">
-                        <div class="placeholder-msg">SCOUTING MOVIES...</div>
-                    </div>
-                </div>
-
-                <div class="view-section">
-                    <h3>Trending TV Shows</h3>
-                    <div class="results-grid" id="trending-tv">
-                        <div class="placeholder-msg">SCOUTING TV SHOWS...</div>
-                    </div>
-                </div>
-            </section>
-        `;
-        
         try {
-            // Fetch Movies
-            const mRes = await fetch(`https://api.themoviedb.org/3/trending/movie/week?api_key=${this.state.tmdbApiKey}`);
+            // Fetch All Data first
+            const [mRes, tRes] = await Promise.all([
+                fetch(`https://api.themoviedb.org/3/trending/movie/week?api_key=${this.state.tmdbApiKey}`),
+                fetch(`https://api.themoviedb.org/3/trending/tv/week?api_key=${this.state.tmdbApiKey}`)
+            ]);
             const mData = await mRes.json();
-            this.renderResults(mData.results, 'trending-movies');
-
-            // Fetch TV
-            const tRes = await fetch(`https://api.themoviedb.org/3/trending/tv/week?api_key=${this.state.tmdbApiKey}`);
             const tData = await tRes.json();
+            
+            const featured = mData.results[0];
+            const backdrop = `https://image.tmdb.org/t/p/original${featured.backdrop_path}`;
+
+            this.main.innerHTML = `
+                <section class="home-view">
+                    <div class="hero-featured" style="background-image: linear-gradient(0deg, var(--bg-color) 0%, rgba(0,0,0,0.3) 100%), url('${backdrop}')">
+                        <div class="featured-content">
+                            <span class="trending-badge">#1 TRENDING TODAY</span>
+                            <h2>${featured.title}</h2>
+                            <p>${featured.overview}</p>
+                            <button class="btn-primary" onclick="Alexandria.playContent(${featured.id}, 'movie')">WATCH NOW</button>
+                        </div>
+                    </div>
+                    
+                    <div class="view-section">
+                        <h3>Trending Movies</h3>
+                        <div class="carousel-wrapper">
+                            <div class="carousel-grid" id="trending-movies"></div>
+                        </div>
+                    </div>
+
+                    <div class="view-section">
+                        <h3>Trending TV Shows</h3>
+                        <div class="carousel-wrapper">
+                            <div class="carousel-grid" id="trending-tv"></div>
+                        </div>
+                    </div>
+                </section>
+            `;
+            
+            this.renderResults(mData.results, 'trending-movies');
             this.renderResults(tData.results, 'trending-tv');
         } catch (error) {
             console.error("Home scout failed:", error);
+            this.main.innerHTML = '<div class="placeholder-msg">COMMUNICATION LOST. CHECK YOUR TMDB KEY.</div>';
         }
     },
 
@@ -238,7 +247,7 @@ const Alexandria = {
                     </div>
                     <div class="movie-info">
                         <h3>${title}</h3>
-                        <p>${item.release_date || item.first_air_date || 'Unknown Date'}</p>
+                        <p>${item.release_date || item.first_air_date || 'Unknown'}</p>
                     </div>
                 </div>
             `;
@@ -384,19 +393,54 @@ const Alexandria = {
                 transition: all 0.2s ease;
             }
             #tmdb-search:focus { outline: none; border-color: var(--accent-ice); box-shadow: 0 0 15px rgba(0, 242, 255, 0.2); }
+            
             .results-grid { 
                 display: grid; 
-                grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); 
+                grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); 
                 gap: 2rem; 
-                margin-top: 1.5rem;
             }
+
+            .carousel-wrapper { 
+                overflow-x: auto; 
+                padding-bottom: 1rem; 
+                scrollbar-width: none; 
+                -ms-overflow-style: none;
+            }
+            .carousel-wrapper::-webkit-scrollbar { display: none; }
+            .carousel-grid { 
+                display: flex; 
+                gap: 1.5rem; 
+                width: max-content;
+            }
+
             .view-section { margin-bottom: 4rem; }
             .view-section h3 { font-size: 1.8rem; margin-bottom: 1.5rem; color: var(--text-primary); font-weight: 700; }
+            
             .movie-card { 
                 cursor: pointer; 
                 transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
                 position: relative;
+                width: 200px;
+                flex-shrink: 0;
             }
+
+            .hero-featured {
+                height: 70vh;
+                background-size: cover;
+                background-position: center;
+                display: flex;
+                align-items: center;
+                padding: 4rem;
+                margin: -2rem -4rem 4rem -4rem;
+            }
+            .featured-content { max-width: 700px; }
+            .featured-content h2 { font-size: 5rem; margin-bottom: 1rem; text-shadow: 0 0 30px rgba(0,0,0,0.8); }
+            .featured-content p { font-size: 1.2rem; color: var(--text-secondary); margin-bottom: 2rem; line-height: 1.6; }
+            .trending-badge { 
+                display: inline-block; padding: 6px 12px; background: var(--accent-ice); color: #000; 
+                font-weight: 800; border-radius: 4px; margin-bottom: 1.5rem; font-size: 0.8rem;
+            }
+
             .poster-wrapper { position: relative; width: 100%; aspect-ratio: 2/3; overflow: hidden; border-radius: 12px; }
             .poster-wrapper img { width: 100%; height: 100%; object-fit: cover; transition: transform 0.5s ease; }
             .movie-card:hover img { transform: scale(1.1); }
