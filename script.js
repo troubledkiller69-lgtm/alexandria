@@ -281,17 +281,32 @@ const Alexandria = {
 
     renderSearch() {
         this.main.innerHTML = `
-            <section class="supply-run">
-                <div class="search-bar">
-                    <input type="text" id="tmdb-search" placeholder="Search for supplies (movies/shows)...">
-                    <button class="btn-primary" id="search-btn">SEARCH</button>
-                </div>
-                <div class="results-grid" id="results">
-                    <div class="placeholder-msg">
-                        <p>The archives are ready. Enter a search term above.</p>
-                        <p style="font-size: 0.8rem; margin-top: 1rem; color: #666;">(Note: You'll need to plug in your TMDB API key in script.js to see real results!)</p>
+            <section class="supply-run elite-terminal">
+                <div class="terminal-grid-bg"></div>
+                <div class="scanline"></div>
+                
+                <div class="terminal-header">
+                    <div class="status-indicator">
+                        <span class="status-dot pulse"></span>
+                        <span class="status-text">SATELLITE LINK: SECURE</span>
                     </div>
+                    <div class="terminal-id">INTEL_NODE_042</div>
                 </div>
+
+                <div class="terminal-input-wrap">
+                    <div class="input-glow"></div>
+                    <input type="text" id="tmdb-search" placeholder="ENTER SEARCH PARAMETERS..." autocomplete="off">
+                    <button class="search-btn-v2" onclick="Alexandria.handleSearch()">
+                        <span class="btn-text">INITIATE SCOUT</span>
+                        <span class="btn-icon">📡</span>
+                    </button>
+                </div>
+
+                <div class="terminal-footer">
+                    <p>SEARCHING THROUGH 500,000+ ARCHIVED ENTRIES...</p>
+                </div>
+
+                <div class="results-grid" id="search-results"></div>
             </section>
         `;
         
