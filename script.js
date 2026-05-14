@@ -360,8 +360,6 @@ const Alexandria = {
             user.status = 'approved';
             this.render();
         }
-    },
-
     }
 };
 
