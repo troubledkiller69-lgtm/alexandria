@@ -195,9 +195,6 @@ const Alexandria = {
                 });
             }
         }, 100);
-        
-        // Add specific search styles dynamically if needed
-        this.injectSearchStyles();
     },
 
     async searchSupplies() {
@@ -306,7 +303,6 @@ const Alexandria = {
             document.getElementById('movie-modal').remove();
             this.setView('player');
         };
-        this.injectModalStyles();
     },
 
     renderPlayer() {
@@ -356,7 +352,6 @@ const Alexandria = {
                 </div>
             </section>
         `;
-        this.injectAdminStyles();
     },
 
     approveUser(id) {
@@ -367,165 +362,6 @@ const Alexandria = {
         }
     },
 
-    injectAdminStyles() {
-        if (document.getElementById('admin-styles')) return;
-        const style = document.createElement('style');
-        style.id = 'admin-styles';
-        style.innerHTML = `
-            .watchtower-admin { padding: 4rem; max-width: 1000px; margin: 0 auto; }
-            .watchtower-admin h2 { font-size: 2.5rem; margin-bottom: 2rem; }
-            .user-list { margin-top: 2rem; background: var(--card-bg); border-radius: 12px; overflow: hidden; border: 1px solid var(--border-color); }
-            .user-row { 
-                display: flex; justify-content: space-between; align-items: center; 
-                padding: 1.5rem 2rem; border-bottom: 1px solid var(--border-color); 
-            }
-            .user-row:last-child { border-bottom: none; }
-            .user-row span { font-weight: 500; font-size: 1.1rem; }
-            .status-approved { color: var(--accent-ice); font-weight: 600; font-size: 0.9rem; text-shadow: 0 0 10px rgba(0, 242, 255, 0.3); }
-            .approve-btn { padding: 0.6rem 1.2rem; font-size: 0.9rem; border-radius: 6px; }
-        `;
-        document.head.appendChild(style);
-    },
-
-    injectSearchStyles() {
-        if (document.getElementById('search-styles')) return;
-        const style = document.createElement('style');
-        style.id = 'search-styles';
-        style.innerHTML = `
-            .supply-run { padding: 4rem; max-width: 1400px; margin: 0 auto; }
-            .search-bar { display: flex; gap: 1rem; margin-bottom: 4rem; max-width: 800px; }
-            #tmdb-search { 
-                flex: 1; padding: 1.2rem 1.5rem; background: var(--card-bg); border: 1px solid var(--border-color); 
-                color: #fff; font-family: 'Inter', sans-serif; font-size: 1.1rem; border-radius: 12px;
-                transition: all 0.2s ease;
-            }
-            #tmdb-search:focus { outline: none; border-color: var(--accent-ice); box-shadow: 0 0 15px rgba(0, 242, 255, 0.2); }
-            
-            .results-grid { 
-                display: grid; 
-                grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); 
-                gap: 2rem; 
-            }
-
-            .carousel-wrapper { 
-                overflow-x: auto; 
-                padding-bottom: 1.5rem; 
-                scrollbar-width: none; 
-                -ms-overflow-style: none;
-                -webkit-overflow-scrolling: touch;
-            }
-            .carousel-wrapper::-webkit-scrollbar { display: none; }
-            .carousel-grid { 
-                display: flex; 
-                gap: 1.5rem; 
-                width: max-content;
-            }
-
-            .view-section { margin-bottom: 4rem; }
-            .view-section h3 { font-size: 1.8rem; margin-bottom: 1.5rem; color: var(--text-primary); font-weight: 700; }
-            
-            .movie-card { 
-                cursor: pointer; 
-                transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-                position: relative;
-                width: 200px;
-                flex-shrink: 0;
-            }
-
-            .hero-featured {
-                height: 70vh;
-                background-size: cover;
-                background-position: center;
-                display: flex;
-                align-items: center;
-                padding: 4rem;
-                margin: -2rem -4rem 4rem -4rem;
-                position: relative;
-            }
-            .featured-content { max-width: 700px; position: relative; z-index: 2; }
-            .featured-content h2 { font-size: clamp(2rem, 8vw, 5rem); margin-bottom: 1rem; text-shadow: 0 0 30px rgba(0,0,0,0.8); }
-            .featured-content p { font-size: 1.1rem; color: var(--text-secondary); margin-bottom: 2rem; line-height: 1.6; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
-            
-            /* Mobile & Console Fixes */
-            @media (max-width: 768px) {
-                .hero-featured { height: 50vh; padding: 2rem; margin: -1rem -1rem 2rem -1rem; }
-                .main-header { padding: 1rem; flex-direction: column; gap: 1rem; }
-                .main-nav { gap: 1rem; flex-wrap: wrap; justify-content: center; }
-                .home-view, .filtered-view, .screening-room { padding: 1rem; }
-            }
-
-            /* Focus states for Console/Controller */
-            button:focus, .movie-card:focus-within, .nav-link:focus {
-                outline: 3px solid var(--accent-ice);
-                outline-offset: 4px;
-                box-shadow: 0 0 20px var(--accent-ice);
-            }
-            .trending-badge { 
-                display: inline-block; padding: 6px 12px; background: var(--accent-ice); color: #000; 
-                font-weight: 800; border-radius: 4px; margin-bottom: 1.5rem; font-size: 0.8rem;
-            }
-
-            .poster-wrapper { position: relative; width: 100%; aspect-ratio: 2/3; overflow: hidden; border-radius: 12px; }
-            .poster-wrapper img { width: 100%; height: 100%; object-fit: cover; transition: transform 0.5s ease; }
-            .movie-card:hover img { transform: scale(1.1); }
-            .card-overlay { 
-                position: absolute; top: 10px; right: 10px; background: rgba(0,0,0,0.7); 
-                padding: 4px 8px; border-radius: 6px; font-size: 0.8rem; font-weight: 800; color: var(--accent-ice);
-                opacity: 0; transition: opacity 0.3s ease;
-            }
-            .movie-card:hover .card-overlay { opacity: 1; }
-            .movie-card:hover { transform: translateY(-8px); filter: drop-shadow(0 0 10px rgba(0, 242, 255, 0.3)); }
-            .movie-info { padding: 1rem 0; }
-            .movie-info h3 { font-size: 1.1rem; font-weight: 600; margin-bottom: 0.2rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-            .movie-info p { font-size: 0.9rem; color: var(--text-secondary); }
-            .placeholder-msg { grid-column: 1 / -1; text-align: center; padding: 6rem; color: var(--text-secondary); font-size: 1.2rem; }
-            .screening-room { padding: 2rem 4rem; }
-            .player-container { background: #000; border-radius: 16px; overflow: hidden; box-shadow: 0 20px 40px rgba(0,0,0,0.5); }
-            .player-controls { margin-top: 3rem; text-align: left; }
-        `;
-        document.head.appendChild(style);
-    },
-
-    injectModalStyles() {
-        if (document.getElementById('modal-styles')) return;
-        const style = document.createElement('style');
-        style.id = 'modal-styles';
-        style.innerHTML = `
-            .modal-overlay { 
-                position: fixed; top: 0; left: 0; width: 100%; height: 100%; 
-                background: rgba(0,0,0,0.9); z-index: 1000; display: flex; align-items: center; justify-content: center;
-                backdrop-filter: blur(8px); animation: fadeIn 0.3s ease;
-            }
-            .modal-content { 
-                width: 90%; max-width: 1000px; height: 600px; background-size: cover; background-position: center;
-                border-radius: 20px; position: relative; border: 1px solid var(--border-color); overflow: hidden;
-            }
-            .modal-close { 
-                position: absolute; top: 20px; right: 20px; background: none; border: none; 
-                color: #fff; font-size: 2rem; cursor: pointer; z-index: 10;
-            }
-            .modal-details { display: flex; padding: 4rem; gap: 3rem; align-items: center; height: 100%; }
-            .modal-poster { width: 300px; border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
-            .modal-text { flex: 1; }
-            .modal-text h2 { font-size: 3rem; margin-bottom: 1rem; }
-            .modal-meta { display: flex; gap: 1.5rem; margin-bottom: 1.5rem; font-weight: 600; color: var(--accent-ice); }
-            .overview { font-size: 1.1rem; color: var(--text-secondary); margin-bottom: 2.5rem; line-height: 1.6; max-width: 500px; }
-            @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-            @keyframes slideUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
-            .movie-card { animation: slideUp 0.4s ease forwards; opacity: 0; }
-            .movie-card:nth-child(1) { animation-delay: 0.1s; }
-            .movie-card:nth-child(2) { animation-delay: 0.15s; }
-            .movie-card:nth-child(3) { animation-delay: 0.2s; }
-        `;
-        document.head.appendChild(style);
-    },
-
-    injectHomeStyles() {
-        // Shared with main CSS for now
-    },
-
-    injectFilteredStyles() {
-        // Shared with main CSS for now
     }
 };
 
