@@ -86,8 +86,6 @@ const Alexandria = {
             this.renderFiltered('tv');
         } else if (this.state.view === 'anime') {
             this.renderAnime();
-        } else if (this.state.view === 'sports') {
-            this.renderSports();
         } else if (this.state.view === 'search') {
             this.renderSearch();
         } else if (this.state.view === 'player') {
@@ -184,67 +182,100 @@ const Alexandria = {
 
     async renderFiltered(type) {
         const title = type === 'movie' ? 'Movies' : 'TV Shows';
-        this.main.innerHTML = `
-            <section class="filtered-view">
-                <div class="view-header">
-                    <h2>${title}</h2>
-                </div>
-                <div class="results-grid" id="filtered-results">
-                    <div class="placeholder-msg">GATHERING ${title.toUpperCase()}...</div>
-                </div>
-            </section>
-        `;
-
         try {
-            const response = await fetch(`https://api.themoviedb.org/3/trending/${type}/week?api_key=${this.state.tmdbApiKey}`);
-            const data = await response.json();
-            this.renderResults(data.results, 'filtered-results');
+            const [popRes, topRes, newRes] = await Promise.all([
+                fetch(`https://api.themoviedb.org/3/${type}/popular?api_key=${this.state.tmdbApiKey}`),
+                fetch(`https://api.themoviedb.org/3/${type}/top_rated?api_key=${this.state.tmdbApiKey}`),
+                fetch(`https://api.themoviedb.org/3/${type}/${type === 'movie' ? 'now_playing' : 'on_the_air'}?api_key=${this.state.tmdbApiKey}`)
+            ]);
+            
+            const popData = await popRes.json();
+            const topData = await topRes.json();
+            const newData = await newRes.json();
+
+            this.main.innerHTML = `
+                <section class="filtered-view">
+                    <div class="view-header" style="padding-left: 4rem;">
+                        <h2 style="font-size: 3.5rem;">${title}</h2>
+                    </div>
+                    
+                    <div class="view-section">
+                        <h3>Popular Now</h3>
+                        <div class="carousel-wrapper">
+                            <div class="carousel-grid" id="pop-results"></div>
+                        </div>
+                    </div>
+
+                    <div class="view-section">
+                        <h3>Top Rated</h3>
+                        <div class="carousel-wrapper">
+                            <div class="carousel-grid" id="top-results"></div>
+                        </div>
+                    </div>
+
+                    <div class="view-section">
+                        <h3>New Releases</h3>
+                        <div class="carousel-wrapper">
+                            <div class="carousel-grid" id="new-results"></div>
+                        </div>
+                    </div>
+                </section>
+            `;
+            
+            this.renderResults(popData.results, 'pop-results');
+            this.renderResults(topData.results, 'top-results');
+            this.renderResults(newData.results, 'new-results');
         } catch (error) {
             console.error("Filter scout failed:", error);
         }
     },
 
     async renderAnime() {
-        this.main.innerHTML = `
-            <section class="filtered-view">
-                <div class="view-header">
-                    <h2>Anime</h2>
-                </div>
-                <div class="results-grid" id="anime-results">
-                    <div class="placeholder-msg">GATHERING ANIME...</div>
-                </div>
-            </section>
-        `;
         try {
-            const response = await fetch(`https://api.themoviedb.org/3/discover/tv?api_key=${this.state.tmdbApiKey}&with_genres=16&with_keywords=210024`);
-            const data = await response.json();
-            this.renderResults(data.results, 'anime-results');
+            const [shonenRes, seinenRes, trendingRes] = await Promise.all([
+                fetch(`https://api.themoviedb.org/3/discover/tv?api_key=${this.state.tmdbApiKey}&with_genres=16&with_keywords=210024&sort_by=popularity.desc`),
+                fetch(`https://api.themoviedb.org/3/discover/tv?api_key=${this.state.tmdbApiKey}&with_genres=16&with_keywords=210024&vote_average.gte=8`),
+                fetch(`https://api.themoviedb.org/3/discover/tv?api_key=${this.state.tmdbApiKey}&with_genres=16&with_keywords=210024&first_air_date.gte=2024-01-01`)
+            ]);
+            
+            const sData = await shonenRes.json();
+            const seData = await seinenRes.json();
+            const tData = await trendingRes.json();
+
+            this.main.innerHTML = `
+                <section class="filtered-view">
+                    <div class="view-header" style="padding-left: 4rem;">
+                        <h2 style="font-size: 3.5rem;">Anime Hub</h2>
+                    </div>
+                    
+                    <div class="view-section">
+                        <h3>Trending Anime</h3>
+                        <div class="carousel-wrapper">
+                            <div class="carousel-grid" id="anime-trending"></div>
+                        </div>
+                    </div>
+
+                    <div class="view-section">
+                        <h3>Top Rated Classics</h3>
+                        <div class="carousel-wrapper">
+                            <div class="carousel-grid" id="anime-top"></div>
+                        </div>
+                    </div>
+
+                    <div class="view-section">
+                        <h3>New Seasonal Releases</h3>
+                        <div class="carousel-wrapper">
+                            <div class="carousel-grid" id="anime-new"></div>
+                        </div>
+                    </div>
+                </section>
+            `;
+            
+            this.renderResults(tData.results, 'anime-trending');
+            this.renderResults(seData.results, 'anime-top');
+            this.renderResults(sData.results, 'anime-new');
         } catch (error) {
             console.error("Anime scout failed:", error);
-        }
-    },
-
-    async renderSports() {
-        this.main.innerHTML = `
-            <section class="filtered-view">
-                <div class="view-header">
-                    <h2>Live Sports</h2>
-                    <p style="color: var(--text-secondary); margin-top: 0.5rem;">Note: Live streams are currently being stabilized. Showing top sports archives.</p>
-                </div>
-                <div class="view-section">
-                    <h3>Sports Specials</h3>
-                    <div class="carousel-wrapper">
-                        <div class="carousel-grid" id="sports-results"></div>
-                    </div>
-                </div>
-            </section>
-        `;
-        try {
-            const response = await fetch(`https://api.themoviedb.org/3/discover/movie?api_key=${this.state.tmdbApiKey}&with_keywords=6075`);
-            const data = await response.json();
-            this.renderResults(data.results, 'sports-results');
-        } catch (error) {
-            console.error("Sports scout failed:", error);
         }
     },
 
