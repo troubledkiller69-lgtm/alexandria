@@ -281,34 +281,30 @@ const Alexandria = {
 
     renderSearch() {
         this.main.innerHTML = `
-            <section class="supply-run elite-terminal">
-                <div class="terminal-grid-bg"></div>
-                <div class="scanline"></div>
-                
-                <div class="terminal-header">
-                    <div class="status-indicator">
-                        <span class="status-dot pulse"></span>
-                        <span class="status-text">SATELLITE LINK: SECURE</span>
-                    </div>
-                    <div class="terminal-id">INTEL_NODE_042</div>
+            <section class="supply-run simplified-search">
+                <div class="search-hero">
+                    <h2>Search Archive</h2>
+                    <p>Enter title, actor, or genre</p>
                 </div>
-
-                <div class="terminal-input-wrap">
-                    <div class="input-glow"></div>
-                    <input type="text" id="tmdb-search" placeholder="ENTER SEARCH PARAMETERS..." autocomplete="off">
-                    <button class="search-btn-v2" onclick="Alexandria.handleSearch()">
-                        <span class="btn-text">INITIATE SCOUT</span>
-                        <span class="btn-icon">📡</span>
-                    </button>
+                <div class="search-box">
+                    <input type="text" id="tmdb-search" placeholder="Type here..." autocomplete="off">
+                    <button class="btn-primary" onclick="Alexandria.handleSearch()">SEARCH</button>
                 </div>
-
-                <div class="terminal-footer">
-                    <p>SEARCHING THROUGH 500,000+ ARCHIVED ENTRIES...</p>
-                </div>
-
-                <div class="results-grid" id="search-results"></div>
+                <div class="results-grid" id="search-results" style="margin-top: 4rem;"></div>
             </section>
         `;
+        
+        // Add Enter key listener
+        setTimeout(() => {
+            const input = document.getElementById('tmdb-search');
+            if (input) {
+                input.focus();
+                input.addEventListener('keyup', (e) => {
+                    if (e.key === 'Enter') this.handleSearch();
+                });
+            }
+        }, 100);
+    },
         
         // Add real-time search (debounce)
         setTimeout(() => {
