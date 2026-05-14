@@ -334,81 +334,136 @@ h1, h2, h3 {
     border-radius: 0;
 }
 
-/* Screening Room & Player */
-.screening-room { padding: 4rem; }
-.player-container { 
-    background: #000; 
-    border: 2px solid var(--accent-rust);
-    margin-bottom: 2rem;
+/* Screening Room & Elite Screening Room (Cineby Inspired) */
+.elite-layout {
+    display: flex;
+    gap: 2rem;
+    padding: 2rem;
+    height: calc(100vh - 100px);
+    overflow: hidden;
 }
 
-.player-controls {
+.player-main {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.player-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    background: var(--card-bg);
-    padding: 2rem;
-    border: 1px solid var(--border-color);
+    padding: 0.5rem 0;
 }
 
-.episode-selector {
-    display: flex;
-    align-items: center;
-    gap: 2.5rem;
-}
-
-.selector-group {
-    display: flex;
-    flex-direction: column;
-    gap: 0.5rem;
-}
-
-.selector-group label {
-    font-size: 0.8rem;
-    color: var(--text-secondary);
-    font-family: 'Bebas Neue', sans-serif;
-}
-
-.selector-group input {
-    background: #000;
-    border: 1px solid var(--accent-rust);
-    color: #fff;
-    padding: 0.8rem;
-    width: 80px;
-    text-align: center;
-    font-family: 'Bebas Neue', sans-serif;
-    font-size: 1.5rem;
-}
-
-.nav-buttons { display: flex; gap: 1rem; }
-
-.auto-next-toggle {
+.auto-next-wrap {
     display: flex;
     align-items: center;
     gap: 1rem;
     font-family: 'Bebas Neue', sans-serif;
+    font-size: 0.9rem;
     color: var(--text-secondary);
 }
 
-/* Toggle Switch */
-.switch { position: relative; display: inline-block; width: 50px; height: 26px; }
-.switch input { opacity: 0; width: 0; height: 0; }
-.slider {
-  position: absolute; cursor: pointer;
-  top: 0; left: 0; right: 0; bottom: 0;
-  background-color: #333; transition: .4s;
-  border-radius: 4px;
+.player-container {
+    flex: 1;
+    background: #000;
+    border: 1px solid var(--border-color);
+    position: relative;
 }
-.slider:before {
-  position: absolute; content: "";
-  height: 18px; width: 18px;
-  left: 4px; bottom: 4px;
-  background-color: white; transition: .4s;
-}
-input:checked + .slider { background-color: var(--accent-rust); }
-input:checked + .slider:before { transform: translateX(24px); }
 
-/* Utilities */
+/* Sidebar */
+.episode-sidebar {
+    width: 400px;
+    background: var(--card-bg);
+    border: 1px solid var(--border-color);
+    display: flex;
+    flex-direction: column;
+}
+
+.sidebar-header {
+    padding: 1.5rem;
+    border-bottom: 1px solid var(--border-color);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.sidebar-header h3 { font-size: 1.2rem; color: var(--accent-rust); }
+.sidebar-header select {
+    background: #000;
+    color: #fff;
+    border: 1px solid var(--border-color);
+    padding: 0.3rem 0.5rem;
+    font-family: 'Bebas Neue', sans-serif;
+}
+
+.episode-list {
+    flex: 1;
+    overflow-y: auto;
+    padding: 1rem;
+}
+
+.episode-list::-webkit-scrollbar { width: 5px; }
+.episode-list::-webkit-scrollbar-thumb { background: var(--accent-rust); }
+
+.episode-item {
+    display: flex;
+    gap: 1rem;
+    padding: 1rem;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    border-bottom: 1px solid rgba(255,255,255,0.05);
+}
+
+.episode-item:hover { background: rgba(255,255,255,0.05); }
+.episode-item.active { background: rgba(192, 57, 43, 0.1); border-left: 3px solid var(--accent-rust); }
+
+.ep-thumb {
+    width: 140px;
+    aspect-ratio: 16/9;
+    position: relative;
+    flex-shrink: 0;
+}
+
+.ep-thumb img { width: 100%; height: 100%; object-fit: cover; border-radius: 4px; }
+
+.playing-tag {
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    background: var(--accent-rust);
+    color: #fff;
+    font-size: 0.6rem;
+    padding: 0.2rem 0.4rem;
+    font-weight: 800;
+    font-family: 'Inter', sans-serif;
+}
+
+.ep-info {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 0.2rem;
+}
+
+.ep-num { font-size: 0.7rem; color: var(--accent-rust); font-family: 'Bebas Neue', sans-serif; }
+.ep-title { font-size: 0.9rem; color: var(--text-primary); font-weight: 600; line-height: 1.2; }
+
+/* Countdown Overlay */
+.countdown-overlay {
+    position: absolute;
+    top: 0; left: 0; width: 100%; height: 100%;
+    background: rgba(0,0,0,0.9);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+}
+
+.hidden { display: none; }
 .placeholder-msg {
     text-align: center;
     padding: 10rem;

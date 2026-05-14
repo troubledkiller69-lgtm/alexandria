@@ -421,53 +421,91 @@ const Alexandria = {
         };
     },
 
-    renderPlayer() {
+    async renderPlayer() {
         const { id, type, season, episode } = this.state.activeContent;
         const embedUrl = type === 'movie' 
             ? `https://www.vidking.net/embed/movie/${id}`
             : `https://www.vidking.net/embed/tv/${id}/${season}/${episode}`;
 
         this.main.innerHTML = `
-            <section class="screening-room">
-                <div class="player-container">
-                    <iframe 
-                        id="player-frame"
-                        src="${embedUrl}" 
-                        width="100%" 
-                        height="600" 
-                        frameborder="0" 
-                        allowfullscreen>
-                    </iframe>
+            <section class="screening-room elite-layout">
+                <div class="player-main">
+                    <div class="player-header">
+                        <button class="icon-btn" onclick="Alexandria.handleRouting()">← BACK</button>
+                        <div class="auto-next-wrap">
+                            <span>AUTO NEXT</span>
+                            <label class="switch">
+                                <input type="checkbox" id="auto-next-chk" ${this.state.autoNext ? 'checked' : ''} onchange="Alexandria.toggleAutoNext(this.checked)">
+                                <span class="slider"></span>
+                            </label>
+                        </div>
+                    </div>
+                    <div class="player-container">
+                        <iframe id="player-frame" src="${embedUrl}" width="100%" height="100%" frameborder="0" allowfullscreen></iframe>
+                        <div id="countdown-overlay" class="countdown-overlay hidden">
+                            <div class="countdown-circle">
+                                <svg><circle r="30" cx="35" cy="35"></circle></svg>
+                                <span id="countdown-num">10</span>
+                            </div>
+                            <p>NEXT EPISODE STARTING...</p>
+                            <button class="btn-primary" onclick="Alexandria.cancelCountdown()">CANCEL</button>
+                        </div>
+                    </div>
                 </div>
                 
-                <div class="player-controls">
-                    ${type === 'tv' ? `
-                        <div class="episode-selector">
-                            <div class="selector-group">
-                                <label>SEASON</label>
-                                <input type="number" value="${season}" min="1" onchange="Alexandria.changeEpisode('season', this.value)">
-                            </div>
-                            <div class="selector-group">
-                                <label>EPISODE</label>
-                                <input type="number" value="${episode}" min="1" onchange="Alexandria.changeEpisode('episode', this.value)">
-                            </div>
-                            <div class="nav-buttons">
-                                <button class="btn-secondary" onclick="Alexandria.changeEpisode('episode', ${episode - 1})">PREV</button>
-                                <button class="btn-primary" onclick="Alexandria.changeEpisode('episode', ${episode + 1})">NEXT</button>
-                            </div>
-                            <div class="auto-next-toggle">
-                                <label class="switch">
-                                    <input type="checkbox" ${this.state.autoNext ? 'checked' : ''} onchange="Alexandria.toggleAutoNext(this.checked)">
-                                    <span class="slider"></span>
-                                </label>
-                                <span>AUTO NEXT</span>
-                            </div>
+                ${type === 'tv' ? `
+                    <div class="episode-sidebar">
+                        <div class="sidebar-header">
+                            <h3>SEASON ${season}</h3>
+                            <select onchange="Alexandria.changeSeason(this.value)">
+                                ${[...Array(10).keys()].map(i => `<option value="${i+1}" ${season == i+1 ? 'selected' : ''}>Season ${i+1}</option>`).join('')}
+                            </select>
                         </div>
-                    ` : ''}
-                    <button class="btn-secondary back-btn" onclick="Alexandria.handleRouting()">BACK TO ARCHIVES</button>
-                </div>
+                        <div class="episode-list" id="sidebar-episodes">
+                            <div class="placeholder-msg">Loading episodes...</div>
+                        </div>
+                    </div>
+                ` : ''}
             </section>
         `;
+
+        if (type === 'tv') this.fetchSeasonDetails(id, season);
+    },
+
+    async fetchSeasonDetails(id, season) {
+        try {
+            const res = await fetch(`https://api.themoviedb.org/3/tv/${id}/season/${season}?api_key=${this.state.tmdbApiKey}`);
+            const data = await res.json();
+            const container = document.getElementById('sidebar-episodes');
+            if (!container) return;
+
+            container.innerHTML = data.episodes.map(ep => `
+                <div class="episode-item ${this.state.activeContent.episode == ep.episode_number ? 'active' : ''}" 
+                     onclick="Alexandria.changeEpisode('episode', ${ep.episode_number})">
+                    <div class="ep-thumb">
+                        <img src="${ep.still_path ? `https://image.tmdb.org/t/p/w300${ep.still_path}` : 'https://via.placeholder.com/300x170?text=EPISODE'}">
+                        ${this.state.activeContent.episode == ep.episode_number ? '<div class="playing-tag">WATCHING</div>' : ''}
+                    </div>
+                    <div class="ep-info">
+                        <span class="ep-num">EPISODE ${ep.episode_number}</span>
+                        <span class="ep-title">${ep.name}</span>
+                    </div>
+                </div>
+            `).join('');
+        } catch (e) {
+            console.error("Season scout failed:", e);
+        }
+    },
+
+    changeSeason(s) {
+        this.state.activeContent.season = parseInt(s);
+        this.state.activeContent.episode = 1;
+        this.renderPlayer();
+    },
+
+    changeEpisode(field, value) {
+        this.state.activeContent[field] = parseInt(value);
+        this.renderPlayer();
     },
 
     changeEpisode(field, value) {
