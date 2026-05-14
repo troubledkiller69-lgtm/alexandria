@@ -104,18 +104,35 @@ const Alexandria = {
             <section class="home-view">
                 <div class="hero-minimal">
                     <h2>Welcome back to Alexandria.</h2>
-                    <p>Trending stories across the world.</p>
+                    <p>Everything you love. All in one place.</p>
                 </div>
-                <div class="results-grid" id="home-trending">
-                    <div class="placeholder-msg">SCANNING FOR TRENDS...</div>
+                
+                <div class="view-section">
+                    <h3>Trending Movies</h3>
+                    <div class="results-grid" id="trending-movies">
+                        <div class="placeholder-msg">SCOUTING MOVIES...</div>
+                    </div>
+                </div>
+
+                <div class="view-section">
+                    <h3>Trending TV Shows</h3>
+                    <div class="results-grid" id="trending-tv">
+                        <div class="placeholder-msg">SCOUTING TV SHOWS...</div>
+                    </div>
                 </div>
             </section>
         `;
         
         try {
-            const response = await fetch(`https://api.themoviedb.org/3/trending/all/week?api_key=${this.state.tmdbApiKey}`);
-            const data = await response.json();
-            this.renderResults(data.results, 'home-trending');
+            // Fetch Movies
+            const mRes = await fetch(`https://api.themoviedb.org/3/trending/movie/week?api_key=${this.state.tmdbApiKey}`);
+            const mData = await mRes.json();
+            this.renderResults(mData.results, 'trending-movies');
+
+            // Fetch TV
+            const tRes = await fetch(`https://api.themoviedb.org/3/trending/tv/week?api_key=${this.state.tmdbApiKey}`);
+            const tData = await tRes.json();
+            this.renderResults(tData.results, 'trending-tv');
         } catch (error) {
             console.error("Home scout failed:", error);
         }
@@ -213,7 +230,12 @@ const Alexandria = {
             
             return `
                 <div class="movie-card" data-id="${item.id}" data-type="${type}">
-                    <img src="${poster}" alt="${title}">
+                    <div class="poster-wrapper">
+                        <img src="${poster}" alt="${title}">
+                        <div class="card-overlay">
+                            <span class="card-rating">⭐ ${item.vote_average ? item.vote_average.toFixed(1) : 'N/A'}</span>
+                        </div>
+                    </div>
                     <div class="movie-info">
                         <h3>${title}</h3>
                         <p>${item.release_date || item.first_air_date || 'Unknown Date'}</p>
@@ -364,18 +386,27 @@ const Alexandria = {
             #tmdb-search:focus { outline: none; border-color: var(--accent-ice); box-shadow: 0 0 15px rgba(0, 242, 255, 0.2); }
             .results-grid { 
                 display: grid; 
-                grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); 
-                gap: 2.5rem; 
-                margin-top: 2rem;
+                grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); 
+                gap: 2rem; 
+                margin-top: 1.5rem;
             }
+            .view-section { margin-bottom: 4rem; }
+            .view-section h3 { font-size: 1.8rem; margin-bottom: 1.5rem; color: var(--text-primary); font-weight: 700; }
             .movie-card { 
                 cursor: pointer; 
                 transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
                 position: relative;
             }
+            .poster-wrapper { position: relative; width: 100%; aspect-ratio: 2/3; overflow: hidden; border-radius: 12px; }
+            .poster-wrapper img { width: 100%; height: 100%; object-fit: cover; transition: transform 0.5s ease; }
+            .movie-card:hover img { transform: scale(1.1); }
+            .card-overlay { 
+                position: absolute; top: 10px; right: 10px; background: rgba(0,0,0,0.7); 
+                padding: 4px 8px; border-radius: 6px; font-size: 0.8rem; font-weight: 800; color: var(--accent-ice);
+                opacity: 0; transition: opacity 0.3s ease;
+            }
+            .movie-card:hover .card-overlay { opacity: 1; }
             .movie-card:hover { transform: translateY(-8px); filter: drop-shadow(0 0 10px rgba(0, 242, 255, 0.3)); }
-            .movie-card img { width: 100%; aspect-ratio: 2/3; object-fit: cover; border-radius: 12px; border: 1px solid transparent; transition: border-color 0.3s ease; }
-            .movie-card:hover img { border-color: var(--accent-ice); }
             .movie-info { padding: 1rem 0; }
             .movie-info h3 { font-size: 1.1rem; font-weight: 600; margin-bottom: 0.2rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
             .movie-info p { font-size: 0.9rem; color: var(--text-secondary); }
