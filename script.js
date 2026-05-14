@@ -305,36 +305,23 @@ const Alexandria = {
             }
         }, 100);
     },
-        
-        // Add real-time search (debounce)
-        setTimeout(() => {
-            const input = document.getElementById('tmdb-search');
-            if (input) {
-                input.addEventListener('input', (e) => {
-                    clearTimeout(this.state.searchTimeout);
-                    this.state.searchTimeout = setTimeout(() => this.searchSupplies(), 500);
-                });
-            }
-        }, 100);
-    },
 
-    async searchSupplies() {
+    async handleSearch() {
         const input = document.getElementById('tmdb-search');
         if (!input) return;
         const query = input.value;
-        const resultsContainer = document.getElementById('results');
-        
         if (!query) return;
-
-        resultsContainer.innerHTML = '<div class="placeholder-msg">SCOUTING THE WASTELAND...</div>';
+        
+        const resultsContainer = document.getElementById('search-results');
+        resultsContainer.innerHTML = '<div class="placeholder-msg">Searching archives...</div>';
 
         try {
             const response = await fetch(`https://api.themoviedb.org/3/search/multi?api_key=${this.state.tmdbApiKey}&query=${encodeURIComponent(query)}`);
             const data = await response.json();
-            this.renderResults(data.results, 'results');
+            this.renderResults(data.results, 'search-results');
         } catch (error) {
-            console.error("Scout failed:", error);
-            resultsContainer.innerHTML = '<div class="placeholder-msg">COMMUNICATION LOST. CHECK YOUR KEY.</div>';
+            console.error("Search failed:", error);
+            if (resultsContainer) resultsContainer.innerHTML = '<div class="placeholder-msg">Search failed. Check connection.</div>';
         }
     },
 
