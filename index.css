@@ -73,9 +73,113 @@ h1, h2, h3 {
 .search-box {
     display: flex;
     gap: 1rem;
-    background: var(--card-bg);
-    padding: 1rem;
+ /* Player & Episode Selector */
+.screening-room { padding: 2rem 4rem; }
+.player-container { 
+    background: #000; 
     border: 2px solid var(--border-color);
+    box-shadow: 0 0 50px rgba(0,0,0,0.8);
+    margin-bottom: 2rem;
+}
+
+.player-controls {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: var(--card-bg);
+    padding: 1.5rem 2rem;
+    border: 1px solid var(--border-color);
+}
+
+.episode-selector {
+    display: flex;
+    align-items: center;
+    gap: 2rem;
+}
+
+.selector-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+}
+
+.selector-group label {
+    font-size: 0.7rem;
+    color: var(--text-secondary);
+    letter-spacing: 1px;
+    font-family: 'Bebas Neue', sans-serif;
+}
+
+.selector-group input {
+    background: rgba(0,0,0,0.5);
+    border: 1px solid var(--border-color);
+    color: #fff;
+    padding: 0.5rem;
+    width: 60px;
+    text-align: center;
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 1.2rem;
+}
+
+.nav-buttons {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.nav-buttons button {
+    padding: 0.8rem 1.5rem;
+    font-family: 'Stardos Stencil', cursive;
+    font-size: 0.9rem;
+    border-radius: 0;
+}
+
+.auto-next-toggle {
+    display: flex;
+    align-items: center;
+    gap: 0.8rem;
+    font-family: 'Bebas Neue', sans-serif;
+    letter-spacing: 1px;
+    color: var(--text-secondary);
+}
+
+/* Switch UI */
+.switch {
+  position: relative;
+  display: inline-block;
+  width: 40px;
+  height: 20px;
+}
+
+.switch input { opacity: 0; width: 0; height: 0; }
+
+.slider {
+  position: absolute;
+  cursor: pointer;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background-color: #333;
+  transition: .4s;
+  border-radius: 20px;
+}
+
+.slider:before {
+  position: absolute;
+  content: "";
+  height: 14px; width: 14px;
+  left: 3px; bottom: 3px;
+  background-color: white;
+  transition: .4s;
+  border-radius: 50%;
+}
+
+input:checked + .slider { background-color: var(--accent-rust); }
+input:checked + .slider:before { transform: translateX(20px); }
+
+.back-btn { border-radius: 0; }
+ch:focus { outline: none; }
+
+.search-box .btn-primary {
+    padding: 0 3rem;
+    border-radius: 0;
 }
 
 #tmdb-search {
