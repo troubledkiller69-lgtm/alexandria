@@ -5,7 +5,8 @@ const Alexandria = {
         pendingUsers: [],
         clickCount: 0,
         searchTimeout: null,
-        trendingData: null
+        trendingData: null,
+        activeContent: { id: null, type: 'movie' }
     },
 
     init() {
@@ -110,7 +111,6 @@ const Alexandria = {
                 </div>
             </section>
         `;
-        this.injectHomeStyles();
         
         try {
             const response = await fetch(`https://api.themoviedb.org/3/trending/all/week?api_key=${this.state.tmdbApiKey}`);
@@ -133,7 +133,6 @@ const Alexandria = {
                 </div>
             </section>
         `;
-        this.injectFilteredStyles();
 
         try {
             const response = await fetch(`https://api.themoviedb.org/3/trending/${type}/week?api_key=${this.state.tmdbApiKey}`);
@@ -415,6 +414,14 @@ const Alexandria = {
             .movie-card:nth-child(3) { animation-delay: 0.2s; }
         `;
         document.head.appendChild(style);
+    },
+
+    injectHomeStyles() {
+        // Shared with main CSS for now
+    },
+
+    injectFilteredStyles() {
+        // Shared with main CSS for now
     }
 };
 
