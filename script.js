@@ -84,6 +84,10 @@ const Alexandria = {
             this.renderFiltered('movie');
         } else if (this.state.view === 'tv') {
             this.renderFiltered('tv');
+        } else if (this.state.view === 'anime') {
+            this.renderAnime();
+        } else if (this.state.view === 'sports') {
+            this.renderSports();
         } else if (this.state.view === 'search') {
             this.renderSearch();
         } else if (this.state.view === 'player') {
@@ -166,6 +170,47 @@ const Alexandria = {
             this.renderResults(data.results, 'filtered-results');
         } catch (error) {
             console.error("Filter scout failed:", error);
+        }
+    },
+
+    async renderAnime() {
+        this.main.innerHTML = `
+            <section class="filtered-view">
+                <div class="view-header">
+                    <h2>Anime</h2>
+                </div>
+                <div class="results-grid" id="anime-results">
+                    <div class="placeholder-msg">GATHERING ANIME...</div>
+                </div>
+            </section>
+        `;
+        try {
+            const response = await fetch(`https://api.themoviedb.org/3/discover/tv?api_key=${this.state.tmdbApiKey}&with_genres=16&with_keywords=210024`);
+            const data = await response.json();
+            this.renderResults(data.results, 'anime-results');
+        } catch (error) {
+            console.error("Anime scout failed:", error);
+        }
+    },
+
+    async renderSports() {
+        this.main.innerHTML = `
+            <section class="filtered-view">
+                <div class="view-header">
+                    <h2>Live Sports</h2>
+                </div>
+                <div class="results-grid" id="sports-results">
+                    <div class="placeholder-msg">SCANNING FOR LIVE EVENTS...</div>
+                </div>
+            </section>
+        `;
+        try {
+            // Fetching sports documentaries/movies as a placeholder for "Live Sports" content until a live API is integrated
+            const response = await fetch(`https://api.themoviedb.org/3/discover/movie?api_key=${this.state.tmdbApiKey}&with_keywords=6075`);
+            const data = await response.json();
+            this.renderResults(data.results, 'sports-results');
+        } catch (error) {
+            console.error("Sports scout failed:", error);
         }
     },
 
