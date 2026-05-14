@@ -108,7 +108,7 @@ const Alexandria = {
                 fetch(`https://api.themoviedb.org/3/trending/movie/week?api_key=${this.state.tmdbApiKey}`),
                 fetch(`https://api.themoviedb.org/3/trending/tv/week?api_key=${this.state.tmdbApiKey}`),
                 fetch(`https://api.themoviedb.org/3/discover/movie?api_key=${this.state.tmdbApiKey}&with_watch_providers=8&watch_region=US`),
-                fetch(`https://api.themoviedb.org/3/discover/movie?api_key=${this.state.tmdbApiKey}&with_watch_providers=49&watch_region=US`),
+                fetch(`https://api.themoviedb.org/3/discover/movie?api_key=${this.state.tmdbApiKey}&with_companies=3268`),
                 fetch(`https://api.themoviedb.org/3/discover/movie?api_key=${this.state.tmdbApiKey}&with_genres=28`)
             ]);
             
