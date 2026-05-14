@@ -220,7 +220,19 @@ h1, h2, h3 {
 .modal-poster { width: 320px; border-radius: 16px; box-shadow: 0 20px 50px rgba(0,0,0,0.8); }
 .modal-text { flex: 1; }
 .modal-text h2 { font-size: 3.5rem; margin-bottom: 1.5rem; }
-.modal-meta { display: flex; gap: 2rem; margin-bottom: 2rem; font-weight: 800; color: var(--accent-ice); }
+.modal-meta { 
+    display: flex; 
+    gap: 0.8rem; 
+    margin-bottom: 2rem; 
+    font-weight: 700; 
+    color: var(--text-primary);
+    align-items: center;
+    font-size: 1.1rem;
+}
+.rating-star { color: #ff4d4d; font-size: 1.4rem; }
+.rating-value { color: #ff4d4d; }
+.dot { color: #555; font-size: 1.5rem; line-height: 1; }
+.year, .genres { color: var(--text-secondary); }
 .overview { font-size: 1.1rem; color: var(--text-secondary); line-height: 1.8; margin-bottom: 3rem; }
 
 /* Responsive & Console */
