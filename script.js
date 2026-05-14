@@ -353,17 +353,24 @@ const Alexandria = {
             ? `https://image.tmdb.org/t/p/original${data.backdrop_path}` 
             : '';
 
+        const genres = data.genres ? data.genres.map(g => g.name).join(' • ') : '';
+        const year = (data.release_date || data.first_air_date || '').split('-')[0];
+
         const modalHtml = `
             <div id="movie-modal" class="modal-overlay">
-                <div class="modal-content" style="background-image: linear-gradient(to right, rgba(0,0,0,0.9) 30%, transparent 100%), url('${backdrop}')">
+                <div class="modal-content" style="background-image: linear-gradient(to right, rgba(0,0,0,0.95) 30%, transparent 100%), url('${backdrop}')">
                     <button class="modal-close">&times;</button>
                     <div class="modal-details">
                         <img src="${poster}" class="modal-poster">
                         <div class="modal-text">
                             <h2>${title}</h2>
                             <div class="modal-meta">
-                                <span class="rating">⭐ ${data.vote_average.toFixed(1)}</span>
-                                <span class="date">${data.release_date || data.first_air_date}</span>
+                                <span class="rating-star">★</span>
+                                <span class="rating-value">${data.vote_average.toFixed(1)}</span>
+                                <span class="dot">•</span>
+                                <span class="year">${year}</span>
+                                <span class="dot">•</span>
+                                <span class="genres">${genres}</span>
                             </div>
                             <p class="overview">${data.overview}</p>
                             <button class="btn-primary" id="final-play-btn" data-id="${data.id}" data-type="${type}">WATCH NOW</button>
