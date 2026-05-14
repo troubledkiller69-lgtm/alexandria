@@ -423,8 +423,8 @@ const Alexandria = {
     renderPlayer() {
         const { id, type } = this.state.activeContent;
         const embedUrl = type === 'movie' 
-            ? `https://vidsrc.to/embed/movie/${id}`
-            : `https://vidsrc.to/embed/tv/${id}`;
+            ? `https://www.vidking.net/embed/movie/${id}`
+            : `https://www.vidking.net/embed/tv/${id}/1/1`;
 
         this.main.innerHTML = `
             <section class="screening-room">
