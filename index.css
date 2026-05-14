@@ -54,39 +54,77 @@ h1, h2, h3 {
     text-shadow: 0 0 10px rgba(0, 242, 255, 0.5);
 }
 
-/* Hero Section - BlackIce Edition */
-.hero {
-    position: relative;
-    height: 70vh;
+.main-nav {
     display: flex;
-    align-items: center;
-    justify-content: flex-start;
-    padding: 0 4rem;
-    background: radial-gradient(circle at 70% 50%, rgba(0, 242, 255, 0.05), transparent 50%);
+    gap: 2.5rem;
 }
 
-.hero-overlay {
-    display: none; /* Removed the old overlay */
-}
-
-.hero-content {
-    position: relative;
-    z-index: 10;
-    max-width: 600px;
-    text-align: left;
-}
-
-.hero-content h2 {
-    font-size: 4rem;
-    margin-bottom: 1rem;
-    color: var(--text-primary);
-    line-height: 1.1;
-}
-
-.hero-content p {
-    font-size: 1.2rem;
-    margin-bottom: 2.5rem;
+.nav-link {
     color: var(--text-secondary);
+    text-decoration: none;
+    font-weight: 600;
+    font-size: 1rem;
+    transition: color 0.2s ease;
+    position: relative;
+    padding: 0.5rem 0;
+}
+
+.nav-link:hover, .nav-link.active {
+    color: var(--text-primary);
+}
+
+.nav-link.active::after {
+    content: "";
+    position: absolute;
+    bottom: -22px;
+    left: 0;
+    width: 100%;
+    height: 2px;
+    background: var(--accent-ice);
+    box-shadow: 0 0 10px var(--accent-ice);
+}
+
+.icon-btn {
+    background: none;
+    border: none;
+    color: var(--text-primary);
+    font-size: 1.2rem;
+    cursor: pointer;
+    opacity: 0.7;
+    transition: opacity 0.2s;
+}
+
+.icon-btn:hover {
+    opacity: 1;
+}
+
+/* Content Views */
+.home-view, .filtered-view {
+    padding: 2rem 4rem;
+}
+
+.hero-minimal {
+    padding: 4rem 0;
+    margin-bottom: 2rem;
+}
+
+.hero-minimal h2 {
+    font-size: 3.5rem;
+    margin-bottom: 0.5rem;
+}
+
+.hero-minimal p {
+    color: var(--text-secondary);
+    font-size: 1.2rem;
+}
+
+.view-header {
+    padding: 2rem 0;
+    margin-bottom: 1rem;
+}
+
+.view-header h2 {
+    font-size: 2.5rem;
 }
 
 /* Buttons */

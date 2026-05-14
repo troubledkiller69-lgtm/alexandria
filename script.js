@@ -1,28 +1,30 @@
 const Alexandria = {
     state: {
-        view: 'landing', // landing, search, player, admin
-        isApproved: false,
-        currentUser: null,
+        view: 'home', // home, movies, tv, search, player, admin
         tmdbApiKey: '1674b87b5b127b3c4a5d81846fed3a41', // LO's Key
-        pendingUsers: [
-            { id: 1, name: 'Daryl D.', status: 'pending' },
-            { id: 2, name: 'Carol P.', status: 'pending' },
-            { id: 3, name: 'Negan S.', status: 'pending' }
-        ],
+        pendingUsers: [],
         clickCount: 0,
-        searchTimeout: null
+        searchTimeout: null,
+        trendingData: null
     },
 
     init() {
         console.log("Alexandria Protocol Initialized...");
         this.cacheDom();
         this.bindEvents();
-        this.render();
+        window.addEventListener('hashchange', () => this.handleRouting());
+        this.handleRouting();
     },
 
     cacheDom() {
         this.app = document.getElementById('app');
         this.main = document.getElementById('content');
+    },
+
+    handleRouting() {
+        const hash = window.location.hash || '#home';
+        const view = hash.replace('#', '');
+        this.setView(view);
     },
 
     bindEvents() {
@@ -38,8 +40,8 @@ const Alexandria = {
 
         // Global listener for dynamic buttons
         document.addEventListener('click', (e) => {
-            if (e.target.classList.contains('btn-primary') && this.state.view === 'landing') {
-                this.handleLogin();
+            if (e.target.id === 'search-trigger') {
+                this.setView('search');
             }
             if (e.target.id === 'search-btn') {
                 this.searchSupplies();
@@ -74,8 +76,13 @@ const Alexandria = {
     },
 
     render() {
-        if (this.state.view === 'landing') {
-            this.renderLanding();
+        this.updateNav();
+        if (this.state.view === 'home') {
+            this.renderHome();
+        } else if (this.state.view === 'movies') {
+            this.renderFiltered('movie');
+        } else if (this.state.view === 'tv') {
+            this.renderFiltered('tv');
         } else if (this.state.view === 'search') {
             this.renderSearch();
         } else if (this.state.view === 'player') {
@@ -85,20 +92,56 @@ const Alexandria = {
         }
     },
 
-    renderLanding() {
+    updateNav() {
+        document.querySelectorAll('.nav-link').forEach(link => {
+            link.classList.toggle('active', link.getAttribute('href') === `#${this.state.view}`);
+        });
+    },
+
+    async renderHome() {
         this.main.innerHTML = `
-            <section class="hero">
-                <div class="hero-overlay"></div>
-                <div class="hero-content">
-                    <h2>WELCOME TO THE SAFE ZONE.</h2>
-                    <p>Enter the gates to access the archives. Only approved survivors may pass.</p>
-                    <div class="auth-buttons">
-                        <button class="btn-primary">LOGIN</button>
-                        <button class="btn-secondary">REGISTER</button>
-                    </div>
+            <section class="home-view">
+                <div class="hero-minimal">
+                    <h2>Welcome back to Alexandria.</h2>
+                    <p>Trending stories across the world.</p>
+                </div>
+                <div class="results-grid" id="home-trending">
+                    <div class="placeholder-msg">SCANNING FOR TRENDS...</div>
                 </div>
             </section>
         `;
+        this.injectHomeStyles();
+        
+        try {
+            const response = await fetch(`https://api.themoviedb.org/3/trending/all/week?api_key=${this.state.tmdbApiKey}`);
+            const data = await response.json();
+            this.renderResults(data.results, 'home-trending');
+        } catch (error) {
+            console.error("Home scout failed:", error);
+        }
+    },
+
+    async renderFiltered(type) {
+        const title = type === 'movie' ? 'Movies' : 'TV Shows';
+        this.main.innerHTML = `
+            <section class="filtered-view">
+                <div class="view-header">
+                    <h2>${title}</h2>
+                </div>
+                <div class="results-grid" id="filtered-results">
+                    <div class="placeholder-msg">GATHERING ${title.toUpperCase()}...</div>
+                </div>
+            </section>
+        `;
+        this.injectFilteredStyles();
+
+        try {
+            const response = await fetch(`https://api.themoviedb.org/3/trending/${type}/week?api_key=${this.state.tmdbApiKey}`);
+            const data = await response.json();
+            this.renderResults(data.results, 'filtered-results');
+        } catch (error) {
+            console.error("Filter scout failed:", error);
+        }
     },
 
     renderSearch() {
@@ -133,7 +176,9 @@ const Alexandria = {
     },
 
     async searchSupplies() {
-        const query = document.getElementById('tmdb-search').value;
+        const input = document.getElementById('tmdb-search');
+        if (!input) return;
+        const query = input.value;
         const resultsContainer = document.getElementById('results');
         
         if (!query) return;
@@ -143,29 +188,32 @@ const Alexandria = {
         try {
             const response = await fetch(`https://api.themoviedb.org/3/search/multi?api_key=${this.state.tmdbApiKey}&query=${encodeURIComponent(query)}`);
             const data = await response.json();
-            this.renderResults(data.results);
+            this.renderResults(data.results, 'results');
         } catch (error) {
             console.error("Scout failed:", error);
             resultsContainer.innerHTML = '<div class="placeholder-msg">COMMUNICATION LOST. CHECK YOUR KEY.</div>';
         }
     },
 
-    renderResults(results) {
-        const resultsContainer = document.getElementById('results');
+    renderResults(results, containerId = 'results') {
+        const resultsContainer = document.getElementById(containerId);
+        if (!resultsContainer) return;
+        
         if (!results || results.length === 0) {
             resultsContainer.innerHTML = '<div class="placeholder-msg">NOTHING FOUND. THE WORLD IS EMPTY.</div>';
             return;
         }
 
         resultsContainer.innerHTML = results.map(item => {
-            if (item.media_type !== 'movie' && item.media_type !== 'tv') return '';
+            const type = item.media_type || (item.title ? 'movie' : 'tv');
+            if (type !== 'movie' && type !== 'tv') return '';
             const title = item.title || item.name;
             const poster = item.poster_path 
                 ? `https://image.tmdb.org/t/p/w500${item.poster_path}` 
                 : 'https://via.placeholder.com/500x750?text=NO+IMAGE';
             
             return `
-                <div class="movie-card" data-id="${item.id}" data-type="${item.media_type}">
+                <div class="movie-card" data-id="${item.id}" data-type="${type}">
                     <img src="${poster}" alt="${title}">
                     <div class="movie-info">
                         <h3>${title}</h3>
