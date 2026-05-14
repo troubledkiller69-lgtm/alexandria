@@ -1,11 +1,13 @@
 :root {
-    --bg-color: #05070a;
+    --bg-color: #020202;
     --text-primary: #ffffff;
     --text-secondary: #9ca3af;
-    --accent-red: #e50914;
-    --card-bg: #111827;
-    --border-color: rgba(255, 255, 255, 0.1);
-    --glass-bg: rgba(5, 7, 10, 0.7);
+    --accent-ice: #00f2ff;
+    --secondary-ice: #00d4ff;
+    --card-bg: #0a0a0a;
+    --border-color: rgba(0, 242, 255, 0.1);
+    --glass-bg: rgba(2, 2, 2, 0.8);
+    --glow-ice: 0 0 20px rgba(0, 242, 255, 0.2);
 }
 
 * {
@@ -46,12 +48,13 @@ h1, h2, h3 {
 .watchtower h1 {
     font-size: 1.5rem;
     font-weight: 800;
-    color: var(--accent-red);
+    color: var(--accent-ice);
     letter-spacing: -1px;
     cursor: pointer;
+    text-shadow: 0 0 10px rgba(0, 242, 255, 0.5);
 }
 
-/* Hero Section - Clean Cineby Style */
+/* Hero Section - BlackIce Edition */
 .hero {
     position: relative;
     height: 70vh;
@@ -59,7 +62,7 @@ h1, h2, h3 {
     align-items: center;
     justify-content: flex-start;
     padding: 0 4rem;
-    background: radial-gradient(circle at 70% 50%, rgba(229, 9, 20, 0.1), transparent 50%);
+    background: radial-gradient(circle at 70% 50%, rgba(0, 242, 255, 0.05), transparent 50%);
 }
 
 .hero-overlay {
@@ -104,13 +107,15 @@ h1, h2, h3 {
 }
 
 .btn-primary {
-    background: var(--text-primary);
+    background: var(--accent-ice);
     color: var(--bg-color);
+    box-shadow: var(--glow-ice);
 }
 
 .btn-primary:hover {
-    background: #e5e7eb;
-    transform: scale(1.02);
+    background: var(--secondary-ice);
+    transform: scale(1.05);
+    box-shadow: 0 0 30px rgba(0, 242, 255, 0.4);
 }
 
 .btn-secondary {

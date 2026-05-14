@@ -244,7 +244,7 @@ const Alexandria = {
             }
             .user-row:last-child { border-bottom: none; }
             .user-row span { font-weight: 500; font-size: 1.1rem; }
-            .status-approved { color: #10b981; font-weight: 600; font-size: 0.9rem; }
+            .status-approved { color: var(--accent-ice); font-weight: 600; font-size: 0.9rem; text-shadow: 0 0 10px rgba(0, 242, 255, 0.3); }
             .approve-btn { padding: 0.6rem 1.2rem; font-size: 0.9rem; border-radius: 6px; }
         `;
         document.head.appendChild(style);
@@ -260,17 +260,18 @@ const Alexandria = {
             #tmdb-search { 
                 flex: 1; padding: 1.2rem 1.5rem; background: var(--card-bg); border: 1px solid var(--border-color); 
                 color: #fff; font-family: 'Inter', sans-serif; font-size: 1.1rem; border-radius: 12px;
-                transition: border-color 0.2s ease;
+                transition: all 0.2s ease;
             }
-            #tmdb-search:focus { outline: none; border-color: var(--accent-red); }
+            #tmdb-search:focus { outline: none; border-color: var(--accent-ice); box-shadow: 0 0 15px rgba(0, 242, 255, 0.2); }
             .results-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 2.5rem; }
             .movie-card { 
                 cursor: pointer; 
                 transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
                 position: relative;
             }
-            .movie-card:hover { transform: translateY(-8px); }
-            .movie-card img { width: 100%; aspect-ratio: 2/3; object-fit: cover; border-radius: 12px; box-shadow: 0 10px 20px rgba(0,0,0,0.3); }
+            .movie-card:hover { transform: translateY(-8px); filter: drop-shadow(0 0 10px rgba(0, 242, 255, 0.3)); }
+            .movie-card img { width: 100%; aspect-ratio: 2/3; object-fit: cover; border-radius: 12px; border: 1px solid transparent; transition: border-color 0.3s ease; }
+            .movie-card:hover img { border-color: var(--accent-ice); }
             .movie-info { padding: 1rem 0; }
             .movie-info h3 { font-size: 1.1rem; font-weight: 600; margin-bottom: 0.2rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
             .movie-info p { font-size: 0.9rem; color: var(--text-secondary); }
