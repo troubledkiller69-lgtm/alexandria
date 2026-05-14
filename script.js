@@ -106,12 +106,19 @@ const Alexandria = {
     async renderHome() {
         try {
             // Fetch All Data first
-            const [mRes, tRes] = await Promise.all([
+            const [mRes, tRes, netflixRes, hboRes, actionRes] = await Promise.all([
                 fetch(`https://api.themoviedb.org/3/trending/movie/week?api_key=${this.state.tmdbApiKey}`),
-                fetch(`https://api.themoviedb.org/3/trending/tv/week?api_key=${this.state.tmdbApiKey}`)
+                fetch(`https://api.themoviedb.org/3/trending/tv/week?api_key=${this.state.tmdbApiKey}`),
+                fetch(`https://api.themoviedb.org/3/discover/movie?api_key=${this.state.tmdbApiKey}&with_watch_providers=8&watch_region=US`),
+                fetch(`https://api.themoviedb.org/3/discover/movie?api_key=${this.state.tmdbApiKey}&with_watch_providers=49&watch_region=US`),
+                fetch(`https://api.themoviedb.org/3/discover/movie?api_key=${this.state.tmdbApiKey}&with_genres=28`)
             ]);
+            
             const mData = await mRes.json();
             const tData = await tRes.json();
+            const nData = await netflixRes.json();
+            const hData = await hboRes.json();
+            const aData = await actionRes.json();
             
             const featured = mData.results[0];
             const backdrop = `https://image.tmdb.org/t/p/original${featured.backdrop_path}`;
@@ -135,6 +142,27 @@ const Alexandria = {
                     </div>
 
                     <div class="view-section">
+                        <h3>Netflix Originals</h3>
+                        <div class="carousel-wrapper">
+                            <div class="carousel-grid" id="netflix-hits"></div>
+                        </div>
+                    </div>
+
+                    <div class="view-section">
+                        <h3>HBO Hits</h3>
+                        <div class="carousel-wrapper">
+                            <div class="carousel-grid" id="hbo-hits"></div>
+                        </div>
+                    </div>
+
+                    <div class="view-section">
+                        <h3>Action Packed</h3>
+                        <div class="carousel-wrapper">
+                            <div class="carousel-grid" id="action-hits"></div>
+                        </div>
+                    </div>
+
+                    <div class="view-section">
                         <h3>Trending TV Shows</h3>
                         <div class="carousel-wrapper">
                             <div class="carousel-grid" id="trending-tv"></div>
@@ -145,6 +173,9 @@ const Alexandria = {
             
             this.renderResults(mData.results, 'trending-movies');
             this.renderResults(tData.results, 'trending-tv');
+            this.renderResults(nData.results, 'netflix-hits');
+            this.renderResults(hData.results, 'hbo-hits');
+            this.renderResults(aData.results, 'action-hits');
         } catch (error) {
             console.error("Home scout failed:", error);
             this.main.innerHTML = '<div class="placeholder-msg">COMMUNICATION LOST. CHECK YOUR TMDB KEY.</div>';
@@ -198,14 +229,17 @@ const Alexandria = {
             <section class="filtered-view">
                 <div class="view-header">
                     <h2>Live Sports</h2>
+                    <p style="color: var(--text-secondary); margin-top: 0.5rem;">Note: Live streams are currently being stabilized. Showing top sports archives.</p>
                 </div>
-                <div class="results-grid" id="sports-results">
-                    <div class="placeholder-msg">SCANNING FOR LIVE EVENTS...</div>
+                <div class="view-section">
+                    <h3>Sports Specials</h3>
+                    <div class="carousel-wrapper">
+                        <div class="carousel-grid" id="sports-results"></div>
+                    </div>
                 </div>
             </section>
         `;
         try {
-            // Fetching sports documentaries/movies as a placeholder for "Live Sports" content until a live API is integrated
             const response = await fetch(`https://api.themoviedb.org/3/discover/movie?api_key=${this.state.tmdbApiKey}&with_keywords=6075`);
             const data = await response.json();
             this.renderResults(data.results, 'sports-results');
