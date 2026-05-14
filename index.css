@@ -1,13 +1,14 @@
 :root {
-    --bg-color: #080808;
-    --text-primary: #f8f1e5; /* Warm Ivory */
-    --text-secondary: #a89f91;
-    --accent-gold: #d4af37; /* Royal Gold */
-    --secondary-gold: #b8860b;
-    --card-bg: #0f0f0f;
-    --border-color: rgba(212, 175, 55, 0.15); /* Gold tint */
-    --glass-bg: rgba(8, 8, 8, 0.9);
-    --glow-gold: 0 0 25px rgba(212, 175, 55, 0.2);
+    --bg-color: #121417; /* Dark Slate */
+    --text-primary: #e0e0e0;
+    --text-secondary: #8a8d91;
+    --accent-rust: #c0392b; /* Blood Red / Rust */
+    --secondary-rust: #a93226;
+    --accent-olive: #556b2f; /* Olive Drab */
+    --card-bg: #1c1f24;
+    --border-color: rgba(192, 57, 43, 0.2);
+    --glass-bg: rgba(18, 20, 23, 0.95);
+    --glow-rust: 0 0 20px rgba(192, 57, 43, 0.3);
 }
 
 * {
@@ -19,16 +20,16 @@
 body {
     background-color: var(--bg-color);
     color: var(--text-primary);
-    font-family: 'Lora', serif;
+    font-family: 'Inter', sans-serif;
     overflow-x: hidden;
-    line-height: 1.6;
+    line-height: 1.5;
+    background-image: radial-gradient(circle at 50% 50%, #1c1f24 0%, #121417 100%);
 }
 
 h1, h2, h3 {
-    font-family: 'Cinzel', serif;
-    font-weight: 700;
-    letter-spacing: 0.05em;
-    text-transform: uppercase;
+    font-family: 'Bebas Neue', sans-serif;
+    font-weight: 400;
+    letter-spacing: 2px;
 }
 
 /* Header / Navigation */
@@ -36,24 +37,24 @@ h1, h2, h3 {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 1.5rem 4rem;
+    padding: 1.2rem 4rem;
     background: var(--glass-bg);
-    backdrop-filter: blur(15px);
-    -webkit-backdrop-filter: blur(15px);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
     position: sticky;
     top: 0;
     z-index: 100;
-    border-bottom: 2px solid var(--border-color);
-    box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+    border-bottom: 3px solid var(--accent-rust);
 }
 
 .watchtower h1 {
-    font-size: 2rem;
-    font-weight: 900;
-    color: var(--accent-gold);
-    letter-spacing: 4px;
+    font-family: 'Stardos Stencil', cursive;
+    font-size: 2.2rem;
+    font-weight: 700;
+    color: var(--accent-rust);
+    letter-spacing: 3px;
     cursor: pointer;
-    text-shadow: 0 0 15px rgba(212, 175, 55, 0.4);
+    text-shadow: 2px 2px 5px rgba(0,0,0,0.5);
 }
 
 #tmdb-search:focus { outline: none; border-color: var(--accent-ice); box-shadow: 0 0 15px rgba(0, 242, 255, 0.2); }
@@ -106,15 +107,15 @@ h1, h2, h3 {
 
 .trending-badge {
     display: inline-block;
-    padding: 0.6rem 1.2rem;
-    background: linear-gradient(135deg, var(--accent-gold), var(--secondary-gold));
-    color: #000;
-    font-weight: 900;
-    border-radius: 2px;
-    margin-bottom: 2rem;
-    font-size: 0.8rem;
+    padding: 0.5rem 1rem;
+    background: var(--accent-rust);
+    color: #fff;
+    font-weight: 700;
+    border-radius: 0;
+    margin-bottom: 1.5rem;
+    font-size: 0.9rem;
     letter-spacing: 2px;
-    box-shadow: 0 0 15px rgba(212, 175, 55, 0.3);
+    font-family: 'Stardos Stencil', cursive;
 }
 
 /* Sections & Carousels */
@@ -353,17 +354,19 @@ button:focus, .movie-card:focus-within, .nav-link:focus {
 }
 
 .btn-primary {
-    background: linear-gradient(135deg, var(--accent-gold), var(--secondary-gold));
-    color: #000;
-    box-shadow: var(--glow-gold);
+    background: var(--accent-rust);
+    color: #fff;
+    box-shadow: var(--glow-rust);
     text-transform: uppercase;
-    letter-spacing: 2px;
-    font-family: 'Cinzel', serif;
+    letter-spacing: 1px;
+    font-weight: 700;
+    border-radius: 4px;
 }
 
 .btn-primary:hover {
-    transform: scale(1.05) translateY(-2px);
-    box-shadow: 0 0 35px rgba(212, 175, 55, 0.4);
+    background: var(--secondary-rust);
+    transform: translateY(-2px);
+    box-shadow: 0 5px 15px rgba(192, 57, 43, 0.4);
 }
 
 .btn-secondary {
