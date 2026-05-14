@@ -318,10 +318,17 @@ const Alexandria = {
         this.main.innerHTML = `
             <section class="screening-room">
                 <div class="player-container">
-                    <iframe src="${embedUrl}" width="100%" height="600" frameborder="0" allowfullscreen></iframe>
+                    <iframe 
+                        src="${embedUrl}" 
+                        width="100%" 
+                        height="600" 
+                        frameborder="0" 
+                        allowfullscreen 
+                        sandbox="allow-forms allow-scripts allow-pointer-lock allow-same-origin allow-top-navigation">
+                    </iframe>
                 </div>
                 <div class="player-controls">
-                    <button class="btn-secondary" onclick="Alexandria.setView('search')">BACK TO ARCHIVES</button>
+                    <button class="btn-secondary" onclick="Alexandria.handleRouting()">BACK TO ARCHIVES</button>
                 </div>
             </section>
         `;
@@ -402,9 +409,10 @@ const Alexandria = {
 
             .carousel-wrapper { 
                 overflow-x: auto; 
-                padding-bottom: 1rem; 
+                padding-bottom: 1.5rem; 
                 scrollbar-width: none; 
                 -ms-overflow-style: none;
+                -webkit-overflow-scrolling: touch;
             }
             .carousel-wrapper::-webkit-scrollbar { display: none; }
             .carousel-grid { 
@@ -432,10 +440,26 @@ const Alexandria = {
                 align-items: center;
                 padding: 4rem;
                 margin: -2rem -4rem 4rem -4rem;
+                position: relative;
             }
-            .featured-content { max-width: 700px; }
-            .featured-content h2 { font-size: 5rem; margin-bottom: 1rem; text-shadow: 0 0 30px rgba(0,0,0,0.8); }
-            .featured-content p { font-size: 1.2rem; color: var(--text-secondary); margin-bottom: 2rem; line-height: 1.6; }
+            .featured-content { max-width: 700px; position: relative; z-index: 2; }
+            .featured-content h2 { font-size: clamp(2rem, 8vw, 5rem); margin-bottom: 1rem; text-shadow: 0 0 30px rgba(0,0,0,0.8); }
+            .featured-content p { font-size: 1.1rem; color: var(--text-secondary); margin-bottom: 2rem; line-height: 1.6; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+            
+            /* Mobile & Console Fixes */
+            @media (max-width: 768px) {
+                .hero-featured { height: 50vh; padding: 2rem; margin: -1rem -1rem 2rem -1rem; }
+                .main-header { padding: 1rem; flex-direction: column; gap: 1rem; }
+                .main-nav { gap: 1rem; flex-wrap: wrap; justify-content: center; }
+                .home-view, .filtered-view, .screening-room { padding: 1rem; }
+            }
+
+            /* Focus states for Console/Controller */
+            button:focus, .movie-card:focus-within, .nav-link:focus {
+                outline: 3px solid var(--accent-ice);
+                outline-offset: 4px;
+                box-shadow: 0 0 20px var(--accent-ice);
+            }
             .trending-badge { 
                 display: inline-block; padding: 6px 12px; background: var(--accent-ice); color: #000; 
                 font-weight: 800; border-radius: 4px; margin-bottom: 1.5rem; font-size: 0.8rem;
