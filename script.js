@@ -9,7 +9,8 @@ const Alexandria = {
             { id: 2, name: 'Carol P.', status: 'pending' },
             { id: 3, name: 'Negan S.', status: 'pending' }
         ],
-        clickCount: 0
+        clickCount: 0,
+        searchTimeout: null
     },
 
     init() {
@@ -116,12 +117,13 @@ const Alexandria = {
             </section>
         `;
         
-        // Add search listener for Enter key
+        // Add real-time search (debounce)
         setTimeout(() => {
             const input = document.getElementById('tmdb-search');
             if (input) {
-                input.addEventListener('keypress', (e) => {
-                    if (e.key === 'Enter') this.searchSupplies();
+                input.addEventListener('input', (e) => {
+                    clearTimeout(this.state.searchTimeout);
+                    this.state.searchTimeout = setTimeout(() => this.searchSupplies(), 500);
                 });
             }
         }, 100);
@@ -175,8 +177,58 @@ const Alexandria = {
     },
 
     playContent(tmdbId, type = 'movie') {
-        this.state.activeContent = { id: tmdbId, type: type };
-        this.setView('player');
+        this.fetchDetails(tmdbId, type);
+    },
+
+    async fetchDetails(id, type) {
+        try {
+            const response = await fetch(`https://api.themoviedb.org/3/${type}/${id}?api_key=${this.state.tmdbApiKey}`);
+            const data = await response.json();
+            this.showModal(data, type);
+        } catch (error) {
+            console.error("Details scout failed:", error);
+        }
+    },
+
+    showModal(data, type) {
+        const title = data.title || data.name;
+        const poster = data.poster_path 
+            ? `https://image.tmdb.org/t/p/w500${data.poster_path}` 
+            : 'https://via.placeholder.com/500x750?text=NO+IMAGE';
+        const backdrop = data.backdrop_path 
+            ? `https://image.tmdb.org/t/p/original${data.backdrop_path}` 
+            : '';
+
+        const modalHtml = `
+            <div id="movie-modal" class="modal-overlay">
+                <div class="modal-content" style="background-image: linear-gradient(to right, rgba(0,0,0,0.9) 30%, transparent 100%), url('${backdrop}')">
+                    <button class="modal-close">&times;</button>
+                    <div class="modal-details">
+                        <img src="${poster}" class="modal-poster">
+                        <div class="modal-text">
+                            <h2>${title}</h2>
+                            <div class="modal-meta">
+                                <span class="rating">⭐ ${data.vote_average.toFixed(1)}</span>
+                                <span class="date">${data.release_date || data.first_air_date}</span>
+                            </div>
+                            <p class="overview">${data.overview}</p>
+                            <button class="btn-primary" id="final-play-btn" data-id="${data.id}" data-type="${type}">WATCH NOW</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        document.body.insertAdjacentHTML('beforeend', modalHtml);
+        
+        // Modal Events
+        document.querySelector('.modal-close').onclick = () => document.getElementById('movie-modal').remove();
+        document.getElementById('final-play-btn').onclick = (e) => {
+            this.state.activeContent = { id: e.target.dataset.id, type: e.target.dataset.type };
+            document.getElementById('movie-modal').remove();
+            this.setView('player');
+        };
+        this.injectModalStyles();
     },
 
     renderPlayer() {
@@ -279,6 +331,40 @@ const Alexandria = {
             .screening-room { padding: 2rem 4rem; }
             .player-container { background: #000; border-radius: 16px; overflow: hidden; box-shadow: 0 20px 40px rgba(0,0,0,0.5); }
             .player-controls { margin-top: 3rem; text-align: left; }
+        `;
+        document.head.appendChild(style);
+    },
+
+    injectModalStyles() {
+        if (document.getElementById('modal-styles')) return;
+        const style = document.createElement('style');
+        style.id = 'modal-styles';
+        style.innerHTML = `
+            .modal-overlay { 
+                position: fixed; top: 0; left: 0; width: 100%; height: 100%; 
+                background: rgba(0,0,0,0.9); z-index: 1000; display: flex; align-items: center; justify-content: center;
+                backdrop-filter: blur(8px); animation: fadeIn 0.3s ease;
+            }
+            .modal-content { 
+                width: 90%; max-width: 1000px; height: 600px; background-size: cover; background-position: center;
+                border-radius: 20px; position: relative; border: 1px solid var(--border-color); overflow: hidden;
+            }
+            .modal-close { 
+                position: absolute; top: 20px; right: 20px; background: none; border: none; 
+                color: #fff; font-size: 2rem; cursor: pointer; z-index: 10;
+            }
+            .modal-details { display: flex; padding: 4rem; gap: 3rem; align-items: center; height: 100%; }
+            .modal-poster { width: 300px; border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+            .modal-text { flex: 1; }
+            .modal-text h2 { font-size: 3rem; margin-bottom: 1rem; }
+            .modal-meta { display: flex; gap: 1.5rem; margin-bottom: 1.5rem; font-weight: 600; color: var(--accent-ice); }
+            .overview { font-size: 1.1rem; color: var(--text-secondary); margin-bottom: 2.5rem; line-height: 1.6; max-width: 500px; }
+            @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+            @keyframes slideUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+            .movie-card { animation: slideUp 0.4s ease forwards; opacity: 0; }
+            .movie-card:nth-child(1) { animation-delay: 0.1s; }
+            .movie-card:nth-child(2) { animation-delay: 0.15s; }
+            .movie-card:nth-child(3) { animation-delay: 0.2s; }
         `;
         document.head.appendChild(style);
     }
