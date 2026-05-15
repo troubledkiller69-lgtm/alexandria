@@ -1,29 +1,69 @@
 :root {
-    --bg-color: #121417; /* Dark Slate */
-    --text-primary: #e0e0e0;
-    --text-secondary: #8a8d91;
-    --accent-rust: #c0392b; /* Blood Red / Rust */
-    --secondary-rust: #a93226;
-    --accent-olive: #556b2f; /* Olive Drab */
-    --card-bg: #1c1f24;
-    --border-color: rgba(192, 57, 43, 0.2);
-    --glass-bg: rgba(18, 20, 23, 0.95);
-    --glow-rust: 0 0 20px rgba(192, 57, 43, 0.3);
-}
-
-* {
-    margin: 0;
-    padding: 0;
-    box-sizing: border-box;
+    --bg-color: #0a0b0d;
+    --text-primary: #ffffff;
+    --text-secondary: #a0a0a0;
+    --accent-rust: #c0392b;
+    --glass-bg: rgba(255, 255, 255, 0.03);
+    --glass-border: rgba(255, 255, 255, 0.08);
+    --liquid-blur: blur(30px);
+    --glow-rust: 0 0 30px rgba(192, 57, 43, 0.4);
 }
 
 body {
     background-color: var(--bg-color);
+    background-image: 
+        radial-gradient(circle at 0% 0%, rgba(192, 57, 43, 0.15) 0%, transparent 50%),
+        radial-gradient(circle at 100% 100%, rgba(192, 57, 43, 0.05) 0%, transparent 50%);
+    background-attachment: fixed;
     color: var(--text-primary);
     font-family: 'Inter', sans-serif;
-    overflow-x: hidden;
-    line-height: 1.5;
-    background-image: radial-gradient(circle at 50% 50%, #1c1f24 0%, #121417 100%);
+}
+
+/* Liquid Glass Navigation */
+.watchtower {
+    position: sticky;
+    top: 1rem;
+    left: 0;
+    right: 0;
+    z-index: 1000;
+    margin: 0 2rem;
+    padding: 1rem 3rem;
+    background: var(--glass-bg);
+    backdrop-filter: var(--liquid-blur);
+    border: 1px solid var(--glass-border);
+    border-radius: 50px;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.5);
+}
+
+.watchtower-content {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.branding {
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+}
+
+.branding h1 {
+    font-family: 'Stardos Stencil', cursive;
+    font-size: 2rem;
+    color: var(--accent-rust);
+    letter-spacing: 4px;
+    line-height: 1;
+}
+
+.tagline {
+    font-size: 0.65rem;
+    color: var(--text-secondary);
+    letter-spacing: 2px;
+    font-family: 'Inter', sans-serif;
+    font-weight: 700;
+    text-transform: uppercase;
+    margin-top: 0.2rem;
+    opacity: 0.8;
 }
 
 h1, h2, h3 {
@@ -178,10 +218,11 @@ h1, h2, h3 {
     position: relative;
     width: 100%;
     aspect-ratio: 2/3;
-    border-radius: 0;
+    border-radius: 12px;
     overflow: hidden;
-    background: #111;
-    border: 2px solid var(--border-color);
+    background: var(--glass-bg);
+    border: 1px solid var(--glass-border);
+    backdrop-filter: blur(10px);
 }
 
 .poster-wrapper img {
