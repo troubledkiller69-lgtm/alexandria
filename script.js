@@ -415,13 +415,25 @@ const Alexandria = {
         // Modal Events
         document.querySelector('.modal-close').onclick = () => document.getElementById('movie-modal').remove();
         document.getElementById('final-play-btn').onclick = (e) => {
-            this.state.activeContent = { id: e.target.dataset.id, type: e.target.dataset.type };
+            const { id, type } = e.target.dataset;
+            this.state.activeContent = { 
+                id, 
+                type, 
+                season: type === 'tv' ? 1 : undefined, 
+                episode: type === 'tv' ? 1 : undefined 
+            };
             document.getElementById('movie-modal').remove();
             this.setView('player');
         };
     },
 
     async renderPlayer() {
+        // Ensure defaults if missing
+        if (this.state.activeContent.type === 'tv') {
+            this.state.activeContent.season = this.state.activeContent.season || 1;
+            this.state.activeContent.episode = this.state.activeContent.episode || 1;
+        }
+
         const { id, type, season, episode } = this.state.activeContent;
         const embedUrl = type === 'movie' 
             ? `https://www.vidking.net/embed/movie/${id}`
@@ -442,23 +454,15 @@ const Alexandria = {
                     </div>
                     <div class="player-container">
                         <iframe id="player-frame" src="${embedUrl}" width="100%" height="100%" frameborder="0" allowfullscreen></iframe>
-                        <div id="countdown-overlay" class="countdown-overlay hidden">
-                            <div class="countdown-circle">
-                                <svg><circle r="30" cx="35" cy="35"></circle></svg>
-                                <span id="countdown-num">10</span>
-                            </div>
-                            <p>NEXT EPISODE STARTING...</p>
-                            <button class="btn-primary" onclick="Alexandria.cancelCountdown()">CANCEL</button>
-                        </div>
                     </div>
                 </div>
                 
                 ${type === 'tv' ? `
                     <div class="episode-sidebar">
                         <div class="sidebar-header">
-                            <h3>SEASON ${season}</h3>
-                            <select onchange="Alexandria.changeSeason(this.value)">
-                                ${[...Array(10).keys()].map(i => `<option value="${i+1}" ${season == i+1 ? 'selected' : ''}>Season ${i+1}</option>`).join('')}
+                            <h3 id="sidebar-season-title">SEASON ${season}</h3>
+                            <select id="season-select" onchange="Alexandria.changeSeason(this.value)">
+                                <option value="${season}">Season ${season}</option>
                             </select>
                         </div>
                         <div class="episode-list" id="sidebar-episodes">
@@ -469,7 +473,26 @@ const Alexandria = {
             </section>
         `;
 
-        if (type === 'tv') this.fetchSeasonDetails(id, season);
+        if (type === 'tv') {
+            this.fetchShowDetails(id);
+            this.fetchSeasonDetails(id, season);
+        }
+    },
+
+    async fetchShowDetails(id) {
+        try {
+            const res = await fetch(`https://api.themoviedb.org/3/tv/${id}?api_key=${this.state.tmdbApiKey}`);
+            const data = await res.json();
+            const select = document.getElementById('season-select');
+            if (!select) return;
+
+            select.innerHTML = data.seasons
+                .filter(s => s.season_number > 0)
+                .map(s => `<option value="${s.season_number}" ${this.state.activeContent.season == s.season_number ? 'selected' : ''}>Season ${s.season_number}</option>`)
+                .join('');
+        } catch (e) {
+            console.error("Show detail scout failed:", e);
+        }
     },
 
     async fetchSeasonDetails(id, season) {
