@@ -453,7 +453,16 @@ const Alexandria = {
                         </div>
                     </div>
                     <div class="player-container">
-                        <iframe id="player-frame" src="${embedUrl}" width="100%" height="100%" frameborder="0" allowfullscreen></iframe>
+                        <iframe 
+                            id="player-frame" 
+                            src="${embedUrl}" 
+                            width="100%" 
+                            height="100%" 
+                            frameborder="0" 
+                            allowfullscreen
+                            allow="autoplay; fullscreen"
+                            sandbox="allow-forms allow-pointer-lock allow-same-origin allow-scripts allow-presentation">
+                        </iframe>
                     </div>
                 </div>
                 
