@@ -559,25 +559,6 @@ h1, h2, h3 {
     padding: 0.5rem 0;
 }
 
-.header-left {
-    display: flex;
-    align-items: center;
-    gap: 2rem;
-}
-
-.signal-status {
-    font-family: 'Bebas Neue', sans-serif;
-    font-size: 0.8rem;
-    color: var(--text-secondary);
-    letter-spacing: 2px;
-}
-
-#active-provider {
-    color: var(--accent-rust);
-    margin-left: 0.5rem;
-    text-shadow: var(--glow-rust);
-}
-
 .auto-next-wrap {
     display: flex;
     align-items: center;
@@ -619,21 +600,6 @@ h1, h2, h3 {
     color: var(--accent-rust); 
     letter-spacing: 2px;
     font-family: 'Bebas Neue', sans-serif;
-}
-
-.sidebar-actions {
-    display: flex;
-    gap: 1rem;
-    align-items: center;
-}
-
-.icon-btn.small {
-    font-size: 0.7rem;
-    font-family: 'Bebas Neue', sans-serif;
-    letter-spacing: 1px;
-    padding: 0.4rem 0.8rem;
-    border: 1px solid var(--glass-border);
-    border-radius: 4px;
 }
 
 .sidebar-header select {
@@ -717,17 +683,6 @@ h1, h2, h3 {
     -webkit-line-clamp: 2;
     -webkit-box-orient: vertical;
     overflow: hidden;
-}
-
-.anime-badge {
-    background: var(--accent-rust);
-    color: #fff;
-    font-size: 0.6rem;
-    padding: 2px 6px;
-    border-radius: 4px;
-    font-weight: 900;
-    letter-spacing: 1px;
-    margin-right: 8px;
 }
 
 /* Countdown Overlay */
