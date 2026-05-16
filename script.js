@@ -363,8 +363,8 @@ const Alexandria = {
             if (!featured) throw new Error("No featured content found.");
 
             // Filter "The Walking Dead" results to ensure we only get the main series
-            const walkingDeadSpecials = sData.results.filter(item => 
-                item.name.toLowerCase().includes('walking dead')
+            const walkingDeadSpecials = (sData.results || []).filter(item => 
+                item.name && item.name.toLowerCase().includes('walking dead')
             ).sort((a, b) => new Date(a.first_air_date) - new Date(b.first_air_date));
 
             this.main.innerHTML = `
@@ -538,21 +538,64 @@ const Alexandria = {
                 <div class="player-container">
                     <iframe src="${embedUrl}" width="100%" height="100%" frameborder="0" allowfullscreen></iframe>
                 </div>
-                ${type === 'tv' ? `<div class="episode-sidebar"><h3 id="sidebar-title">EPISODES</h3><div class="episode-list" id="sidebar-episodes"></div></div>` : ''}
+                ${type === 'tv' ? `
+                    <div class="episode-sidebar">
+                        <div class="sidebar-header">
+                            <h3 id="sidebar-title">COMMUNICATIONS</h3>
+                            <select id="season-selector" class="season-select" onchange="Alexandria.handleSeasonChange(this.value)"></select>
+                        </div>
+                        <div class="episode-list" id="sidebar-episodes">
+                            <div class="placeholder-msg">LOADING EPISODES...</div>
+                        </div>
+                    </div>` : ''}
             </section>`;
         
-        if (type === 'tv') this.loadEpisodes(id, season);
+        if (type === 'tv') {
+            await this.initSeasonSelector(id, season);
+            await this.loadEpisodes(id, season);
+        }
+    },
+
+    async initSeasonSelector(id, activeSeason) {
+        try {
+            const res = await fetch(`/api/proxy?endpoint=${encodeURIComponent('tv/' + id)}`);
+            const data = await res.json();
+            const selector = document.getElementById('season-selector');
+            if (!selector) return;
+
+            selector.innerHTML = data.seasons
+                .filter(s => s.season_number > 0)
+                .map(s => `<option value="${s.season_number}" ${s.season_number == activeSeason ? 'selected' : ''}>SEASON ${s.season_number}</option>`)
+                .join('');
+            
+            document.getElementById('sidebar-title').textContent = data.name.toUpperCase();
+        } catch (e) {
+            console.error("Alexandria Protocol: Season Init Failed -", e);
+        }
+    },
+
+    handleSeasonChange(newSeason) {
+        this.state.activeContent.season = parseInt(newSeason);
+        this.state.activeContent.episode = 1;
+        this.renderPlayer();
     },
 
     async loadEpisodes(id, season) {
-        const res = await fetch(`/api/proxy?endpoint=tv/${id}/season/${season}`);
-        const data = await res.json();
-        const container = document.getElementById('sidebar-episodes');
-        if (!container) return;
-        container.innerHTML = data.episodes.map(ep => `
-            <div class="episode-item ${this.state.activeContent.episode == ep.episode_number ? 'active' : ''}" onclick="Alexandria.state.activeContent.episode = ${ep.episode_number}; Alexandria.renderPlayer();">
-                <span>EP ${ep.episode_number}: ${ep.name}</span>
-            </div>`).join('');
+        try {
+            const res = await fetch(`/api/proxy?endpoint=${encodeURIComponent('tv/' + id + '/season/' + season)}`);
+            const data = await res.json();
+            const container = document.getElementById('sidebar-episodes');
+            if (!container) return;
+            
+            container.innerHTML = data.episodes.map(ep => `
+                <div class="episode-item ${this.state.activeContent.episode == ep.episode_number ? 'active' : ''}" 
+                     onclick="Alexandria.state.activeContent.episode = ${ep.episode_number}; Alexandria.renderPlayer();">
+                    <span class="ep-num">EP ${ep.episode_number}</span>
+                    <span class="ep-name">${ep.name}</span>
+                </div>`).join('');
+        } catch (e) {
+            console.error("Alexandria Protocol: Episode Load Failed -", e);
+        }
     }
 };
 
