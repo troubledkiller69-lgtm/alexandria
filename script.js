@@ -339,14 +339,19 @@ const Alexandria = {
         this.main.innerHTML = '<div class="placeholder-msg"><span class="pulse-dot"></span> LOADING SECTORS...</div>';
         
         try {
-            const [mRes, tRes, nRes, hRes, aRes, uRes, sRes] = await Promise.all([
+            const [mRes, tRes, nRes, hRes, aRes, uRes, ...sResRaw] = await Promise.all([
                 fetch(`/api/proxy?endpoint=${encodeURIComponent('trending/movie/day')}`),
                 fetch(`/api/proxy?endpoint=${encodeURIComponent('trending/tv/day')}`),
                 fetch(`/api/proxy?endpoint=${encodeURIComponent('discover/movie?with_watch_providers=8&watch_region=US')}`),
                 fetch(`/api/proxy?endpoint=${encodeURIComponent('discover/movie?with_watch_providers=49&watch_region=US')}`),
                 fetch(`/api/proxy?endpoint=${encodeURIComponent('discover/movie?with_genres=28')}`),
                 fetch(`/api/proxy?endpoint=${encodeURIComponent('movie/upcoming')}`),
-                fetch(`/api/proxy?endpoint=${encodeURIComponent('search/tv?query=The Walking Dead')}`)
+                fetch(`/api/proxy?endpoint=${encodeURIComponent('tv/1402')}`),
+                fetch(`/api/proxy?endpoint=${encodeURIComponent('tv/62289')}`),
+                fetch(`/api/proxy?endpoint=${encodeURIComponent('tv/94305')}`),
+                fetch(`/api/proxy?endpoint=${encodeURIComponent('tv/157202')}`),
+                fetch(`/api/proxy?endpoint=${encodeURIComponent('tv/205312')}`),
+                fetch(`/api/proxy?endpoint=${encodeURIComponent('tv/212563')}`)
             ]);
             
             const mData = await mRes.json();
@@ -355,17 +360,12 @@ const Alexandria = {
             const hData = await hRes.json();
             const aData = await aRes.json();
             const uData = await uRes.json();
-            const sData = await sRes.json();
+            const walkingDeadSpecials = await Promise.all(sResRaw.map(r => r.json()));
             
             const featured = mData.results?.[0];
             const last = this.state.history?.[0];
 
             if (!featured) throw new Error("No featured content found.");
-
-            // Filter "The Walking Dead" results to ensure we only get the main series
-            const walkingDeadSpecials = (sData.results || []).filter(item => 
-                item.name && item.name.toLowerCase().includes('walking dead')
-            ).sort((a, b) => new Date(a.first_air_date) - new Date(b.first_air_date));
 
             this.main.innerHTML = `
                 <section class="home-view">
