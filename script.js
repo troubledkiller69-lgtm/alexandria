@@ -333,6 +333,8 @@ const Alexandria = {
                     </div>
                 </section>`;
         }, card ? 300 : 0);
+    },
+
     async renderHome() {
         this.main.innerHTML = '<div class="placeholder-msg"><span class="pulse-dot"></span> LOADING SECTORS...</div>';
         
