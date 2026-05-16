@@ -516,14 +516,13 @@ const Alexandria = {
             this.main.innerHTML = `
                 <section class="filtered-view">
                     <div class="view-header" style="text-align:center;padding:3rem 4rem 1rem;">
-                        <h2 style="font-size:4rem;background:linear-gradient(135deg,#065f46,#10b981,#34d399);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;">🌿 420 ZONE</h2>
-                        <p style="color:#10b981;font-size:0.8rem;letter-spacing:4px;font-weight:700;margin-top:0.5rem;">CURATED BY HIGHMOVIES.NET • FIND YOUR VIBE</p>
+                        <h2 style="font-size:4rem;background:linear-gradient(135deg,#065f46,#10b981,#34d399);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;">420 ZONE</h2>
                     </div>
-                    <div class="view-section"><h3 style="color:#10b981">🔥 PopHigh's Recommendations</h3><div class="carousel-wrapper"><div class="carousel-grid" id="420-pophigh"></div></div></div>
-                    <div class="view-section"><h3 style="color:#10b981">🚀 Visual Trip Movies</h3><div class="carousel-wrapper"><div class="carousel-grid" id="420-trip"></div></div></div>
-                    <div class="view-section"><h3 style="color:#10b981">😂 Funniest Movies</h3><div class="carousel-wrapper"><div class="carousel-grid" id="420-funny"></div></div></div>
-                    <div class="view-section"><h3 style="color:#10b981">😌 "I'm Chillin'"</h3><div class="carousel-wrapper"><div class="carousel-grid" id="420-chill"></div></div></div>
-                    <div class="view-section"><h3 style="color:#10b981">🧠 Deep Thought Movies</h3><div class="carousel-wrapper"><div class="carousel-grid" id="420-deep"></div></div></div>
+                    <div class="view-section"><h3 style="color:#10b981">Top Picks</h3><div class="carousel-wrapper"><div class="carousel-grid" id="420-pophigh"></div></div></div>
+                    <div class="view-section"><h3 style="color:#10b981">Trippy Visuals</h3><div class="carousel-wrapper"><div class="carousel-grid" id="420-trip"></div></div></div>
+                    <div class="view-section"><h3 style="color:#10b981">Laugh Out Loud</h3><div class="carousel-wrapper"><div class="carousel-grid" id="420-funny"></div></div></div>
+                    <div class="view-section"><h3 style="color:#10b981">Chill Vibes</h3><div class="carousel-wrapper"><div class="carousel-grid" id="420-chill"></div></div></div>
+                    <div class="view-section"><h3 style="color:#10b981">Mind Benders</h3><div class="carousel-wrapper"><div class="carousel-grid" id="420-deep"></div></div></div>
                 </section>`;
             
             this.renderResults(pophigh, '420-pophigh');
