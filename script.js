@@ -259,111 +259,131 @@ const Alexandria = {
     },
 
     async renderHome() {
-        const [mRes, tRes, nRes, hRes, aRes, uRes] = await Promise.all([
-            fetch(`/api/proxy?endpoint=trending/movie/day`),
-            fetch(`/api/proxy?endpoint=trending/tv/day`),
-            fetch(`/api/proxy?endpoint=discover/movie?with_networks=213`), // Netflix
-            fetch(`/api/proxy?endpoint=discover/movie?with_networks=49`),  // HBO
-            fetch(`/api/proxy?endpoint=discover/movie?with_genres=28`),    // Action
-            fetch(`/api/proxy?endpoint=movie/upcoming`)
-        ]);
-        const mData = await mRes.json();
-        const tData = await tRes.json();
-        const nData = await nRes.json();
-        const hData = await hRes.json();
-        const aData = await aRes.json();
-        const uData = await uRes.json();
+        this.main.innerHTML = '<div class="placeholder-msg"><span class="pulse-dot"></span> LOADING SECTORS...</div>';
         
-        const featured = mData.results[0];
-        const last = this.state.history[0];
+        try {
+            const [mRes, tRes, nRes, hRes, aRes, uRes] = await Promise.all([
+                fetch(`/api/proxy?endpoint=trending/movie/day`),
+                fetch(`/api/proxy?endpoint=trending/tv/day`),
+                fetch(`/api/proxy?endpoint=discover/movie?with_networks=213`),
+                fetch(`/api/proxy?endpoint=discover/movie?with_networks=49`),
+                fetch(`/api/proxy?endpoint=discover/movie?with_genres=28`),
+                fetch(`/api/proxy?endpoint=movie/upcoming`)
+            ]);
+            
+            const mData = await mRes.json();
+            const tData = await tRes.json();
+            const nData = await nRes.json();
+            const hData = await hRes.json();
+            const aData = await aRes.json();
+            const uData = await uRes.json();
+            
+            const featured = mData.results?.[0];
+            const last = this.state.history?.[0];
 
-        this.main.innerHTML = `
-            <section class="home-view">
-                <div class="hero-featured" style="background-image: linear-gradient(0deg, var(--bg-color) 0%, rgba(0,0,0,0.3) 100%), url('https://image.tmdb.org/t/p/original${featured.backdrop_path}')">
-                    <div class="featured-content">
-                        <span class="trending-badge">#1 TRENDING TODAY</span>
-                        <h2>${featured.title}</h2>
-                        <p>${featured.overview}</p>
-                        <button class="btn-primary" onclick="Alexandria.playContent(${featured.id}, 'movie')">WATCH NOW</button>
+            if (!featured) throw new Error("No featured content found.");
+
+            this.main.innerHTML = `
+                <section class="home-view">
+                    <div class="hero-featured" style="background-image: linear-gradient(0deg, var(--bg-color) 0%, rgba(0,0,0,0.3) 100%), url('https://image.tmdb.org/t/p/original${featured.backdrop_path}')">
+                        <div class="featured-content">
+                            <span class="trending-badge">#1 TRENDING TODAY</span>
+                            <h2>${featured.title}</h2>
+                            <p>${featured.overview}</p>
+                            <button class="btn-primary" onclick="Alexandria.playContent(${featured.id}, 'movie')">WATCH NOW</button>
+                        </div>
+                        ${last ? `<div class="resume-widget" onclick="Alexandria.playContent(${last.id}, '${last.type}')">
+                            <div class="resume-content"><span class="resume-label">RESUMING...</span><h4>${last.title}</h4><p>CLICK TO RESUME</p></div>
+                        </div>` : ''}
                     </div>
-                    ${last ? `<div class="resume-widget" onclick="Alexandria.playContent(${last.id}, '${last.type}')">
-                        <div class="resume-content"><span class="resume-label">RESUMING...</span><h4>${last.title}</h4><p>CLICK TO RESUME</p></div>
-                    </div>` : ''}
-                </div>
-                ${this.state.watchlist.length > 0 ? `<div class="view-section"><h3>PRIORITY ARCHIVE</h3><div class="carousel-wrapper"><div class="carousel-grid" id="watchlist-results"></div></div></div>` : ''}
-                <div class="view-section"><h3>Trending Movies</h3><div class="carousel-wrapper"><div class="carousel-grid" id="trending-movies"></div></div></div>
-                <div class="view-section"><h3>Netflix Originals</h3><div class="carousel-wrapper"><div class="carousel-grid" id="netflix-hits"></div></div></div>
-                <div class="view-section"><h3>HBO Masterpieces</h3><div class="carousel-wrapper"><div class="carousel-grid" id="hbo-hits"></div></div></div>
-                <div class="view-section"><h3>Trending TV Shows</h3><div class="carousel-wrapper"><div class="carousel-grid" id="trending-tv"></div></div></div>
-                <div class="view-section"><h3>Upcoming Missions</h3><div class="carousel-wrapper"><div class="carousel-grid" id="upcoming-hits"></div></div></div>
-                <div class="view-section"><h3>Action Archives</h3><div class="carousel-wrapper"><div class="carousel-grid" id="action-hits"></div></div></div>
-            </section>`;
-        
-        if (this.state.watchlist.length > 0) this.renderResults(this.state.watchlist, 'watchlist-results');
-        this.renderResults(mData.results, 'trending-movies');
-        this.renderResults(tData.results, 'trending-tv');
-        this.renderResults(nData.results, 'netflix-hits');
-        this.renderResults(hData.results, 'hbo-hits');
-        this.renderResults(aData.results, 'action-hits');
-        this.renderResults(uData.results, 'upcoming-hits');
+                    ${this.state.watchlist.length > 0 ? `<div class="view-section"><h3>PRIORITY ARCHIVE</h3><div class="carousel-wrapper"><div class="carousel-grid" id="watchlist-results"></div></div></div>` : ''}
+                    <div class="view-section"><h3>Trending Movies</h3><div class="carousel-wrapper"><div class="carousel-grid" id="trending-movies"></div></div></div>
+                    <div class="view-section"><h3>Netflix Originals</h3><div class="carousel-wrapper"><div class="carousel-grid" id="netflix-hits"></div></div></div>
+                    <div class="view-section"><h3>HBO Masterpieces</h3><div class="carousel-wrapper"><div class="carousel-grid" id="hbo-hits"></div></div></div>
+                    <div class="view-section"><h3>Trending TV Shows</h3><div class="carousel-wrapper"><div class="carousel-grid" id="trending-tv"></div></div></div>
+                    <div class="view-section"><h3>Upcoming Missions</h3><div class="carousel-wrapper"><div class="carousel-grid" id="upcoming-hits"></div></div></div>
+                    <div class="view-section"><h3>Action Archives</h3><div class="carousel-wrapper"><div class="carousel-grid" id="action-hits"></div></div></div>
+                </section>`;
+            
+            if (this.state.watchlist.length > 0) this.renderResults(this.state.watchlist, 'watchlist-results');
+            this.renderResults(mData.results, 'trending-movies');
+            this.renderResults(tData.results, 'trending-tv');
+            this.renderResults(nData.results, 'netflix-hits');
+            this.renderResults(hData.results, 'hbo-hits');
+            this.renderResults(aData.results, 'action-hits');
+            this.renderResults(uData.results, 'upcoming-hits');
+        } catch (error) {
+            console.error("Alexandria Protocol: Home Scout Failed -", error);
+            this.main.innerHTML = '<div class="placeholder-msg">SECTOR SCAN FAILED. CHECK SIGNAL.</div>';
+        }
     },
 
     async renderFiltered(type) {
-        const [popRes, topRes, actRes, horRes, sciRes] = await Promise.all([
-            fetch(`/api/proxy?endpoint=${type}/popular`),
-            fetch(`/api/proxy?endpoint=${type}/top_rated`),
-            fetch(`/api/proxy?endpoint=discover/${type}?with_genres=${type === 'movie' ? '28' : '10759'}`), // Action
-            fetch(`/api/proxy?endpoint=discover/${type}?with_genres=27`), // Horror
-            fetch(`/api/proxy?endpoint=discover/${type}?with_genres=878`) // Sci-Fi
-        ]);
-        const popData = await popRes.json();
-        const topData = await topRes.json();
-        const actData = await actRes.json();
-        const horData = await horRes.json();
-        const sciData = await sciRes.json();
+        this.main.innerHTML = '<div class="placeholder-msg">SCANNING SECTORS...</div>';
+        try {
+            const [popRes, topRes, actRes, horRes, sciRes] = await Promise.all([
+                fetch(`/api/proxy?endpoint=${type}/popular`),
+                fetch(`/api/proxy?endpoint=${type}/top_rated`),
+                fetch(`/api/proxy?endpoint=discover/${type}?with_genres=${type === 'movie' ? '28' : '10759'}`),
+                fetch(`/api/proxy?endpoint=discover/${type}?with_genres=27`),
+                fetch(`/api/proxy?endpoint=discover/${type}?with_genres=878`)
+            ]);
+            const popData = await popRes.json();
+            const topData = await topRes.json();
+            const actData = await actRes.json();
+            const horData = await horRes.json();
+            const sciData = await sciRes.json();
 
-        this.main.innerHTML = `
-            <section class="filtered-view">
-                <div class="view-header"><h2>${type === 'movie' ? 'Movies' : 'TV Shows'}</h2></div>
-                <div class="view-section"><h3>Popular Now</h3><div class="carousel-wrapper"><div class="carousel-grid" id="pop-results"></div></div></div>
-                <div class="view-section"><h3>Top Rated</h3><div class="carousel-wrapper"><div class="carousel-grid" id="top-results"></div></div></div>
-                <div class="view-section"><h3>Action & Adventure</h3><div class="carousel-wrapper"><div class="carousel-grid" id="action-results"></div></div></div>
-                <div class="view-section"><h3>Horror Archives</h3><div class="carousel-wrapper"><div class="carousel-grid" id="horror-results"></div></div></div>
-                <div class="view-section"><h3>Sci-Fi & Fantasy</h3><div class="carousel-wrapper"><div class="carousel-grid" id="sci-results"></div></div></div>
-            </section>`;
-        
-        this.renderResults(popData.results, 'pop-results');
-        this.renderResults(topData.results, 'top-results');
-        this.renderResults(actData.results, 'action-results');
-        this.renderResults(horData.results, 'horror-results');
-        this.renderResults(sciData.results, 'sci-results');
+            this.main.innerHTML = `
+                <section class="filtered-view">
+                    <div class="view-header"><h2>${type === 'movie' ? 'Movies' : 'TV Shows'}</h2></div>
+                    <div class="view-section"><h3>Popular Now</h3><div class="carousel-wrapper"><div class="carousel-grid" id="pop-results"></div></div></div>
+                    <div class="view-section"><h3>Top Rated</h3><div class="carousel-wrapper"><div class="carousel-grid" id="top-results"></div></div></div>
+                    <div class="view-section"><h3>Action & Adventure</h3><div class="carousel-wrapper"><div class="carousel-grid" id="action-results"></div></div></div>
+                    <div class="view-section"><h3>Horror Archives</h3><div class="carousel-wrapper"><div class="carousel-grid" id="horror-results"></div></div></div>
+                    <div class="view-section"><h3>Sci-Fi & Fantasy</h3><div class="carousel-wrapper"><div class="carousel-grid" id="sci-results"></div></div></div>
+                </section>`;
+            
+            this.renderResults(popData.results, 'pop-results');
+            this.renderResults(topData.results, 'top-results');
+            this.renderResults(actData.results, 'action-results');
+            this.renderResults(horData.results, 'horror-results');
+            this.renderResults(sciData.results, 'sci-results');
+        } catch (error) {
+            console.error("Alexandria Protocol: Filter Scout Failed -", error);
+        }
     },
 
     async renderAnime() {
-        const [shonenRes, seinenRes, fantasyRes, dramaRes] = await Promise.all([
-            fetch(`/api/proxy?endpoint=discover/tv?with_genres=16&with_keywords=210024&sort_by=popularity.desc`),
-            fetch(`/api/proxy?endpoint=discover/tv?with_genres=16&with_keywords=210024&vote_average.gte=8`),
-            fetch(`/api/proxy?endpoint=discover/tv?with_genres=16&with_keywords=210024&with_genres=14`), // Fantasy
-            fetch(`/api/proxy?endpoint=discover/tv?with_genres=16&with_keywords=210024&with_genres=18`)  // Drama
-        ]);
-        const sData = await shonenRes.json();
-        const seData = await seinenRes.json();
-        const fData = await fantasyRes.json();
-        const dData = await dramaRes.json();
+        this.main.innerHTML = '<div class="placeholder-msg">SCANNING ANIME FREQUENCIES...</div>';
+        try {
+            const [shonenRes, seinenRes, fantasyRes, dramaRes] = await Promise.all([
+                fetch(`/api/proxy?endpoint=discover/tv?with_genres=16&with_keywords=210024&sort_by=popularity.desc`),
+                fetch(`/api/proxy?endpoint=discover/tv?with_genres=16&with_keywords=210024&vote_average.gte=8`),
+                fetch(`/api/proxy?endpoint=discover/tv?with_genres=16&with_keywords=210024&with_genres=14`),
+                fetch(`/api/proxy?endpoint=discover/tv?with_genres=16&with_keywords=210024&with_genres=18`)
+            ]);
+            const sData = await shonenRes.json();
+            const seData = await seinenRes.json();
+            const fData = await fantasyRes.json();
+            const dData = await dramaRes.json();
 
-        this.main.innerHTML = `
-            <section class="filtered-view">
-                <div class="view-header"><h2>Anime Hub</h2></div>
-                <div class="view-section"><h3>Trending Anime</h3><div class="carousel-wrapper"><div class="carousel-grid" id="anime-trending"></div></div></div>
-                <div class="view-section"><h3>Top Rated Masterpieces</h3><div class="carousel-wrapper"><div class="carousel-grid" id="anime-top"></div></div></div>
-                <div class="view-section"><h3>Epic Fantasy Anime</h3><div class="carousel-wrapper"><div class="carousel-grid" id="anime-fantasy"></div></div></div>
-                <div class="view-section"><h3>Intense Drama Anime</h3><div class="carousel-wrapper"><div class="carousel-grid" id="anime-drama"></div></div></div>
-            </section>`;
-        
-        this.renderResults(sData.results, 'anime-trending');
-        this.renderResults(seData.results, 'anime-top');
-        this.renderResults(fData.results, 'anime-fantasy');
-        this.renderResults(dData.results, 'anime-drama');
+            this.main.innerHTML = `
+                <section class="filtered-view">
+                    <div class="view-header"><h2>Anime Hub</h2></div>
+                    <div class="view-section"><h3>Trending Anime</h3><div class="carousel-wrapper"><div class="carousel-grid" id="anime-trending"></div></div></div>
+                    <div class="view-section"><h3>Top Rated Masterpieces</h3><div class="carousel-wrapper"><div class="carousel-grid" id="anime-top"></div></div></div>
+                    <div class="view-section"><h3>Epic Fantasy Anime</h3><div class="carousel-wrapper"><div class="carousel-grid" id="anime-fantasy"></div></div></div>
+                    <div class="view-section"><h3>Intense Drama Anime</h3><div class="carousel-wrapper"><div class="carousel-grid" id="anime-drama"></div></div></div>
+                </section>`;
+            
+            this.renderResults(sData.results, 'anime-trending');
+            this.renderResults(seData.results, 'anime-top');
+            this.renderResults(fData.results, 'anime-fantasy');
+            this.renderResults(dData.results, 'anime-drama');
+        } catch (error) {
+            console.error("Alexandria Protocol: Anime Scout Failed -", error);
+        }
     },
 
     renderSearch() {
