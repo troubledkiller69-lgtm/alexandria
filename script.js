@@ -198,54 +198,64 @@ const Alexandria = {
         else if (this.state.view === 'auth') this.renderAuth();
     },
 
-    renderAuth() {
-        this.main.innerHTML = `
-            <section class="auth-view">
-                <div class="auth-card">
-                    <div class="safe-zone-stamp large">A</div>
-                    <h2>ALEXANDRIA</h2>
-                    <p class="auth-subtitle">SECURITY CLEARANCE REQUIRED</p>
-                    <form onsubmit="Alexandria.handleAuth(event, 'login')">
-                        <div class="input-group">
-                            <label>SURVIVOR EMAIL</label>
-                            <input type="email" id="auth-email" required placeholder="IDENTIFICATION CODE">
+    async renderAuth() {
+        const card = document.querySelector('.auth-card');
+        if (card) card.classList.add('switching');
+        
+        setTimeout(() => {
+            this.main.innerHTML = `
+                <section class="auth-view">
+                    <div class="auth-card">
+                        <div class="safe-zone-stamp large">A</div>
+                        <h2>ALEXANDRIA</h2>
+                        <p class="auth-subtitle">SECURITY CLEARANCE REQUIRED</p>
+                        <form onsubmit="Alexandria.handleAuth(event, 'login')">
+                            <div class="input-group">
+                                <label>SURVIVOR EMAIL</label>
+                                <input type="email" id="auth-email" required placeholder="IDENTIFICATION CODE">
+                            </div>
+                            <div class="input-group">
+                                <label>ACCESS PASSKEY</label>
+                                <input type="password" id="auth-password" required placeholder="SECURE KEY">
+                            </div>
+                            <button type="submit" class="btn-primary full">ACCESS ARCHIVE</button>
+                        </form>
+                        <div class="auth-footer">
+                            <p>NEW TO THE SAFE ZONE? <a href="#" onclick="Alexandria.renderSignup(); return false;">REQUEST ACCESS</a></p>
                         </div>
-                        <div class="input-group">
-                            <label>ACCESS PASSKEY</label>
-                            <input type="password" id="auth-password" required placeholder="SECURE KEY">
-                        </div>
-                        <button type="submit" class="btn-primary full">ACCESS ARCHIVE</button>
-                    </form>
-                    <div class="auth-footer">
-                        <p>NEW TO THE SAFE ZONE? <a href="#" onclick="Alexandria.renderSignup(); return false;">REQUEST ACCESS</a></p>
                     </div>
-                </div>
-            </section>`;
+                </section>`;
+        }, card ? 300 : 0);
     },
 
-    renderSignup() {
-        this.main.innerHTML = `
-            <section class="auth-view">
-                <div class="auth-card">
-                    <div class="safe-zone-stamp large">A</div>
-                    <h2>JOIN ARCHIVE</h2>
-                    <p class="auth-subtitle">ESTABLISH NEW CREDENTIALS</p>
-                    <form onsubmit="Alexandria.handleAuth(event, 'signup')">
-                        <div class="input-group">
-                            <label>SURVIVOR EMAIL</label>
-                            <input type="email" id="auth-email" required placeholder="ASSIGN EMAIL">
+    async renderSignup() {
+        const card = document.querySelector('.auth-card');
+        if (card) card.classList.add('switching');
+        
+        setTimeout(() => {
+            this.main.innerHTML = `
+                <section class="auth-view">
+                    <div class="auth-card">
+                        <div class="safe-zone-stamp large">A</div>
+                        <h2>JOIN ARCHIVE</h2>
+                        <p class="auth-subtitle">ESTABLISH NEW CREDENTIALS</p>
+                        <form onsubmit="Alexandria.handleAuth(event, 'signup')">
+                            <div class="input-group">
+                                <label>SURVIVOR EMAIL</label>
+                                <input type="email" id="auth-email" required placeholder="ASSIGN EMAIL">
+                            </div>
+                            <div class="input-group">
+                                <label>ACCESS PASSKEY</label>
+                                <input type="password" id="auth-password" required placeholder="CREATE KEY">
+                            </div>
+                            <button type="submit" class="btn-primary full">CREATE CREDENTIALS</button>
+                        </form>
+                        <div class="auth-footer">
+                            <p>ALREADY A SURVIVOR? <a href="#" onclick="Alexandria.renderAuth(); return false;">LOG IN</a></p>
                         </div>
-                        <div class="input-group">
-                            <label>ACCESS PASSKEY</label>
-                            <input type="password" id="auth-password" required placeholder="CREATE KEY">
-                        </div>
-                        <button type="submit" class="btn-primary full">CREATE CREDENTIALS</button>
-                    </form>
-                    <div class="auth-footer">
-                        <p>ALREADY A SURVIVOR? <a href="#" onclick="Alexandria.renderAuth(); return false;">LOG IN</a></p>
                     </div>
-                </div>
-            </section>`;
+                </section>`;
+        }, card ? 300 : 0);
     },
 
     async renderHome() {
