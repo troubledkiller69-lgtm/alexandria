@@ -330,13 +330,33 @@ h1, h2, h3 {
 .auth-footer a {
     color: var(--accent-rust);
     text-decoration: none;
-    font-weight: 700;
-    margin-left: 0.5rem;
+    font-weight: 800;
+    margin-left: 0.8rem;
+    text-transform: uppercase;
+    transition: all 0.3s ease;
+}
+
+.auth-footer a:hover {
+    color: #fff;
+    text-shadow: 0 0 10px var(--accent-rust);
 }
 
 .btn-primary.full {
     width: 100%;
+    padding: 1.6rem;
+    font-size: 0.9rem;
+    letter-spacing: 4px;
+    font-weight: 800;
 }
+
+.safe-zone-stamp.large {
+    font-size: 4rem;
+    margin: 0 auto;
+    width: 80px;
+    height: 80px;
+    line-height: 80px;
+    border-width: 3px;
+} 
 
 .view-section { margin-bottom: 4rem; padding: 0 4rem; }
 .view-section h3 { font-size: 1.8rem; margin-bottom: 1.5rem; font-weight: 700; color: var(--text-primary); text-transform: uppercase; }
