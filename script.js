@@ -17,60 +17,86 @@ const Alexandria = {
         console.log("Alexandria Protocol: Initializing Handshake...");
         this.main = document.getElementById('content');
         
-        // Start loading sequence immediately - don't block on network
+        // Start loading sequence immediately
         const loadingPromise = this.simulateLoading();
 
-        // Run network initialization in parallel
-        const initNetwork = async () => {
-            try {
-                const configRes = await fetch('/api/config');
-                const config = await configRes.json();
-                
-                if (!config.supabaseUrl || !config.supabaseAnonKey) {
-                    console.error("Alexandria Protocol: Security Keys Missing. Check Vercel Env Vars.");
-                }
+        // Run network initialization in parallel - don't let it block the render
+        this.initNetwork().finally(() => {
+            console.log("Alexandria Protocol: Archive Initialized.");
+            this.render(); // Ensure we render after network check (even if it fails)
+        });
 
-                this.supabase = supabase.createClient(config.supabaseUrl, config.supabaseAnonKey);
-                console.log("Alexandria Protocol: Gateway Connected.");
-                
-                this.supabase.auth.onAuthStateChange(async (event, session) => {
-                    console.log("Alexandria Protocol: Auth Event -", event);
-                    this.state.user = session?.user || null;
-                    if (event === 'SIGNED_IN') {
-                        await this.syncFromCloud();
-                        this.setView('home');
-                    } else if (event === 'SIGNED_OUT') {
-                        this.state.watchlist = [];
-                        this.state.history = [];
-                        this.setView('auth');
-                    }
-                    this.render();
-                });
-
-                const { data: { session } } = await this.supabase.auth.getSession();
-                if (session) {
-                    console.log("Alexandria Protocol: Session Restored.");
-                    this.state.user = session.user;
-                    await this.syncFromCloud();
-                } else {
-                    console.log("Alexandria Protocol: No Active Session. Redirecting to Entrance.");
-                    this.state.view = 'auth';
-                }
-            } catch (e) {
-                console.error("Alexandria Protocol: Secure Handshake Failed -", e);
-                // Fail-safe: let them in even if supabase fails (they'll just see auth screen)
-                this.state.view = 'auth';
-            }
-        };
-
-        // Wait for both loading and (optionally) network
-        await Promise.all([loadingPromise, initNetwork()]);
+        await loadingPromise;
         
         this.bindEvents();
-        this.render();
+        this.render(); // Render once loading bar is done
         
         window.addEventListener('hashchange', () => this.handleRouting());
         this.handleRouting();
+    },
+
+    async initNetwork() {
+        try {
+            const configRes = await fetch('/api/config');
+            const config = await configRes.json();
+            
+            if (!config.supabaseUrl || !config.supabaseAnonKey) {
+                console.error("Alexandria Protocol: Security Keys Missing.");
+                this.state.view = 'auth';
+                return;
+            }
+
+            this.supabase = supabase.createClient(config.supabaseUrl, config.supabaseAnonKey);
+            
+            this.supabase.auth.onAuthStateChange(async (event, session) => {
+                console.log("Alexandria Protocol: Auth Event -", event);
+                this.state.user = session?.user || null;
+                this.updateSyncIndicator(event === 'SIGNED_IN' ? 'SYNCED' : 'OFFLINE');
+                
+                if (event === 'SIGNED_IN') {
+                    await this.syncFromCloud();
+                    this.setView('home');
+                } else if (event === 'SIGNED_OUT') {
+                    this.state.watchlist = [];
+                    this.state.history = [];
+                    this.setView('auth');
+                }
+                this.render();
+            });
+
+            const { data: { session } } = await this.supabase.auth.getSession();
+            if (session) {
+                this.state.user = session.user;
+                this.updateSyncIndicator('SYNCED');
+                await this.syncFromCloud();
+            } else {
+                this.state.view = 'auth';
+                this.updateSyncIndicator('GUEST');
+            }
+        } catch (e) {
+            console.error("Alexandria Protocol: Network Init Failed -", e);
+            this.state.view = 'auth';
+        }
+    },
+
+    updateSyncIndicator(status) {
+        const dot = document.querySelector('.status-dot');
+        const text = document.querySelector('.status-text');
+        if (!dot || !text) return;
+        
+        if (status === 'SYNCED') {
+            dot.style.background = '#10b981';
+            dot.style.boxShadow = '0 0 10px #10b981';
+            text.textContent = 'ARCHIVE SYNCED';
+        } else if (status === 'OFFLINE') {
+            dot.style.background = '#ef4444';
+            dot.style.boxShadow = '0 0 10px #ef4444';
+            text.textContent = 'SYNC OFFLINE';
+        } else {
+            dot.style.background = '#f59e0b';
+            dot.style.boxShadow = '0 0 10px #f59e0b';
+            text.textContent = 'ESTABLISHING...';
+        }
     },
 
     simulateLoading() {
