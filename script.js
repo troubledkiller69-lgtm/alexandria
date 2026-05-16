@@ -38,7 +38,7 @@ const Alexandria = {
 
     async initNetwork() {
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 5000); // 5s timeout
+        const timeoutId = setTimeout(() => controller.abort(), 10000); // Increased to 10s
 
         try {
             const configRes = await fetch('/api/config', { signal: controller.signal });
@@ -48,7 +48,6 @@ const Alexandria = {
             if (!config.supabaseUrl || !config.supabaseAnonKey) {
                 console.error("Alexandria Protocol: Security Keys Missing.");
                 this.state.view = 'auth';
-                this.render();
                 return;
             }
 
@@ -68,6 +67,7 @@ const Alexandria = {
                     this.state.history = [];
                     this.setView('auth');
                 }
+                this.render();
             });
 
             const { data: { session } } = await this.supabase.auth.getSession();
@@ -75,16 +75,17 @@ const Alexandria = {
                 this.state.user = session.user;
                 this.updateSyncIndicator('SYNCED');
                 await this.syncFromCloud();
+                if (this.state.view === 'auth') this.setView('home');
             } else {
                 this.state.view = 'auth';
                 this.updateSyncIndicator('GUEST');
             }
         } catch (e) {
-            console.error("Alexandria Protocol: Handshake Timed Out or Failed -", e);
+            console.error("Alexandria Protocol: Handshake Failure -", e);
             this.state.view = 'auth';
             this.updateSyncIndicator('OFFLINE');
         } finally {
-            this.render(); // Ensure UI reflects final init state
+            this.render();
         }
     },
 
@@ -187,11 +188,18 @@ const Alexandria = {
         btn.disabled = true;
 
         try {
-            const { error } = type === 'login' 
+            const { data, error } = type === 'login' 
                 ? await this.supabase.auth.signInWithPassword({ email, password })
                 : await this.supabase.auth.signUp({ email, password });
             if (error) throw error;
-            if (type === 'signup') alert("Check email for verification!");
+            
+            if (type === 'login' && data.user) {
+                this.state.user = data.user;
+                await this.syncFromCloud();
+                this.setView('home');
+            } else if (type === 'signup') {
+                alert("Check email for verification!");
+            }
         } catch (error) {
             alert("Error: " + error.message);
             btn.textContent = type === 'login' ? "ACCESS ARCHIVE" : "CREATE CREDENTIALS";
@@ -205,19 +213,21 @@ const Alexandria = {
             this.supabase.from('watchlist').select('*').order('created_at', { ascending: false }),
             this.supabase.from('history').select('*').order('created_at', { ascending: false }).limit(10)
         ]);
-        this.state.watchlist = wRes.data?.map(i => ({ id: i.content_id, type: i.type, title: i.title, poster_path: i.poster_path })) || [];
-        this.state.history = hRes.data?.map(i => ({ id: i.content_id, type: i.type, title: i.title, poster_path: i.poster_path })) || [];
+        this.state.watchlist = wRes.data?.map(i => ({ id: String(i.content_id), type: i.type, title: i.title, poster_path: i.poster_path })) || [];
+        this.state.history = hRes.data?.map(i => ({ id: String(i.content_id), type: i.type, title: i.title, poster_path: i.poster_path })) || [];
     },
 
     async toggleWatchlist(item) {
         if (!this.state.user) return;
-        const index = this.state.watchlist.findIndex(i => i.id == item.id);
+        const itemId = String(item.id);
+        const index = this.state.watchlist.findIndex(i => String(i.id) === itemId);
+        
         if (index === -1) {
             this.state.watchlist.unshift(item);
-            await this.supabase.from('watchlist').insert({ user_id: this.state.user.id, content_id: item.id, type: item.type, title: item.title, poster_path: item.poster_path });
+            await this.supabase.from('watchlist').insert({ user_id: this.state.user.id, content_id: itemId, type: item.type, title: item.title, poster_path: item.poster_path });
         } else {
             this.state.watchlist.splice(index, 1);
-            await this.supabase.from('watchlist').delete().match({ user_id: this.state.user.id, content_id: item.id });
+            await this.supabase.from('watchlist').delete().match({ user_id: this.state.user.id, content_id: itemId });
         }
         this.render();
     },
@@ -466,7 +476,7 @@ const Alexandria = {
             const type = item.media_type || (item.title ? 'movie' : 'tv');
             const title = item.title || item.name;
             const poster = item.poster_path ? `https://image.tmdb.org/t/p/w500${item.poster_path}` : 'https://via.placeholder.com/500x750?text=NO+IMAGE';
-            const inWatchlist = this.state.watchlist.some(i => i.id == item.id);
+            const inWatchlist = this.state.watchlist.some(i => String(i.id) === String(item.id));
             return `
                 <div class="movie-card" data-id="${item.id}" data-type="${type}">
                     <div class="poster-wrapper">
