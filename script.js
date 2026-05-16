@@ -469,9 +469,10 @@ const Alexandria = {
         
         let embedUrl;
         if (isAnime) {
+            // Trying vidsrc.me for better anime compatibility
             embedUrl = type === 'movie' 
-                ? `https://vidsrc.to/embed/movie/${id}`
-                : `https://vidsrc.to/embed/tv/${id}/${season}/${episode}`;
+                ? `https://vidsrc.me/embed/movie?tmdb=${id}`
+                : `https://vidsrc.me/embed/tv?tmdb=${id}&s=${season}&e=${episode}`;
         } else {
             embedUrl = type === 'movie' 
                 ? `https://www.vidking.net/embed/movie/${id}`
