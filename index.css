@@ -717,14 +717,17 @@ h1, h2, h3 {
 
 .loader-content {
     text-align: center;
-    width: 300px;
+    width: 600px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
 }
 
 .progress-bar {
     height: 2px;
-    width: 100%;
+    width: 300px;
     background: rgba(255,255,255,0.05);
-    margin: 2rem 0;
+    margin: 2rem auto;
     position: relative;
     overflow: hidden;
 }
@@ -778,8 +781,10 @@ h1, h2, h3 {
     font-size: 3rem;
     color: var(--text-primary);
     letter-spacing: 12px;
+    margin-right: -12px; /* Offset for letter-spacing centering */
     margin-bottom: 1rem;
     text-shadow: 0 0 20px rgba(255, 255, 255, 0.2);
+    text-align: center;
 }
 
 @keyframes stamp-pulse {
