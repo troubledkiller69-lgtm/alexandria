@@ -966,3 +966,172 @@ h1, h2, h3 {
 
 .hidden { display: none !important; }
 .visible { display: block !important; opacity: 1; }
+
+/* Auth & Security Clearance - Premium Motion Edition */
+.auth-view {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    padding: 2rem;
+    background: radial-gradient(circle at center, rgba(30, 41, 59, 0.4) 0%, var(--bg-color) 100%);
+    perspective: 1000px;
+}
+
+.auth-card {
+    background: rgba(15, 23, 42, 0.7);
+    backdrop-filter: blur(40px) saturate(200%);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    padding: 4rem;
+    border-radius: 28px;
+    width: 100%;
+    max-width: 460px;
+    text-align: center;
+    box-shadow: 0 40px 120px rgba(0,0,0,0.9);
+    position: relative;
+    overflow: hidden;
+    animation: authEntrance 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+    transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.4s ease;
+}
+
+@keyframes authEntrance {
+    from { opacity: 0; transform: translateY(20px) scale(0.98); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.auth-card.switching {
+    opacity: 0;
+    transform: translateY(-10px) scale(0.98);
+}
+
+.auth-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; width: 100%; height: 100%;
+    background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.2) 50%), 
+                linear-gradient(90deg, rgba(255, 0, 0, 0.02), rgba(0, 255, 0, 0.01), rgba(0, 0, 255, 0.02));
+    background-size: 100% 3px, 2px 100%;
+    pointer-events: none;
+    opacity: 0.2;
+}
+
+.auth-card h2 {
+    font-family: 'Bebas Neue', cursive;
+    font-size: 3.2rem;
+    margin: 1rem 0 0.2rem;
+    letter-spacing: 10px;
+    color: var(--text-primary);
+    animation: textFocus 0.8s ease-out;
+}
+
+@keyframes textFocus {
+    from { filter: blur(10px); opacity: 0; letter-spacing: 20px; }
+    to { filter: blur(0); opacity: 1; letter-spacing: 10px; }
+}
+
+.auth-subtitle {
+    color: var(--accent-rust);
+    font-size: 0.65rem;
+    letter-spacing: 6px;
+    font-weight: 900;
+    margin-bottom: 3.5rem;
+    text-transform: uppercase;
+    opacity: 0.6;
+}
+
+.input-group {
+    text-align: left;
+    margin-bottom: 2rem;
+    animation: slideUpFade 0.5s ease-out backwards;
+}
+
+.input-group:nth-child(1) { animation-delay: 0.1s; }
+.input-group:nth-child(2) { animation-delay: 0.2s; }
+
+@keyframes slideUpFade {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.input-group label {
+    display: block;
+    font-size: 0.6rem;
+    letter-spacing: 4px;
+    margin-bottom: 0.8rem;
+    color: var(--text-secondary);
+    font-weight: 800;
+}
+
+.input-group input {
+    width: 100%;
+    background: rgba(0,0,0,0.4);
+    border: 1px solid rgba(255,255,255,0.06);
+    padding: 1.2rem 1.4rem;
+    color: #fff;
+    border-radius: 14px;
+    font-family: 'Inter', sans-serif;
+    font-size: 0.85rem;
+    outline: none;
+    transition: all 0.25s ease-out;
+}
+
+.input-group input:focus {
+    border-color: var(--accent-rust);
+    background: rgba(255,255,255,0.04);
+    transform: scale(1.01);
+}
+
+.btn-primary.full {
+    width: 100%;
+    padding: 1.4rem;
+    font-size: 0.85rem;
+    letter-spacing: 5px;
+    font-weight: 900;
+    border-radius: 14px;
+    margin-top: 1rem;
+    transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.btn-primary.full:active {
+    transform: scale(0.96);
+    filter: brightness(0.9);
+}
+
+.auth-footer {
+    margin-top: 2.5rem;
+    font-size: 0.7rem;
+    color: var(--text-secondary);
+}
+
+.auth-footer a {
+    color: var(--accent-rust);
+    text-decoration: none;
+    font-weight: 900;
+    margin-left: 0.6rem;
+    text-transform: uppercase;
+    transition: color 0.2s ease;
+}
+
+.auth-footer a:hover { color: #fff; }
+
+.safe-zone-stamp.large {
+    font-family: 'Stardos Stencil', cursive;
+    color: var(--accent-rust);
+    width: 80px;
+    height: 80px;
+    border: 3px solid var(--accent-rust);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto 1.5rem;
+    font-size: 3rem;
+}
+
+/* Accessibility */
+@media (prefers-reduced-motion: reduce) {
+    .auth-card, .auth-card h2, .input-group, .btn-primary.full {
+        animation: none !important;
+        transition: none !important;
+    }
+}
