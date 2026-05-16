@@ -17,46 +17,56 @@ const Alexandria = {
         console.log("Alexandria Protocol: Initializing Handshake...");
         this.main = document.getElementById('content');
         
-        try {
-            const configRes = await fetch('/api/config');
-            const config = await configRes.json();
-            
-            if (!config.supabaseUrl || !config.supabaseAnonKey) {
-                console.error("Alexandria Protocol: Security Keys Missing. Check Vercel Env Vars.");
-            }
+        // Start loading sequence immediately - don't block on network
+        const loadingPromise = this.simulateLoading();
 
-            this.supabase = supabase.createClient(config.supabaseUrl, config.supabaseAnonKey);
-            console.log("Alexandria Protocol: Gateway Connected.");
-            
-            this.supabase.auth.onAuthStateChange(async (event, session) => {
-                console.log("Alexandria Protocol: Auth Event -", event);
-                this.state.user = session?.user || null;
-                if (event === 'SIGNED_IN') {
-                    await this.syncFromCloud();
-                    this.setView('home');
-                } else if (event === 'SIGNED_OUT') {
-                    this.state.watchlist = [];
-                    this.state.history = [];
-                    this.setView('auth');
+        // Run network initialization in parallel
+        const initNetwork = async () => {
+            try {
+                const configRes = await fetch('/api/config');
+                const config = await configRes.json();
+                
+                if (!config.supabaseUrl || !config.supabaseAnonKey) {
+                    console.error("Alexandria Protocol: Security Keys Missing. Check Vercel Env Vars.");
                 }
-                this.render();
-            });
 
-            const { data: { session } } = await this.supabase.auth.getSession();
-            if (session) {
-                console.log("Alexandria Protocol: Session Restored.");
-                this.state.user = session.user;
-                await this.syncFromCloud();
-            } else {
-                console.log("Alexandria Protocol: No Active Session. Redirecting to Entrance.");
+                this.supabase = supabase.createClient(config.supabaseUrl, config.supabaseAnonKey);
+                console.log("Alexandria Protocol: Gateway Connected.");
+                
+                this.supabase.auth.onAuthStateChange(async (event, session) => {
+                    console.log("Alexandria Protocol: Auth Event -", event);
+                    this.state.user = session?.user || null;
+                    if (event === 'SIGNED_IN') {
+                        await this.syncFromCloud();
+                        this.setView('home');
+                    } else if (event === 'SIGNED_OUT') {
+                        this.state.watchlist = [];
+                        this.state.history = [];
+                        this.setView('auth');
+                    }
+                    this.render();
+                });
+
+                const { data: { session } } = await this.supabase.auth.getSession();
+                if (session) {
+                    console.log("Alexandria Protocol: Session Restored.");
+                    this.state.user = session.user;
+                    await this.syncFromCloud();
+                } else {
+                    console.log("Alexandria Protocol: No Active Session. Redirecting to Entrance.");
+                    this.state.view = 'auth';
+                }
+            } catch (e) {
+                console.error("Alexandria Protocol: Secure Handshake Failed -", e);
+                // Fail-safe: let them in even if supabase fails (they'll just see auth screen)
                 this.state.view = 'auth';
             }
-        } catch (e) {
-            console.error("Alexandria Protocol: Secure Handshake Failed -", e);
-        }
+        };
 
+        // Wait for both loading and (optionally) network
+        await Promise.all([loadingPromise, initNetwork()]);
+        
         this.bindEvents();
-        await this.simulateLoading();
         this.render();
         
         window.addEventListener('hashchange', () => this.handleRouting());
