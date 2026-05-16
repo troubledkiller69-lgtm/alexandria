@@ -755,39 +755,36 @@ h1, h2, h3 {
     50% { opacity: 1; }
 }
 
-/* Glitch Effect */
-.glitch {
-    position: relative;
+/* Alexandria Safe Zone Stamp & Title */
+.safe-zone-stamp {
+    font-family: 'Stardos Stencil', cursive;
+    font-size: 8rem;
+    color: var(--accent-rust);
+    width: 150px;
+    height: 150px;
+    border: 4px solid var(--accent-rust);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto 2rem;
+    text-shadow: 0 0 30px rgba(225, 29, 72, 0.6);
+    box-shadow: 0 0 30px rgba(225, 29, 72, 0.2), inset 0 0 20px rgba(225, 29, 72, 0.2);
+    animation: stamp-pulse 2s infinite ease-in-out;
+}
+
+.archive-title {
     font-family: 'Stardos Stencil', cursive;
     font-size: 3rem;
-    color: var(--accent-rust);
-    letter-spacing: 10px;
+    color: var(--text-primary);
+    letter-spacing: 12px;
+    margin-bottom: 1rem;
+    text-shadow: 0 0 20px rgba(255, 255, 255, 0.2);
 }
 
-.glitch::before, .glitch::after {
-    content: attr(data-text);
-    position: absolute;
-    top: 0; left: 0; width: 100%; height: 100%;
-}
-
-.glitch::before {
-    left: 2px;
-    text-shadow: -2px 0 #ff00c1;
-    clip: rect(44px, 450px, 56px, 0);
-    animation: glitch-anim 5s infinite linear alternate-reverse;
-}
-
-.glitch::after {
-    left: -2px;
-    text-shadow: -2px 0 #00fff9, 2px 2px #ff00c1;
-    animation: glitch-anim2 1s infinite linear alternate-reverse;
-}
-
-@keyframes glitch-anim {
-    0% { clip: rect(31px, 9999px, 94px, 0); }
-    20% { clip: rect(62px, 9999px, 42px, 0); }
-    /* ... more keyframes for a real glitch ... */
-    100% { clip: rect(13px, 9999px, 86px, 0); }
+@keyframes stamp-pulse {
+    0%, 100% { transform: scale(1); opacity: 0.8; box-shadow: 0 0 30px rgba(225, 29, 72, 0.2); }
+    50% { transform: scale(1.05); opacity: 1; box-shadow: 0 0 60px rgba(225, 29, 72, 0.4); }
 }
 
 /* Footer Status */
