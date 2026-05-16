@@ -339,13 +339,14 @@ const Alexandria = {
         this.main.innerHTML = '<div class="placeholder-msg"><span class="pulse-dot"></span> LOADING SECTORS...</div>';
         
         try {
-            const [mRes, tRes, nRes, hRes, aRes, uRes] = await Promise.all([
+            const [mRes, tRes, nRes, hRes, aRes, uRes, sRes] = await Promise.all([
                 fetch(`/api/proxy?endpoint=trending/movie/day`),
                 fetch(`/api/proxy?endpoint=trending/tv/day`),
                 fetch(`/api/proxy?endpoint=discover/movie?with_watch_providers=8&watch_region=US`),
                 fetch(`/api/proxy?endpoint=discover/movie?with_watch_providers=49&watch_region=US`),
                 fetch(`/api/proxy?endpoint=discover/movie?with_genres=28`),
-                fetch(`/api/proxy?endpoint=movie/upcoming`)
+                fetch(`/api/proxy?endpoint=movie/upcoming`),
+                fetch(`/api/proxy?endpoint=search/tv?query=The Walking Dead`)
             ]);
             
             const mData = await mRes.json();
@@ -354,11 +355,17 @@ const Alexandria = {
             const hData = await hRes.json();
             const aData = await aRes.json();
             const uData = await uRes.json();
+            const sData = await sRes.json();
             
             const featured = mData.results?.[0];
             const last = this.state.history?.[0];
 
             if (!featured) throw new Error("No featured content found.");
+
+            // Filter "The Walking Dead" results to ensure we only get the main series
+            const walkingDeadSpecials = sData.results.filter(item => 
+                item.name.toLowerCase().includes('walking dead')
+            ).sort((a, b) => new Date(a.first_air_date) - new Date(b.first_air_date));
 
             this.main.innerHTML = `
                 <section class="home-view">
@@ -374,6 +381,7 @@ const Alexandria = {
                         </div>` : ''}
                     </div>
                     <div id="priority-archive-section"></div>
+                    <div class="view-section"><h3>ALEXANDRIA'S SPECIALS</h3><div class="carousel-wrapper"><div class="carousel-grid" id="alexandria-specials"></div></div></div>
                     <div class="view-section"><h3>Trending Movies</h3><div class="carousel-wrapper"><div class="carousel-grid" id="trending-movies"></div></div></div>
                     <div class="view-section"><h3>Netflix Originals</h3><div class="carousel-wrapper"><div class="carousel-grid" id="netflix-hits"></div></div></div>
                     <div class="view-section"><h3>HBO Masterpieces</h3><div class="carousel-wrapper"><div class="carousel-grid" id="hbo-hits"></div></div></div>
@@ -383,6 +391,7 @@ const Alexandria = {
                 </section>`;
             
             this.renderWatchlist();
+            this.renderResults(walkingDeadSpecials, 'alexandria-specials');
             this.renderResults(mData.results, 'trending-movies');
             this.renderResults(tData.results, 'trending-tv');
             this.renderResults(nData.results, 'netflix-hits');
