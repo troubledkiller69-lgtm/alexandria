@@ -15,7 +15,17 @@ const Alexandria = {
         this.cacheDom();
         this.bindEvents();
         window.addEventListener('hashchange', () => this.handleRouting());
-        this.handleRouting();
+        
+        // Initial load simulation
+        setTimeout(() => {
+            document.getElementById('loading-screen').style.opacity = '0';
+            setTimeout(() => {
+                document.getElementById('loading-screen').classList.add('hidden');
+                document.getElementById('app').classList.remove('hidden');
+                document.getElementById('app').classList.add('visible');
+                this.handleRouting();
+            }, 800);
+        }, 2000);
     },
 
     cacheDom() {
@@ -52,7 +62,8 @@ const Alexandria = {
                 const card = e.target.classList.contains('movie-card') ? e.target : e.target.closest('.movie-card');
                 const id = card.dataset.id;
                 const type = card.dataset.type || 'movie';
-                this.playContent(id, type);
+                const isAnime = card.dataset.isAnime === 'true';
+                this.playContent(id, type, isAnime);
             }
             if (e.target.classList.contains('approve-btn')) {
                 const id = parseInt(e.target.dataset.id);
@@ -257,16 +268,16 @@ const Alexandria = {
                     </div>
 
                     <div class="view-section">
-                        <h3>Top Rated Classics</h3>
+                        <h3>New Seasonal Releases (Sub & Dub)</h3>
                         <div class="carousel-wrapper">
-                            <div class="carousel-grid" id="anime-top"></div>
+                            <div class="carousel-grid" id="anime-new"></div>
                         </div>
                     </div>
 
                     <div class="view-section">
-                        <h3>New Seasonal Releases</h3>
+                        <h3>Top Rated Masterpieces</h3>
                         <div class="carousel-wrapper">
-                            <div class="carousel-grid" id="anime-new"></div>
+                            <div class="carousel-grid" id="anime-top"></div>
                         </div>
                     </div>
                 </section>
@@ -343,11 +354,16 @@ const Alexandria = {
                 ? `https://image.tmdb.org/t/p/w500${item.poster_path}` 
                 : 'https://via.placeholder.com/500x750?text=NO+IMAGE';
             
+            // Check if anime (Genre 16)
+            const isAnime = item.genre_ids && item.genre_ids.includes(16);
+            const badgeHtml = isAnime ? '<div class="anime-badge">SUB | DUB</div>' : '';
+            
             return `
-                <div class="movie-card" data-id="${item.id}" data-type="${type}">
+                <div class="movie-card" data-id="${item.id}" data-type="${type}" data-is-anime="${isAnime}">
                     <div class="poster-wrapper">
                         <img src="${poster}" alt="${title}">
                         <div class="card-overlay">
+                            ${badgeHtml}
                             <span class="card-rating">⭐ ${item.vote_average ? item.vote_average.toFixed(1) : 'N/A'}</span>
                         </div>
                     </div>
@@ -360,14 +376,16 @@ const Alexandria = {
         }).join('');
     },
 
-    playContent(tmdbId, type = 'movie') {
-        this.fetchDetails(tmdbId, type);
+    playContent(tmdbId, type = 'movie', isAnime = false) {
+        this.fetchDetails(tmdbId, type, isAnime);
     },
 
-    async fetchDetails(id, type) {
+    async fetchDetails(id, type, isAnimeFlag = false) {
         try {
             const response = await fetch(`https://api.themoviedb.org/3/${type}/${id}?api_key=${this.state.tmdbApiKey}`);
             const data = await response.json();
+            // Store the anime flag for the player
+            data.isAnimeFlag = isAnimeFlag;
             this.showModal(data, type);
         } catch (error) {
             console.error("Details scout failed:", error);
@@ -416,9 +434,13 @@ const Alexandria = {
         document.querySelector('.modal-close').onclick = () => document.getElementById('movie-modal').remove();
         document.getElementById('final-play-btn').onclick = (e) => {
             const { id, type } = e.target.dataset;
+            // Detect if it's anime before playing (using multiple checks)
+            const isAnime = data.isAnimeFlag || (data.genres && data.genres.some(g => g.id === 16 || g.name.toLowerCase().includes('anime')));
+            
             this.state.activeContent = { 
                 id, 
                 type, 
+                isAnime,
                 season: type === 'tv' ? 1 : undefined, 
                 episode: type === 'tv' ? 1 : undefined 
             };
@@ -435,9 +457,21 @@ const Alexandria = {
         }
 
         const { id, type, season, episode } = this.state.activeContent;
-        const embedUrl = type === 'movie' 
-            ? `https://www.vidking.net/embed/movie/${id}`
-            : `https://www.vidking.net/embed/tv/${id}/${season}/${episode}`;
+        
+        // Selective Provider Logic
+        // Anime (detected via state or genre, for now we check if we're in anime view or use a more robust check)
+        const isAnime = this.state.view === 'anime' || (this.state.activeContent.isAnime);
+        
+        let embedUrl;
+        if (isAnime) {
+            embedUrl = type === 'movie' 
+                ? `https://vidsrc.to/embed/movie/${id}`
+                : `https://vidsrc.to/embed/tv/${id}/${season}/${episode}`;
+        } else {
+            embedUrl = type === 'movie' 
+                ? `https://www.vidking.net/embed/movie/${id}`
+                : `https://www.vidking.net/embed/tv/${id}/${season}/${episode}`;
+        }
 
         this.main.innerHTML = `
             <section class="screening-room elite-layout">

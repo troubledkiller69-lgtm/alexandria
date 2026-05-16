@@ -8,7 +8,15 @@
     <link href="https://fonts.googleapis.com/css2?family=Stardos+Stencil:wght@400;700&family=Bebas+Neue&family=Inter:wght@400;700&display=swap" rel="stylesheet">
 </head>
 <body class="grime-theme">
-    <div id="app">
+    <div id="loading-screen">
+        <div class="loader-content">
+            <h1 class="glitch" data-text="ALEXANDRIA">ALEXANDRIA</h1>
+            <div class="progress-bar"><div class="progress-fill"></div></div>
+            <p class="loader-status">CONNECTING TO SECURE ARCHIVE...</p>
+        </div>
+    </div>
+
+    <div id="app" class="hidden">
         <!-- React will mount here, but for now we'll start with the base UI -->
         <header class="watchtower">
             <h1 onclick="location.hash='#home'">ALEXANDRIA</h1>
@@ -28,7 +36,12 @@
         </main>
 
         <footer class="survivor-log">
-            <p>&copy; Survival Year 2 | Alexandria Archive</p>
+            <div class="footer-content">
+                <p>&copy; Survival Year 2 | Alexandria Archive</p>
+                <div class="system-status">
+                    <span class="status-dot"></span> SECURE CONNECTION ESTABLISHED
+                </div>
+            </div>
         </footer>
     </div>
     <script src="script.js"></script>

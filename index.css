@@ -1,38 +1,67 @@
 :root {
-    --bg-color: #0a0b0d;
-    --text-primary: #ffffff;
-    --text-secondary: #a0a0a0;
-    --accent-rust: #c0392b;
-    --glass-bg: rgba(255, 255, 255, 0.03);
-    --glass-border: rgba(255, 255, 255, 0.08);
-    --liquid-blur: blur(30px);
-    --glow-rust: 0 0 30px rgba(192, 57, 43, 0.4);
+    --bg-color: #050608;
+    --text-primary: #f0f0f0;
+    --text-secondary: #94a3b8;
+    --accent-rust: #e11d48; /* More vibrant rose/rust */
+    --accent-glow: rgba(225, 29, 72, 0.5);
+    --glass-bg: rgba(15, 23, 42, 0.6);
+    --glass-border: rgba(255, 255, 255, 0.1);
+    --liquid-blur: blur(24px);
+    --glow-rust: 0 0 40px rgba(225, 29, 72, 0.3);
+    --panel-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.8);
 }
 
 body {
     background-color: var(--bg-color);
     background-image: 
-        radial-gradient(circle at 0% 0%, rgba(192, 57, 43, 0.15) 0%, transparent 50%),
-        radial-gradient(circle at 100% 100%, rgba(192, 57, 43, 0.05) 0%, transparent 50%);
+        radial-gradient(circle at 0% 0%, rgba(225, 29, 72, 0.12) 0%, transparent 40%),
+        radial-gradient(circle at 100% 100%, rgba(225, 29, 72, 0.08) 0%, transparent 40%),
+        url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3BaseFilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
     background-attachment: fixed;
     color: var(--text-primary);
     font-family: 'Inter', sans-serif;
+    overflow-x: hidden;
+    line-height: 1.5;
+}
+
+body::before {
+    content: "";
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.1) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.03), rgba(0, 255, 0, 0.01), rgba(0, 0, 255, 0.03));
+    z-index: 9999;
+    background-size: 100% 4px, 3px 100%;
+    pointer-events: none;
+    opacity: 0.15;
 }
 
 /* Liquid Glass Navigation */
 .watchtower {
     position: sticky;
-    top: 1rem;
+    top: 1.5rem;
     left: 0;
     right: 0;
     z-index: 1000;
-    margin: 0 2rem;
-    padding: 1rem 3rem;
+    margin: 0 4rem;
+    padding: 0.8rem 3rem;
     background: var(--glass-bg);
     backdrop-filter: var(--liquid-blur);
+    -webkit-backdrop-filter: var(--liquid-blur);
     border: 1px solid var(--glass-border);
-    border-radius: 50px;
-    box-shadow: 0 10px 40px rgba(0,0,0,0.5);
+    border-radius: 20px;
+    box-shadow: var(--panel-shadow);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.watchtower:hover {
+    background: rgba(15, 23, 42, 0.8);
+    border-color: rgba(225, 29, 72, 0.3);
 }
 
 .watchtower-content {
@@ -72,59 +101,67 @@ h1, h2, h3 {
     letter-spacing: 2px;
 }
 
-/* Header / Navigation */
-.watchtower {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 1.2rem 4rem;
-    background: var(--glass-bg);
-    backdrop-filter: blur(10px);
-    -webkit-backdrop-filter: blur(10px);
-    position: sticky;
-    top: 0;
-    z-index: 100;
-    border-bottom: 3px solid var(--accent-rust);
-}
-
+/* Consolidating into top-level .watchtower */
 .watchtower h1 {
     font-family: 'Stardos Stencil', cursive;
-    font-size: 2.2rem;
+    font-size: 1.8rem;
     font-weight: 700;
     color: var(--accent-rust);
-    letter-spacing: 3px;
+    letter-spacing: 6px;
     cursor: pointer;
-    text-shadow: 2px 2px 5px rgba(0,0,0,0.5);
+    text-shadow: 0 0 20px rgba(225, 29, 72, 0.4);
+    margin: 0;
+    transition: all 0.3s ease;
 }
 
-.main-nav { display: flex; gap: 3rem; }
+.watchtower h1:hover {
+    filter: brightness(1.2);
+    letter-spacing: 8px;
+}
+
+.main-nav { 
+    display: flex; 
+    gap: 3.5rem; 
+    align-items: center;
+}
 
 .nav-link {
     color: var(--text-secondary);
     text-decoration: none;
-    font-weight: 800;
-    font-size: 0.9rem;
+    font-weight: 700;
+    font-size: 0.85rem;
     text-transform: uppercase;
-    letter-spacing: 1px;
-    transition: all 0.3s ease;
+    letter-spacing: 2px;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     position: relative;
     padding: 0.5rem 0;
-    font-family: 'Bebas Neue', sans-serif;
+    font-family: 'Inter', sans-serif; /* Cleaner than Bebas for nav */
 }
 
-.nav-link:hover, .nav-link.active {
+.nav-link:hover {
+    color: var(--text-primary);
+    text-shadow: 0 0 10px rgba(255, 255, 255, 0.3);
+}
+
+.nav-link.active {
     color: var(--accent-rust);
 }
 
-.nav-link.active::after {
+.nav-link::after {
     content: "";
     position: absolute;
-    bottom: -18px;
-    left: 0;
-    width: 100%;
-    height: 3px;
+    bottom: 0;
+    left: 50%;
+    width: 0;
+    height: 2px;
     background: var(--accent-rust);
+    transition: all 0.3s ease;
+    transform: translateX(-50%);
     box-shadow: var(--glow-rust);
+}
+
+.nav-link:hover::after, .nav-link.active::after {
+    width: 100%;
 }
 
 .icon-btn {
@@ -206,45 +243,57 @@ h1, h2, h3 {
 
 /* Movie Cards */
 .movie-card {
-    width: 200px;
+    width: 220px;
     flex-shrink: 0;
     cursor: pointer;
-    transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    transition: all 0.4s cubic-bezier(0.23, 1, 0.32, 1);
+    position: relative;
 }
 
-.movie-card:hover { transform: translateY(-10px); }
+.movie-card:hover { 
+    transform: scale(1.05); 
+    z-index: 10;
+}
 
 .poster-wrapper {
     position: relative;
     width: 100%;
     aspect-ratio: 2/3;
-    border-radius: 12px;
+    border-radius: 16px;
     overflow: hidden;
-    background: var(--glass-bg);
+    background: #0f172a;
     border: 1px solid var(--glass-border);
-    backdrop-filter: blur(10px);
+    box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+    transition: all 0.4s ease;
+}
+
+.movie-card:hover .poster-wrapper {
+    border-color: var(--accent-rust);
+    box-shadow: 0 0 30px rgba(225, 29, 72, 0.2);
 }
 
 .poster-wrapper img {
     width: 100%;
     height: 100%;
     object-fit: cover;
-    transition: transform 0.5s ease;
+    transition: transform 0.6s cubic-bezier(0.23, 1, 0.32, 1);
 }
 
-.movie-card:hover img { transform: scale(1.1); }
+.movie-card:hover img { 
+    transform: scale(1.1) rotate(1deg); 
+    filter: brightness(0.7);
+}
 
 .card-overlay {
     position: absolute;
-    top: 10px; right: 10px;
-    background: rgba(0,0,0,0.8);
-    padding: 4px 8px;
-    font-size: 0.8rem;
-    font-weight: 800;
-    color: var(--accent-rust);
+    inset: 0;
+    background: linear-gradient(to top, rgba(0,0,0,0.8) 0%, transparent 60%);
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    padding: 1.5rem;
     opacity: 0;
     transition: opacity 0.3s ease;
-    border: 1px solid var(--accent-rust);
 }
 
 .movie-card:hover .card-overlay { opacity: 1; }
@@ -416,28 +465,45 @@ h1, h2, h3 {
 
 /* Sidebar */
 .episode-sidebar {
-    width: 400px;
-    background: var(--card-bg);
-    border: 1px solid var(--border-color);
+    width: 420px;
+    background: var(--glass-bg);
+    backdrop-filter: var(--liquid-blur);
+    border: 1px solid var(--glass-border);
+    border-radius: 20px;
     display: flex;
     flex-direction: column;
+    box-shadow: var(--panel-shadow);
 }
 
 .sidebar-header {
-    padding: 1.5rem;
-    border-bottom: 1px solid var(--border-color);
+    padding: 1.5rem 2rem;
+    border-bottom: 1px solid var(--glass-border);
     display: flex;
     justify-content: space-between;
     align-items: center;
 }
 
-.sidebar-header h3 { font-size: 1.2rem; color: var(--accent-rust); }
-.sidebar-header select {
-    background: #000;
-    color: #fff;
-    border: 1px solid var(--border-color);
-    padding: 0.3rem 0.5rem;
+.sidebar-header h3 { 
+    font-size: 1.1rem; 
+    color: var(--accent-rust); 
+    letter-spacing: 2px;
     font-family: 'Bebas Neue', sans-serif;
+}
+
+.sidebar-header select {
+    background: rgba(0,0,0,0.5);
+    color: var(--text-primary);
+    border: 1px solid var(--glass-border);
+    padding: 0.4rem 1rem;
+    font-family: 'Bebas Neue', sans-serif;
+    border-radius: 8px;
+    outline: none;
+    cursor: pointer;
+    transition: border-color 0.3s;
+}
+
+.sidebar-header select:focus {
+    border-color: var(--accent-rust);
 }
 
 .episode-list {
@@ -489,8 +555,34 @@ h1, h2, h3 {
     gap: 0.2rem;
 }
 
-.ep-num { font-size: 0.7rem; color: var(--accent-rust); font-family: 'Bebas Neue', sans-serif; }
-.ep-title { font-size: 0.9rem; color: var(--text-primary); font-weight: 600; line-height: 1.2; }
+.ep-num { 
+    font-size: 0.7rem; 
+    color: var(--accent-rust); 
+    font-family: 'Bebas Neue', sans-serif; 
+    letter-spacing: 1px;
+}
+
+.ep-title { 
+    font-size: 0.95rem; 
+    color: var(--text-primary); 
+    font-weight: 600; 
+    line-height: 1.2;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+.anime-badge {
+    background: var(--accent-rust);
+    color: #fff;
+    font-size: 0.6rem;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-weight: 900;
+    letter-spacing: 1px;
+    margin-right: 8px;
+}
 
 /* Countdown Overlay */
 .countdown-overlay {
@@ -504,19 +596,126 @@ h1, h2, h3 {
     z-index: 1000;
 }
 
-.hidden { display: none; }
-.placeholder-msg {
-    text-align: center;
-    padding: 10rem;
-    color: var(--text-secondary);
-    font-family: 'Bebas Neue', sans-serif;
-    font-size: 2rem;
+/* Loading Screen */
+#loading-screen {
+    position: fixed;
+    inset: 0;
+    background: var(--bg-color);
+    z-index: 10000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: opacity 0.8s ease, visibility 0.8s;
 }
 
-@media (max-width: 1024px) {
-    .watchtower { padding: 1.2rem 2rem; }
-    .hero-featured { padding: 2rem; }
-    .featured-content h2 { font-size: 3.5rem; }
-    .view-section { padding: 0 2rem; }
-    .carousel-wrapper { padding-left: 2rem; margin: 0 -2rem; }
+.loader-content {
+    text-align: center;
+    width: 300px;
 }
+
+.progress-bar {
+    height: 2px;
+    width: 100%;
+    background: rgba(255,255,255,0.05);
+    margin: 2rem 0;
+    position: relative;
+    overflow: hidden;
+}
+
+.progress-fill {
+    height: 100%;
+    width: 30%;
+    background: var(--accent-rust);
+    box-shadow: var(--glow-rust);
+    animation: progress 2s infinite ease-in-out;
+}
+
+@keyframes progress {
+    0% { left: -30%; }
+    100% { left: 100%; }
+}
+
+.loader-status {
+    font-family: 'Bebas Neue', sans-serif;
+    letter-spacing: 4px;
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+    animation: pulse 1.5s infinite;
+}
+
+@keyframes pulse {
+    0%, 100% { opacity: 0.4; }
+    50% { opacity: 1; }
+}
+
+/* Glitch Effect */
+.glitch {
+    position: relative;
+    font-family: 'Stardos Stencil', cursive;
+    font-size: 3rem;
+    color: var(--accent-rust);
+    letter-spacing: 10px;
+}
+
+.glitch::before, .glitch::after {
+    content: attr(data-text);
+    position: absolute;
+    top: 0; left: 0; width: 100%; height: 100%;
+}
+
+.glitch::before {
+    left: 2px;
+    text-shadow: -2px 0 #ff00c1;
+    clip: rect(44px, 450px, 56px, 0);
+    animation: glitch-anim 5s infinite linear alternate-reverse;
+}
+
+.glitch::after {
+    left: -2px;
+    text-shadow: -2px 0 #00fff9, 2px 2px #ff00c1;
+    animation: glitch-anim2 1s infinite linear alternate-reverse;
+}
+
+@keyframes glitch-anim {
+    0% { clip: rect(31px, 9999px, 94px, 0); }
+    20% { clip: rect(62px, 9999px, 42px, 0); }
+    /* ... more keyframes for a real glitch ... */
+    100% { clip: rect(13px, 9999px, 86px, 0); }
+}
+
+/* Footer Status */
+.footer-content {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 2rem 4rem;
+    border-top: 1px solid var(--glass-border);
+    margin-top: 4rem;
+}
+
+.system-status {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 0.8rem;
+    letter-spacing: 2px;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    color: var(--text-secondary);
+}
+
+.status-dot {
+    width: 6px;
+    height: 6px;
+    background: #10b981;
+    border-radius: 50%;
+    box-shadow: 0 0 10px #10b981;
+    animation: blink 1s infinite;
+}
+
+@keyframes blink {
+    0%, 100% { opacity: 0.4; }
+    50% { opacity: 1; }
+}
+
+.hidden { display: none !important; }
+.visible { display: block !important; opacity: 1; }
