@@ -237,8 +237,8 @@ const Alexandria = {
             await this.supabase.from('watchlist').delete().match({ user_id: this.state.user.id, content_id: itemId });
         }
         
-        // If we are in the Home view, we DO need to re-render to update the "Priority Archive" row
-        if (this.state.view === 'home') this.renderHome();
+        // If we are in the Home view, we only need to update the Watchlist row, not re-fetch everything
+        if (this.state.view === 'home') this.renderWatchlist();
     },
 
     async addToHistory(item) {
@@ -342,8 +342,8 @@ const Alexandria = {
             const [mRes, tRes, nRes, hRes, aRes, uRes] = await Promise.all([
                 fetch(`/api/proxy?endpoint=trending/movie/day`),
                 fetch(`/api/proxy?endpoint=trending/tv/day`),
-                fetch(`/api/proxy?endpoint=discover/movie?with_networks=213`),
-                fetch(`/api/proxy?endpoint=discover/movie?with_networks=49`),
+                fetch(`/api/proxy?endpoint=discover/movie?with_watch_providers=8&watch_region=US`),
+                fetch(`/api/proxy?endpoint=discover/movie?with_watch_providers=49&watch_region=US`),
                 fetch(`/api/proxy?endpoint=discover/movie?with_genres=28`),
                 fetch(`/api/proxy?endpoint=movie/upcoming`)
             ]);
@@ -373,7 +373,7 @@ const Alexandria = {
                             <div class="resume-content"><span class="resume-label">RESUMING...</span><h4>${last.title}</h4><p>CLICK TO RESUME</p></div>
                         </div>` : ''}
                     </div>
-                    ${this.state.watchlist.length > 0 ? `<div class="view-section"><h3>PRIORITY ARCHIVE</h3><div class="carousel-wrapper"><div class="carousel-grid" id="watchlist-results"></div></div></div>` : ''}
+                    <div id="priority-archive-section"></div>
                     <div class="view-section"><h3>Trending Movies</h3><div class="carousel-wrapper"><div class="carousel-grid" id="trending-movies"></div></div></div>
                     <div class="view-section"><h3>Netflix Originals</h3><div class="carousel-wrapper"><div class="carousel-grid" id="netflix-hits"></div></div></div>
                     <div class="view-section"><h3>HBO Masterpieces</h3><div class="carousel-wrapper"><div class="carousel-grid" id="hbo-hits"></div></div></div>
@@ -382,7 +382,7 @@ const Alexandria = {
                     <div class="view-section"><h3>Action Archives</h3><div class="carousel-wrapper"><div class="carousel-grid" id="action-hits"></div></div></div>
                 </section>`;
             
-            if (this.state.watchlist.length > 0) this.renderResults(this.state.watchlist, 'watchlist-results');
+            this.renderWatchlist();
             this.renderResults(mData.results, 'trending-movies');
             this.renderResults(tData.results, 'trending-tv');
             this.renderResults(nData.results, 'netflix-hits');
@@ -392,6 +392,18 @@ const Alexandria = {
         } catch (error) {
             console.error("Alexandria Protocol: Home Scout Failed -", error);
             this.main.innerHTML = '<div class="placeholder-msg">SECTOR SCAN FAILED. CHECK SIGNAL.</div>';
+        }
+    },
+
+    renderWatchlist() {
+        const container = document.getElementById('priority-archive-section');
+        if (!container) return;
+        
+        if (this.state.watchlist.length > 0) {
+            container.innerHTML = `<div class="view-section"><h3>PRIORITY ARCHIVE</h3><div class="carousel-wrapper"><div class="carousel-grid" id="watchlist-results"></div></div></div>`;
+            this.renderResults(this.state.watchlist, 'watchlist-results');
+        } else {
+            container.innerHTML = '';
         }
     },
 
