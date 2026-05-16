@@ -506,13 +506,13 @@ const Alexandria = {
     async render420() {
         this.main.innerHTML = '<div class="placeholder-msg"><span class="pulse-dot" style="background:#10b981;box-shadow:0 0 15px #10b981"></span> SCANNING ELEVATED FREQUENCIES...</div>';
         
-        // Curated catalog sourced from highmovies.net — searched by title for 100% accuracy
+        // Curated catalog themed around 'stoner / pothead' movies (referencing highmovies.net style)
         const catalog = {
-            'pophigh':   ['Inception', 'The Matrix', 'Fight Club', 'Pulp Fiction', 'The Big Lebowski', 'Fear and Loathing in Las Vegas', 'Donnie Darko', 'The Prestige', 'Spirited Away', 'Scott Pilgrim vs. the World'],
-            'trip':      ['Avatar', 'Doctor Strange', 'Blade Runner 2049', 'Everything Everywhere All at Once', '2001 A Space Odyssey', 'Dune', 'Tron Legacy', 'Life of Pi', 'Enter the Void', 'Spider-Man Into the Spider-Verse'],
-            'funny':     ['Superbad', 'Pineapple Express', 'The Hangover', 'Step Brothers', 'This is the End', 'Half Baked', 'Tropic Thunder', 'Anchorman', 'Dumb and Dumber', 'Hot Rod'],
-            'chill':     ['The Lobster', 'Swiss Army Man', 'Sorry to Bother You', 'Being John Malkovich', 'Under the Silver Lake', 'Waking Life', 'The Life Aquatic with Steve Zissou', 'Beau Is Afraid', 'Holy Motors', 'Eraserhead'],
-            'deep':      ['Interstellar', 'Arrival', 'Her', 'Ex Machina', 'The Truman Show', 'Eternal Sunshine of the Spotless Mind', 'A Ghost Story', 'The Tree of Life', 'Coherence', 'Predestination']
+            'classics':  ['Half Baked', 'Up in Smoke', "Cheech and Chong's Next Movie", 'Friday', 'Dazed and Confused', 'Fast Times at Ridgemont High', 'How High', 'The Big Lebowski', 'Fear and Loathing in Las Vegas', 'Easy Rider'],
+            'modern':    ['Pineapple Express', 'Harold & Kumar Go to White Castle', "Grandma's Boy", 'Super Troopers', 'Mac & Devin Go to High School', 'Smiley Face', 'Ted', 'Your Highness', 'Jay and Silent Bob Strike Back', 'This Is the End'],
+            'trippy':    ['Enter the Void', 'Waking Life', 'A Scanner Darkly', 'Pink Floyd: The Wall', 'Yellow Submarine', 'Heavy Metal', 'The Holy Mountain', 'Fantastic Planet', 'Paprika', 'Altered States'],
+            'chill':     ['Clerks', 'Mallrats', 'Slacker', 'Empire Records', 'The Beach Bum', 'Everybody Wants Some!!', 'Mid90s', 'Inherent Vice', 'Everybody Wants Some', 'Adventureland'],
+            'cult':      ['Superbad', 'Step Brothers', 'Tenacious D in The Pick of Destiny', 'Tropic Thunder', 'Half Baked', 'Dude, Where\\'s My Car?', 'Bill & Ted\\'s Excellent Adventure', 'Bio-Dome', 'Clueless', 'Wayne\\'s World']
         };
 
         try {
@@ -523,7 +523,7 @@ const Alexandria = {
                 .then(d => d.results?.[0] || null)
                 .catch(() => null);
 
-            const [pophigh, trip, funny, chill, deep] = await Promise.all(
+            const [classics, modern, trippy, chill, cult] = await Promise.all(
                 Object.values(catalog).map(titles => 
                     Promise.all(titles.map(searchMovie)).then(r => r.filter(Boolean))
                 )
@@ -534,18 +534,18 @@ const Alexandria = {
                     <div class="view-header" style="text-align:center;padding:3rem 4rem 1rem;">
                         <h2 style="font-size:4rem;background:linear-gradient(135deg,#065f46,#10b981,#34d399);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;">420 ZONE</h2>
                     </div>
-                    <div class="view-section"><h3 style="color:#10b981">Top Picks</h3><div class="carousel-wrapper"><div class="carousel-grid" id="420-pophigh"></div></div></div>
-                    <div class="view-section"><h3 style="color:#10b981">Trippy Visuals</h3><div class="carousel-wrapper"><div class="carousel-grid" id="420-trip"></div></div></div>
-                    <div class="view-section"><h3 style="color:#10b981">Laugh Out Loud</h3><div class="carousel-wrapper"><div class="carousel-grid" id="420-funny"></div></div></div>
+                    <div class="view-section"><h3 style="color:#10b981">Stoner Classics</h3><div class="carousel-wrapper"><div class="carousel-grid" id="420-classics"></div></div></div>
+                    <div class="view-section"><h3 style="color:#10b981">Modern Hits</h3><div class="carousel-wrapper"><div class="carousel-grid" id="420-modern"></div></div></div>
+                    <div class="view-section"><h3 style="color:#10b981">Trippy & Surreal</h3><div class="carousel-wrapper"><div class="carousel-grid" id="420-trippy"></div></div></div>
                     <div class="view-section"><h3 style="color:#10b981">Chill Vibes</h3><div class="carousel-wrapper"><div class="carousel-grid" id="420-chill"></div></div></div>
-                    <div class="view-section"><h3 style="color:#10b981">Mind Benders</h3><div class="carousel-wrapper"><div class="carousel-grid" id="420-deep"></div></div></div>
+                    <div class="view-section"><h3 style="color:#10b981">Cult Favorites</h3><div class="carousel-wrapper"><div class="carousel-grid" id="420-cult"></div></div></div>
                 </section>`;
             
-            this.renderResults(pophigh, '420-pophigh');
-            this.renderResults(trip, '420-trip');
-            this.renderResults(funny, '420-funny');
+            this.renderResults(classics, '420-classics');
+            this.renderResults(modern, '420-modern');
+            this.renderResults(trippy, '420-trippy');
             this.renderResults(chill, '420-chill');
-            this.renderResults(deep, '420-deep');
+            this.renderResults(cult, '420-cult');
         } catch (error) {
             console.error("Alexandria Protocol: 420 Zone Failed -", error);
             this.main.innerHTML = '<div class="placeholder-msg">ELEVATED SIGNAL LOST. TRY AGAIN.</div>';
