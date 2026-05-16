@@ -61,7 +61,9 @@ const Alexandria = {
                 const type = btn.dataset.type;
                 const title = btn.dataset.title;
                 const poster = btn.dataset.poster;
-                this.toggleWatchlist({ id, type, title, poster });
+                const rating = btn.dataset.rating;
+                const year = btn.dataset.year;
+                this.toggleWatchlist({ id, type, title, poster, rating, year });
             }
         });
 
@@ -418,15 +420,19 @@ const Alexandria = {
         resultsContainer.innerHTML = results.map(item => {
             const type = item.media_type || (item.title ? 'movie' : 'tv');
             if (type !== 'movie' && type !== 'tv') return '';
-            const title = item.title || item.name;
-            const poster = item.poster_path 
-                ? `https://image.tmdb.org/t/p/w500${item.poster_path}` 
-                : 'https://via.placeholder.com/500x750?text=NO+IMAGE';
             
-            // Check if it's SPECIFICALLY Anime, not just general Animation
-            // TMDB 16 is Animation. We need to check if it's also Japanese (origin_country) to be sure it's 'Anime'
-            const isAnime = item.genre_ids && item.genre_ids.includes(16) && 
-                           (item.original_language === 'ja' || (item.origin_country && item.origin_country.includes('JP')));
+            // Handle both TMDB API items and our saved Watchlist items
+            const title = item.title || item.name;
+            const poster = item.poster || (item.poster_path 
+                ? `https://image.tmdb.org/t/p/w500${item.poster_path}` 
+                : 'https://via.placeholder.com/500x750?text=NO+IMAGE');
+            
+            const rating = item.vote_average ? item.vote_average.toFixed(1) : (item.rating || 'N/A');
+            const releaseDate = item.release_date || item.first_air_date || item.year || 'Unknown Archive';
+
+            // Check if it's SPECIFICALLY Anime
+            const isAnime = item.isAnime || (item.genre_ids && item.genre_ids.includes(16) && 
+                           (item.original_language === 'ja' || (item.origin_country && item.origin_country.includes('JP'))));
             
             const badgeHtml = isAnime ? '<div class="anime-badge">SUB | DUB</div>' : '';
             const inWatchlist = this.state.watchlist.some(i => i.id == item.id);
@@ -434,20 +440,26 @@ const Alexandria = {
             return `
                 <div class="movie-card" data-id="${item.id}" data-type="${type}" data-is-anime="${isAnime}">
                     <div class="poster-wrapper">
-                        <img src="${poster}" alt="${title}">
+                        <img src="${poster}" alt="${title}" onerror="this.src='https://via.placeholder.com/500x750?text=SIGNAL+LOST'">
                         <div class="card-overlay">
                             ${badgeHtml}
                             <div class="card-actions">
-                                <button class="log-btn ${inWatchlist ? 'active' : ''}" data-id="${item.id}" data-type="${type}" data-title="${title}" data-poster="${poster}">
+                                <button class="log-btn ${inWatchlist ? 'active' : ''}" 
+                                        data-id="${item.id}" 
+                                        data-type="${type}" 
+                                        data-title="${title}" 
+                                        data-poster="${poster}"
+                                        data-rating="${rating}"
+                                        data-year="${releaseDate}">
                                     ${inWatchlist ? '📑' : '🔖'}
                                 </button>
-                                <span class="card-rating">⭐ ${item.vote_average ? item.vote_average.toFixed(1) : 'N/A'}</span>
+                                <span class="card-rating">⭐ ${rating}</span>
                             </div>
                         </div>
                     </div>
                     <div class="movie-info">
                         <h3>${title}</h3>
-                        <p>${item.release_date || item.first_air_date || 'Unknown'}</p>
+                        <p>${releaseDate}</p>
                     </div>
                 </div>
             `;
@@ -524,7 +536,14 @@ const Alexandria = {
                 season: type === 'tv' ? 1 : undefined, 
                 episode: type === 'tv' ? 1 : undefined 
             };
-            this.addToHistory({ id, type, title, poster });
+            this.addToHistory({ 
+                id, 
+                type, 
+                title, 
+                poster, 
+                rating: data.vote_average.toFixed(1), 
+                year: year 
+            });
             document.getElementById('movie-modal').remove();
             this.setView('player');
         };
