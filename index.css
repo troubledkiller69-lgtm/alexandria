@@ -990,8 +990,8 @@ h1, h2, h3 {
     box-shadow: 0 40px 120px rgba(0,0,0,0.9);
     position: relative;
     overflow: hidden;
-    animation: authEntrance 0.6s cubic-bezier(0.16, 1, 0.3, 1);
-    transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.4s ease;
+    animation: authEntrance 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.3s ease;
 }
 
 @keyframes authEntrance {
@@ -1016,17 +1016,17 @@ h1, h2, h3 {
 }
 
 .auth-card h2 {
-    font-family: 'Bebas Neue', cursive;
-    font-size: 3.2rem;
+    font-family: 'Stardos Stencil', cursive;
+    font-size: 2.8rem;
     margin: 1rem 0 0.2rem;
-    letter-spacing: 10px;
+    letter-spacing: 4px;
     color: var(--text-primary);
-    animation: textFocus 0.8s ease-out;
+    animation: textFocus 0.3s ease-out;
 }
 
 @keyframes textFocus {
-    from { filter: blur(10px); opacity: 0; letter-spacing: 20px; }
-    to { filter: blur(0); opacity: 1; letter-spacing: 10px; }
+    from { filter: blur(10px); opacity: 0; letter-spacing: 12px; }
+    to { filter: blur(0); opacity: 1; letter-spacing: 4px; }
 }
 
 .auth-subtitle {
@@ -1104,15 +1104,22 @@ h1, h2, h3 {
 }
 
 .auth-footer a {
-    color: var(--accent-rust);
+    color: #10b981; /* Toxic Signal Emerald */
     text-decoration: none;
     font-weight: 900;
     margin-left: 0.6rem;
     text-transform: uppercase;
-    transition: color 0.2s ease;
+    transition: all 0.2s ease;
+    padding: 0.2rem 0.5rem;
+    border: 1px solid rgba(16, 185, 129, 0.2);
+    border-radius: 4px;
 }
 
-.auth-footer a:hover { color: #fff; }
+.auth-footer a:hover { 
+    background: rgba(16, 185, 129, 0.1);
+    border-color: #10b981;
+    color: #fff; 
+}
 
 .safe-zone-stamp.large {
     font-family: 'Stardos Stencil', cursive;
