@@ -553,7 +553,8 @@ const Alexandria = {
     },
 
     async handleSearch() {
-        const query = document.getElementById('tmdb-search').value.trim();
+        const queryField = document.getElementById('tmdb-search');
+        const query = queryField.value.trim();
         if (!query) return;
         const container = document.getElementById('search-results');
         container.innerHTML = '<div class="placeholder-msg">LOCATING...</div>';
@@ -562,11 +563,14 @@ const Alexandria = {
             // Signal Tunneling V2: Triple-Encoded for maximum security through the proxy
             const endpoint = `search/multi?query=${encodeURIComponent(query)}`;
             const res = await fetch(`/api/proxy?endpoint=${encodeURIComponent(endpoint)}`);
+            
+            if (!res.ok) throw new Error("Signal Blocked");
+            
             const data = await res.json();
             this.renderResults(data.results || [], 'search-results');
         } catch (e) {
             console.error("Alexandria Protocol: Search Scanner Failed -", e);
-            container.innerHTML = '<div class="placeholder-msg">SEARCH SIGNAL INTERRUPTED.</div>';
+            container.innerHTML = '<div class="placeholder-msg">SEARCH SIGNAL INTERRUPTED - PERIMETER CHECK REQUIRED.</div>';
         }
     },
 
