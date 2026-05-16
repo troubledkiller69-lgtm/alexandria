@@ -7,7 +7,9 @@ const Alexandria = {
         searchTimeout: null,
         trendingData: null,
         activeContent: { id: null, type: 'movie', season: 1, episode: 1 },
-        autoNext: true
+        autoNext: true,
+        watchlist: JSON.parse(localStorage.getItem('alexandria_watchlist')) || [],
+        history: JSON.parse(localStorage.getItem('alexandria_history')) || []
     },
 
     init() {
@@ -47,6 +49,19 @@ const Alexandria = {
             if (this.state.clickCount >= 5) {
                 this.setView('admin');
                 this.state.clickCount = 0;
+            }
+        });
+
+        // Toggle Watchlist from Results
+        document.addEventListener('click', (e) => {
+            if (e.target.classList.contains('log-btn') || e.target.closest('.log-btn')) {
+                e.stopPropagation();
+                const btn = e.target.classList.contains('log-btn') ? e.target : e.target.closest('.log-btn');
+                const id = btn.dataset.id;
+                const type = btn.dataset.type;
+                const title = btn.dataset.title;
+                const poster = btn.dataset.poster;
+                this.toggleWatchlist({ id, type, title, poster });
             }
         });
 
@@ -113,6 +128,25 @@ const Alexandria = {
         });
     },
 
+    toggleWatchlist(item) {
+        const index = this.state.watchlist.findIndex(i => i.id == item.id);
+        if (index === -1) {
+            this.state.watchlist.unshift(item);
+        } else {
+            this.state.watchlist.splice(index, 1);
+        }
+        localStorage.setItem('alexandria_watchlist', JSON.stringify(this.state.watchlist));
+        this.render();
+    },
+
+    addToHistory(item) {
+        // Keep only unique items, move last watched to top
+        this.state.history = this.state.history.filter(i => i.id != item.id);
+        this.state.history.unshift(item);
+        if (this.state.history.length > 10) this.state.history.pop();
+        localStorage.setItem('alexandria_history', JSON.stringify(this.state.history));
+    },
+
     async renderHome() {
         try {
             // Fetch All Data first
@@ -133,6 +167,35 @@ const Alexandria = {
             const featured = mData.results[0];
             const backdrop = `https://image.tmdb.org/t/p/original${featured.backdrop_path}`;
 
+            let watchlistHtml = '';
+            if (this.state.watchlist.length > 0) {
+                watchlistHtml = `
+                    <div class="view-section priority-archive">
+                        <div class="section-header">
+                            <h3><span class="pulse-dot"></span> PRIORITY ARCHIVE</h3>
+                            <p class="section-tagline">YOUR SAVED TRANSMISSIONS</p>
+                        </div>
+                        <div class="carousel-wrapper">
+                            <div class="carousel-grid" id="watchlist-results"></div>
+                        </div>
+                    </div>
+                `;
+            }
+
+            let historyHtml = '';
+            if (this.state.history.length > 0) {
+                const last = this.state.history[0];
+                historyHtml = `
+                    <div class="resume-widget" onclick="Alexandria.playContent(${last.id}, '${last.type}')">
+                        <div class="resume-content">
+                            <span class="resume-label">RESUMING TRANSMISSION...</span>
+                            <h4>${last.title}</h4>
+                            <p>CLICK TO RE-ESTABLISH CONNECTION</p>
+                        </div>
+                    </div>
+                `;
+            }
+
             this.main.innerHTML = `
                 <section class="home-view">
                     <div class="hero-featured" style="background-image: linear-gradient(0deg, var(--bg-color) 0%, rgba(0,0,0,0.3) 100%), url('${backdrop}')">
@@ -142,8 +205,11 @@ const Alexandria = {
                             <p>${featured.overview}</p>
                             <button class="btn-primary" onclick="Alexandria.playContent(${featured.id}, 'movie')">WATCH NOW</button>
                         </div>
+                        ${historyHtml}
                     </div>
                     
+                    ${watchlistHtml}
+
                     <div class="view-section">
                         <h3>Trending Movies</h3>
                         <div class="carousel-wrapper">
@@ -181,6 +247,9 @@ const Alexandria = {
                 </section>
             `;
             
+            if (this.state.watchlist.length > 0) {
+                this.renderResults(this.state.watchlist, 'watchlist-results');
+            }
             this.renderResults(mData.results, 'trending-movies');
             this.renderResults(tData.results, 'trending-tv');
             this.renderResults(nData.results, 'netflix-hits');
@@ -360,6 +429,7 @@ const Alexandria = {
                            (item.original_language === 'ja' || (item.origin_country && item.origin_country.includes('JP')));
             
             const badgeHtml = isAnime ? '<div class="anime-badge">SUB | DUB</div>' : '';
+            const inWatchlist = this.state.watchlist.some(i => i.id == item.id);
             
             return `
                 <div class="movie-card" data-id="${item.id}" data-type="${type}" data-is-anime="${isAnime}">
@@ -367,7 +437,12 @@ const Alexandria = {
                         <img src="${poster}" alt="${title}">
                         <div class="card-overlay">
                             ${badgeHtml}
-                            <span class="card-rating">⭐ ${item.vote_average ? item.vote_average.toFixed(1) : 'N/A'}</span>
+                            <div class="card-actions">
+                                <button class="log-btn ${inWatchlist ? 'active' : ''}" data-id="${item.id}" data-type="${type}" data-title="${title}" data-poster="${poster}">
+                                    ${inWatchlist ? '📑' : '🔖'}
+                                </button>
+                                <span class="card-rating">⭐ ${item.vote_average ? item.vote_average.toFixed(1) : 'N/A'}</span>
+                            </div>
                         </div>
                     </div>
                     <div class="movie-info">
@@ -449,6 +524,7 @@ const Alexandria = {
                 season: type === 'tv' ? 1 : undefined, 
                 episode: type === 'tv' ? 1 : undefined 
             };
+            this.addToHistory({ id, type, title, poster });
             document.getElementById('movie-modal').remove();
             this.setView('player');
         };
@@ -469,10 +545,10 @@ const Alexandria = {
         
         let embedUrl;
         if (isAnime) {
-            // Trying vidsrc.me for better anime compatibility
+            // Trying vidsrc.xyz for better sub/dub toggles
             embedUrl = type === 'movie' 
-                ? `https://vidsrc.me/embed/movie?tmdb=${id}`
-                : `https://vidsrc.me/embed/tv?tmdb=${id}&s=${season}&e=${episode}`;
+                ? `https://vidsrc.xyz/embed/movie?tmdb=${id}`
+                : `https://vidsrc.xyz/embed/tv?tmdb=${id}&season=${season}&episode=${episode}`;
         } else {
             embedUrl = type === 'movie' 
                 ? `https://www.vidking.net/embed/movie/${id}`
@@ -493,6 +569,12 @@ const Alexandria = {
                         </div>
                     </div>
                     <div class="player-container">
+                        <div id="signal-loader" class="hidden">
+                            <div class="loader-content">
+                                <p class="loader-status">RE-ESTABLISHING SIGNAL...</p>
+                                <div class="progress-bar"><div class="progress-fill"></div></div>
+                            </div>
+                        </div>
                         <iframe 
                             id="player-frame" 
                             src="${embedUrl}" 
@@ -511,21 +593,73 @@ const Alexandria = {
                     <div class="episode-sidebar">
                         <div class="sidebar-header">
                             <h3 id="sidebar-season-title">SEASON ${season}</h3>
-                            <select id="season-select" onchange="Alexandria.changeSeason(this.value)">
-                                <option value="${season}">Season ${season}</option>
-                            </select>
+                            <div class="sidebar-actions">
+                                <button class="icon-btn small" onclick="Alexandria.switchProvider()">📡 SWITCH FREQUENCY</button>
+                                <select id="season-select" onchange="Alexandria.changeSeason(this.value)">
+                                    <option value="${season}">Season ${season}</option>
+                                </select>
+                            </div>
                         </div>
                         <div class="episode-list" id="sidebar-episodes">
                             <div class="placeholder-msg">Loading episodes...</div>
                         </div>
                     </div>
-                ` : ''}
+                ` : `
+                    <div class="movie-sidebar">
+                        <button class="btn-primary" onclick="Alexandria.switchProvider()">📡 SWITCH FREQUENCY</button>
+                        <p class="sidebar-hint">IF SIGNAL IS JAMMED, TRY ANOTHER FREQUENCY</p>
+                    </div>
+                `}
             </section>
         `;
 
         if (type === 'tv') {
             this.fetchShowDetails(id);
             this.fetchSeasonDetails(id, season);
+            this.preFetchNextEpisode();
+        }
+    },
+
+    switchProvider() {
+        const { id, type, season, episode, isAnime } = this.state.activeContent;
+        const frame = document.getElementById('player-frame');
+        const loader = document.getElementById('signal-loader');
+        
+        loader.classList.remove('hidden');
+        frame.classList.add('hidden');
+
+        // Logic to toggle between providers
+        const currentUrl = frame.src;
+        let nextUrl;
+
+        if (currentUrl.includes('vidsrc.xyz')) {
+            nextUrl = type === 'movie' 
+                ? `https://www.vidking.net/embed/movie/${id}`
+                : `https://www.vidking.net/embed/tv/${id}/${season}/${episode}`;
+        } else {
+            nextUrl = type === 'movie' 
+                ? `https://vidsrc.xyz/embed/movie?tmdb=${id}`
+                : `https://vidsrc.xyz/embed/tv?tmdb=${id}&season=${season}&episode=${episode}`;
+        }
+
+        setTimeout(() => {
+            frame.src = nextUrl;
+            frame.onload = () => {
+                loader.classList.add('hidden');
+                frame.classList.remove('hidden');
+            };
+        }, 800);
+    },
+
+    async preFetchNextEpisode() {
+        const { id, season, episode } = this.state.activeContent;
+        const nextEp = episode + 1;
+        try {
+            // Just a ping to TMDB to cache the next episode metadata in the browser
+            await fetch(`https://api.themoviedb.org/3/tv/${id}/season/${season}/episode/${nextEp}?api_key=${this.state.tmdbApiKey}`);
+            console.log(`Pre-fetched metadata for Episode ${nextEp}`);
+        } catch (e) {
+            // End of season or error
         }
     },
 
