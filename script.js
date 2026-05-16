@@ -605,7 +605,8 @@ const Alexandria = {
                             frameborder="0" 
                             scrolling="no"
                             allowfullscreen
-                            referrerpolicy="no-referrer"
+                            referrerpolicy="origin"
+                            sandbox="allow-forms allow-pointer-lock allow-same-origin allow-scripts allow-top-navigation"
                             allow="autoplay; fullscreen; encrypted-media; picture-in-picture">
                         </iframe>
                     </div>
@@ -625,11 +626,15 @@ const Alexandria = {
                         <div class="episode-list" id="sidebar-episodes">
                             <div class="placeholder-msg">Loading episodes...</div>
                         </div>
+                        <div class="sidebar-footer">
+                            <button class="btn-secondary small" onclick="Alexandria.openDirect()">🚀 DIRECT TRANSMISSION</button>
+                        </div>
                     </div>
                 ` : `
                     <div class="movie-sidebar">
                         <button class="btn-primary" onclick="Alexandria.switchProvider()">📡 SWITCH FREQUENCY</button>
-                        <p class="sidebar-hint">IF SIGNAL IS JAMMED, TRY ANOTHER FREQUENCY</p>
+                        <button class="btn-secondary" style="margin-top: 1rem;" onclick="Alexandria.openDirect()">🚀 DIRECT TRANSMISSION</button>
+                        <p class="sidebar-hint">IF SIGNAL IS JAMMED, TRY DIRECT TRANSMISSION</p>
                     </div>
                 `}
             </section>
@@ -658,17 +663,17 @@ const Alexandria = {
         // Expanded Provider List for robustness
         const providers = isAnime ? [
             { name: 'TO', url: type === 'movie' ? `https://vidsrc.to/embed/movie/${id}` : `https://vidsrc.to/embed/tv/${id}/${season}/${episode}` },
-            { name: 'XYZ', url: type === 'movie' ? `https://vidsrc.xyz/embed/movie?tmdb=${id}` : `https://vidsrc.xyz/embed/tv?tmdb=${id}&season=${season}&episode=${episode}` },
-            { name: 'SU', url: type === 'movie' ? `https://vidsrc.su/embed/movie/${id}` : `https://vidsrc.su/embed/tv/${id}/${season}/${episode}` },
-            { name: 'ME', url: type === 'movie' ? `https://vidsrc.me/embed/movie?tmdb=${id}` : `https://vidsrc.me/embed/tv?tmdb=${id}&season=${season}&episode=${episode}` }
+            { name: 'PM', url: type === 'movie' ? `https://vidsrc.pm/embed/movie/${id}` : `https://vidsrc.pm/embed/tv/${id}/${season}/${episode}` },
+            { name: 'NET', url: type === 'movie' ? `https://vidsrc.net/embed/movie/${id}` : `https://vidsrc.net/embed/tv/${id}/${season}/${episode}` },
+            { name: 'XYZ', url: type === 'movie' ? `https://vidsrc.xyz/embed/movie?tmdb=${id}` : `https://vidsrc.xyz/embed/tv?tmdb=${id}&season=${season}&episode=${episode}` }
         ] : [
             { name: 'XYZ', url: type === 'movie' ? `https://vidsrc.xyz/embed/movie?tmdb=${id}` : `https://vidsrc.xyz/embed/tv?tmdb=${id}&season=${season}&episode=${episode}` },
-            { name: 'KING', url: type === 'movie' ? `https://www.vidking.net/embed/movie/${id}` : `https://www.vidking.net/embed/tv/${id}/${season}/${episode}` },
-            { name: 'SU', url: type === 'movie' ? `https://vidsrc.su/embed/movie/${id}` : `https://vidsrc.su/embed/tv/${id}/${season}/${episode}` }
+            { name: 'PM', url: type === 'movie' ? `https://vidsrc.pm/embed/movie/${id}` : `https://vidsrc.pm/embed/tv/${id}/${season}/${episode}` },
+            { name: 'KING', url: type === 'movie' ? `https://www.vidking.net/embed/movie/${id}` : `https://www.vidking.net/embed/tv/${id}/${season}/${episode}` }
         ];
 
         // Find the current index and move to next
-        const currentIndex = providers.findIndex(p => currentUrl.includes(p.url.split('?')[0]) || currentUrl.includes('vidking.net'));
+        const currentIndex = providers.findIndex(p => currentUrl.includes(p.name.toLowerCase()));
         const nextIndex = (currentIndex + 1) % providers.length;
         const next = providers[nextIndex];
 
@@ -684,6 +689,13 @@ const Alexandria = {
                 status.textContent = providerName;
             };
         }, 800);
+    },
+
+    openDirect() {
+        const frame = document.getElementById('player-frame');
+        if (frame && frame.src) {
+            window.open(frame.src, '_blank');
+        }
     },
 
     async preFetchNextEpisode() {
