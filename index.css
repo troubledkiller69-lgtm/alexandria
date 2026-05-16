@@ -742,19 +742,6 @@ h1, h2, h3 {
     z-index: 1000;
 }
 
-.sidebar-footer {
-    padding: 1.5rem;
-    border-top: 1px solid var(--glass-border);
-    display: flex;
-    justify-content: center;
-}
-
-.btn-secondary.small {
-    padding: 0.6rem 1.2rem;
-    font-size: 0.8rem;
-    width: 100%;
-}
-
 /* Loading Screen & Signal Loader */
 #loading-screen, #signal-loader {
     position: fixed;

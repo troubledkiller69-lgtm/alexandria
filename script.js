@@ -626,15 +626,11 @@ const Alexandria = {
                         <div class="episode-list" id="sidebar-episodes">
                             <div class="placeholder-msg">Loading episodes...</div>
                         </div>
-                        <div class="sidebar-footer">
-                            <button class="btn-secondary small" onclick="Alexandria.openDirect()">🚀 DIRECT TRANSMISSION</button>
-                        </div>
                     </div>
                 ` : `
                     <div class="movie-sidebar">
                         <button class="btn-primary" onclick="Alexandria.switchProvider()">📡 SWITCH FREQUENCY</button>
-                        <button class="btn-secondary" style="margin-top: 1rem;" onclick="Alexandria.openDirect()">🚀 DIRECT TRANSMISSION</button>
-                        <p class="sidebar-hint">IF SIGNAL IS JAMMED, TRY DIRECT TRANSMISSION</p>
+                        <p class="sidebar-hint">IF SIGNAL IS JAMMED, TRY ANOTHER FREQUENCY</p>
                     </div>
                 `}
             </section>
@@ -662,9 +658,8 @@ const Alexandria = {
 
         // Expanded Provider List for robustness
         const providers = isAnime ? [
-            { name: 'TO', url: type === 'movie' ? `https://vidsrc.to/embed/movie/${id}` : `https://vidsrc.to/embed/tv/${id}/${season}/${episode}` },
             { name: 'PM', url: type === 'movie' ? `https://vidsrc.pm/embed/movie/${id}` : `https://vidsrc.pm/embed/tv/${id}/${season}/${episode}` },
-            { name: 'NET', url: type === 'movie' ? `https://vidsrc.net/embed/movie/${id}` : `https://vidsrc.net/embed/tv/${id}/${season}/${episode}` },
+            { name: 'TO', url: type === 'movie' ? `https://vidsrc.to/embed/movie/${id}` : `https://vidsrc.to/embed/tv/${id}/${season}/${episode}` },
             { name: 'XYZ', url: type === 'movie' ? `https://vidsrc.xyz/embed/movie?tmdb=${id}` : `https://vidsrc.xyz/embed/tv?tmdb=${id}&season=${season}&episode=${episode}` }
         ] : [
             { name: 'XYZ', url: type === 'movie' ? `https://vidsrc.xyz/embed/movie?tmdb=${id}` : `https://vidsrc.xyz/embed/tv?tmdb=${id}&season=${season}&episode=${episode}` },
@@ -689,13 +684,6 @@ const Alexandria = {
                 status.textContent = providerName;
             };
         }, 800);
-    },
-
-    openDirect() {
-        const frame = document.getElementById('player-frame');
-        if (frame && frame.src) {
-            window.open(frame.src, '_blank');
-        }
     },
 
     async preFetchNextEpisode() {
