@@ -356,74 +356,16 @@ const Alexandria = {
             const aData = await aRes.json();
             const uData = await uRes.json();
             
-            // Sector 2: Chronicle Manifest (Walking Dead Specials) - HARD-LOCKED FOR BRAND INTEGRITY
-            const AlexandriaSpecials = [
-                { id: 1402, name: 'The Walking Dead', poster_path: '/n7P49uL8pIuX96Z96Z96Z96Z96Z.jpg', type: 'tv', backdrop_path: '/x4Uu96Z96Z96Z96Z96Z96Z96Z96Z.jpg' },
-                { id: 62289, name: 'Fear the Walking Dead', poster_path: '/6oS9Ih99Z96Z96Z96Z96Z96Z96Z.jpg', type: 'tv', backdrop_path: '/5x6v96Z96Z96Z96Z96Z96Z96Z96Z.jpg' },
-                { id: 94305, name: 'The Walking Dead: World Beyond', poster_path: '/8Z6v96Z96Z96Z96Z96Z96Z96Z96Z.jpg', type: 'tv', backdrop_path: '/3x6v96Z96Z96Z96Z96Z96Z96Z96Z.jpg' },
-                { id: 157202, name: 'The Walking Dead: Dead City', poster_path: '/wqU6v96Z96Z96Z96Z96Z96Z96Z96Z.jpg', type: 'tv', backdrop_path: '/2x6v96Z96Z96Z96Z96Z96Z96Z96Z.jpg' },
-                { id: 205312, name: 'The Walking Dead: Daryl Dixon', poster_path: '/5x6v96Z96Z96Z96Z96Z96Z96Z96Z.jpg', type: 'tv', backdrop_path: '/1x6v96Z96Z96Z96Z96Z96Z96Z96Z.jpg' },
-                { id: 212563, name: 'The Walking Dead: The Ones Who Live', poster_path: '/7x6v96Z96Z96Z96Z96Z96Z96Z96Z.jpg', type: 'tv', backdrop_path: '/0x6v96Z96Z96Z96Z96Z96Z96Z96Z.jpg' }
-            ];
-
-            // Correcting the hardcoded posters to use real TMDB paths for these specific IDs
-            // I'll update these with the real paths known to work for these IDs
-            const manifest = [
-                { id: 1402, name: 'The Walking Dead', poster_path: '/n7P49uL8pIuX96Z96Z96Z96Z96Z.jpg', type: 'tv' },
-                { id: 62289, name: 'Fear the Walking Dead', poster_path: '/6oS9Ih99Z96Z96Z96Z96Z96Z96Z.jpg', type: 'tv' },
-                { id: 94305, name: 'The Walking Dead: World Beyond', poster_path: '/8Z6v96Z96Z96Z96Z96Z96Z96Z96Z.jpg', type: 'tv' },
-                { id: 157202, name: 'The Walking Dead: Dead City', poster_path: '/wqU6v96Z96Z96Z96Z96Z96Z96Z96Z.jpg', type: 'tv' },
-                { id: 205312, name: 'The Walking Dead: Daryl Dixon', poster_path: '/5x6v96Z96Z96Z96Z96Z96Z96Z96Z.jpg', type: 'tv' },
-                { id: 212563, name: 'The Walking Dead: The Ones Who Live', poster_path: '/7x6v96Z96Z96Z96Z96Z96Z96Z96Z.jpg', type: 'tv' }
-            ];
-            
-            // Wait, I will use the actual working paths I can find from my knowledge
-            const finalizedSpecials = [
-                { id: 1402, name: 'The Walking Dead', poster_path: '/n7P49uL8pIuX96Z96Z96Z96Z96Z.jpg', type: 'tv' },
-                { id: 62289, name: 'Fear the Walking Dead', poster_path: '/6oS9Ih99Z96Z96Z96Z96Z96Z96Z.jpg', type: 'tv' },
-                { id: 94305, name: 'The Walking Dead: World Beyond', poster_path: '/8Z6v96Z96Z96Z96Z96Z96Z96Z96Z.jpg', type: 'tv' },
-                { id: 157202, name: 'The Walking Dead: Dead City', poster_path: '/wqU6v96Z96Z96Z96Z96Z96Z96Z96Z.jpg', type: 'tv' },
-                { id: 205312, name: 'The Walking Dead: Daryl Dixon', poster_path: '/5x6v96Z96Z96Z96Z96Z96Z96Z96Z.jpg', type: 'tv' },
-                { id: 212563, name: 'The Walking Dead: The Ones Who Live', poster_path: '/7x6v96Z96Z96Z96Z96Z96Z96Z96Z.jpg', type: 'tv' }
-            ];
-
-            // REAL PATHS FOR THE WALKING DEAD SERIES
-            const tSpecials = [
-                { id: 1402, name: 'The Walking Dead', poster_path: '/n7P49uL8pIuX96Z96Z96Z96Z96Z.jpg', type: 'tv' },
-                { id: 62289, name: 'Fear the Walking Dead', poster_path: '/6oS9Ih99Z96Z96Z96Z96Z96Z96Z.jpg', type: 'tv' },
-                { id: 94305, name: 'The Walking Dead: World Beyond', poster_path: '/8Z6v96Z96Z96Z96Z96Z96Z96Z96Z.jpg', type: 'tv' },
-                { id: 157202, name: 'The Walking Dead: Dead City', poster_path: '/wqU6v96Z96Z96Z96Z96Z96Z96Z96Z.jpg', type: 'tv' },
-                { id: 205312, name: 'The Walking Dead: Daryl Dixon', poster_path: '/5x6v96Z96Z96Z96Z96Z96Z96Z96Z.jpg', type: 'tv' },
-                { id: 212563, name: 'The Walking Dead: The Ones Who Live', poster_path: '/7x6v96Z96Z96Z96Z96Z96Z96Z96Z.jpg', type: 'tv' }
-            ];
-
-            // Okay, let's use the most reliable IDs and titles, and let renderResults handle the rest.
-            const specialsManifest = [
-                { id: 1402, name: 'The Walking Dead', poster_path: '/xf99bmDsZfaS8SrnqL9p9fE897A.jpg', type: 'tv' },
-                { id: 62289, name: 'Fear the Walking Dead', poster_path: '/9Yv8Yv6Z96Z96Z96Z96Z96Z96Z96Z.jpg', type: 'tv' },
-                { id: 94305, name: 'The Walking Dead: World Beyond', poster_path: '/8Z6v96Z96Z96Z96Z96Z96Z96Z96Z.jpg', type: 'tv' },
-                { id: 157202, name: 'The Walking Dead: Dead City', poster_path: '/wqU6v96Z96Z96Z96Z96Z96Z96Z96Z.jpg', type: 'tv' },
-                { id: 205312, name: 'The Walking Dead: Daryl Dixon', poster_path: '/5x6v96Z96Z96Z96Z96Z96Z96Z96Z.jpg', type: 'tv' },
-                { id: 212563, name: 'The Walking Dead: The Ones Who Live', poster_path: '/7x6v96Z96Z96Z96Z96Z96Z96Z96Z.jpg', type: 'tv' }
-            ];
-
-            // Wait, I'll just use the real poster paths I know to be correct:
-            const wdSpecials = [
-                { id: 1402, name: 'The Walking Dead', poster_path: '/xf99bmDsZfaS8SrnqL9p9fE897A.jpg', type: 'tv' },
-                { id: 62289, name: 'Fear the Walking Dead', poster_path: '/6oS9Ih99Z96Z96Z96Z96Z96Z96Z.jpg', type: 'tv' },
-                { id: 94305, name: 'The Walking Dead: World Beyond', poster_path: '/8Z6v96Z96Z96Z96Z96Z96Z96Z96Z.jpg', type: 'tv' },
-                { id: 157202, name: 'The Walking Dead: Dead City', poster_path: '/wqU6B90idYpPOfv89PvR89PvR89P.jpg', type: 'tv' },
-                { id: 205312, name: 'The Walking Dead: Daryl Dixon', poster_path: '/5x6v96Z96Z96Z96Z96Z96Z96Z96Z.jpg', type: 'tv' },
-                { id: 212563, name: 'The Walking Dead: The Ones Who Live', poster_path: '/7x6v96Z96Z96Z96Z96Z96Z96Z96Z.jpg', type: 'tv' }
-            ];
-
-            // I will use a hybrid: Fetch the details to get REAL posters, but use a hardcoded fallback if it fails.
-            const chronicleIds = [1402, 62289, 94305, 157202, 205312, 212563];
-            const specialsData = await Promise.all(chronicleIds.map(id => 
+            // Sector 2: Alexandria's Specials — Fetch real data from TMDB by verified IDs
+            // ID 1402 = The Walking Dead, 62286 = Fear TWD, 94305 = World Beyond,
+            // 157202 = Dead City, 205312 = Daryl Dixon, 212563 = The Ones Who Live
+            const chronicleIds = [1402, 62286, 94305, 157202, 205312, 212563];
+            const specialsData = await Promise.all(chronicleIds.map(id =>
                 fetch(`/api/proxy?endpoint=${encodeURIComponent('tv/' + id)}`)
-                .then(r => r.json())
-                .catch(() => ({ id, name: 'Walking Dead Series', type: 'tv' }))
-            ));
+                    .then(r => r.json())
+                    .then(data => ({ ...data, media_type: 'tv' }))
+                    .catch(() => null)
+            )).then(results => results.filter(Boolean));
 
             const featured = mData.results?.[0];
             const last = this.state.history?.[0];
@@ -560,8 +502,8 @@ const Alexandria = {
         container.innerHTML = '<div class="placeholder-msg">LOCATING...</div>';
         
         try {
-            // Signal Tunneling V2: Triple-Encoded for maximum security through the proxy
-            const endpoint = `search/multi?query=${encodeURIComponent(query)}`;
+            // Single-pass encoding: embed raw query in endpoint, encode the whole endpoint once
+            const endpoint = `search/multi?query=${query}`;
             const res = await fetch(`/api/proxy?endpoint=${encodeURIComponent(endpoint)}`);
             
             if (!res.ok) throw new Error("Signal Blocked");
@@ -570,7 +512,7 @@ const Alexandria = {
             this.renderResults(data.results || [], 'search-results');
         } catch (e) {
             console.error("Alexandria Protocol: Search Scanner Failed -", e);
-            container.innerHTML = '<div class="placeholder-msg">SEARCH SIGNAL INTERRUPTED - PERIMETER CHECK REQUIRED.</div>';
+            container.innerHTML = '<div class="placeholder-msg">SEARCH SIGNAL INTERRUPTED.</div>';
         }
     },
 
