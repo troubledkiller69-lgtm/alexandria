@@ -564,21 +564,24 @@ const Alexandria = {
         
         let embedUrl;
         if (isAnime) {
-            // Trying vidsrc.xyz for better sub/dub toggles
+            // vidsrc.to is usually better for anime sub/dub toggles
+            embedUrl = type === 'movie' 
+                ? `https://vidsrc.to/embed/movie/${id}`
+                : `https://vidsrc.to/embed/tv/${id}/${season}/${episode}`;
+        } else {
             embedUrl = type === 'movie' 
                 ? `https://vidsrc.xyz/embed/movie?tmdb=${id}`
                 : `https://vidsrc.xyz/embed/tv?tmdb=${id}&season=${season}&episode=${episode}`;
-        } else {
-            embedUrl = type === 'movie' 
-                ? `https://www.vidking.net/embed/movie/${id}`
-                : `https://www.vidking.net/embed/tv/${id}/${season}/${episode}`;
         }
 
         this.main.innerHTML = `
             <section class="screening-room elite-layout">
                 <div class="player-main">
                     <div class="player-header">
-                        <button class="icon-btn" onclick="Alexandria.handleRouting()">← BACK</button>
+                        <div class="header-left">
+                            <button class="icon-btn" onclick="Alexandria.handleRouting()">← BACK</button>
+                            <span class="signal-status">SIGNAL: <span id="active-provider">STABLE</span></span>
+                        </div>
                         <div class="auto-next-wrap">
                             <span>AUTO NEXT</span>
                             <label class="switch">
@@ -643,29 +646,42 @@ const Alexandria = {
         const { id, type, season, episode, isAnime } = this.state.activeContent;
         const frame = document.getElementById('player-frame');
         const loader = document.getElementById('signal-loader');
+        const status = document.getElementById('active-provider');
         
         loader.classList.remove('hidden');
         frame.classList.add('hidden');
 
-        // Logic to toggle between providers
         const currentUrl = frame.src;
         let nextUrl;
+        let providerName;
 
-        if (currentUrl.includes('vidsrc.xyz')) {
-            nextUrl = type === 'movie' 
-                ? `https://www.vidking.net/embed/movie/${id}`
-                : `https://www.vidking.net/embed/tv/${id}/${season}/${episode}`;
-        } else {
-            nextUrl = type === 'movie' 
-                ? `https://vidsrc.xyz/embed/movie?tmdb=${id}`
-                : `https://vidsrc.xyz/embed/tv?tmdb=${id}&season=${season}&episode=${episode}`;
-        }
+        // Expanded Provider List for robustness
+        const providers = isAnime ? [
+            { name: 'TO', url: type === 'movie' ? `https://vidsrc.to/embed/movie/${id}` : `https://vidsrc.to/embed/tv/${id}/${season}/${episode}` },
+            { name: 'XYZ', url: type === 'movie' ? `https://vidsrc.xyz/embed/movie?tmdb=${id}` : `https://vidsrc.xyz/embed/tv?tmdb=${id}&season=${season}&episode=${episode}` },
+            { name: 'SU', url: type === 'movie' ? `https://vidsrc.su/embed/movie/${id}` : `https://vidsrc.su/embed/tv/${id}/${season}/${episode}` },
+            { name: 'ME', url: type === 'movie' ? `https://vidsrc.me/embed/movie?tmdb=${id}` : `https://vidsrc.me/embed/tv?tmdb=${id}&season=${season}&episode=${episode}` }
+        ] : [
+            { name: 'XYZ', url: type === 'movie' ? `https://vidsrc.xyz/embed/movie?tmdb=${id}` : `https://vidsrc.xyz/embed/tv?tmdb=${id}&season=${season}&episode=${episode}` },
+            { name: 'KING', url: type === 'movie' ? `https://www.vidking.net/embed/movie/${id}` : `https://www.vidking.net/embed/tv/${id}/${season}/${episode}` },
+            { name: 'SU', url: type === 'movie' ? `https://vidsrc.su/embed/movie/${id}` : `https://vidsrc.su/embed/tv/${id}/${season}/${episode}` }
+        ];
+
+        // Find the current index and move to next
+        const currentIndex = providers.findIndex(p => currentUrl.includes(p.url.split('?')[0]) || currentUrl.includes('vidking.net'));
+        const nextIndex = (currentIndex + 1) % providers.length;
+        const next = providers[nextIndex];
+
+        nextUrl = next.url;
+        providerName = next.name;
 
         setTimeout(() => {
             frame.src = nextUrl;
+            status.textContent = `SYNCING ${providerName}...`;
             frame.onload = () => {
                 loader.classList.add('hidden');
                 frame.classList.remove('hidden');
+                status.textContent = providerName;
             };
         }, 800);
     },

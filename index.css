@@ -559,6 +559,25 @@ h1, h2, h3 {
     padding: 0.5rem 0;
 }
 
+.header-left {
+    display: flex;
+    align-items: center;
+    gap: 2rem;
+}
+
+.signal-status {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+    letter-spacing: 2px;
+}
+
+#active-provider {
+    color: var(--accent-rust);
+    margin-left: 0.5rem;
+    text-shadow: var(--glow-rust);
+}
+
 .auto-next-wrap {
     display: flex;
     align-items: center;
