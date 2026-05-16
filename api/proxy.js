@@ -10,8 +10,8 @@ export default async function handler(req, res) {
   const decodedEndpoint = decodeURIComponent(endpoint);
 
   // Security: Prevent SSRF and malicious injections
-  // Only allow valid URL characters for the decoded endpoint
-  if (!/^[a-zA-Z0-9\/\?\&\_=\-\%\+\.\,\:\!\(\)\*\']+$/.test(decodedEndpoint)) {
+  // Only allow valid URL characters and spaces for the decoded endpoint
+  if (!/^[a-zA-Z0-9\/\?\&\_=\-\%\+\.\,\:\!\(\)\*\'\s]+$/.test(decodedEndpoint)) {
     return res.status(400).json({ error: 'Invalid endpoint signature detected' });
   }
 
