@@ -12,22 +12,50 @@ const Alexandria = {
         history: JSON.parse(localStorage.getItem('alexandria_history')) || []
     },
 
-    init() {
-        console.log("Alexandria Protocol Initialized...");
-        this.cacheDom();
+    async init() {
+        this.main = document.getElementById('content');
         this.bindEvents();
-        window.addEventListener('hashchange', () => this.handleRouting());
         
-        // Initial load simulation
-        setTimeout(() => {
-            document.getElementById('loading-screen').style.opacity = '0';
-            setTimeout(() => {
-                document.getElementById('loading-screen').classList.add('hidden');
-                document.getElementById('app').classList.remove('hidden');
-                document.getElementById('app').classList.add('visible');
-                this.handleRouting();
-            }, 800);
-        }, 2000);
+        // Start functional loading sequence
+        await this.simulateLoading();
+        
+        this.render();
+        
+        window.addEventListener('hashchange', () => {
+            this.handleRouting();
+        });
+        this.handleRouting();
+    },
+
+    simulateLoading() {
+        return new Promise((resolve) => {
+            const progressFill = document.querySelector('#loading-screen .progress-fill');
+            const statusText = document.querySelector('#loading-screen .loader-status');
+            let progress = 0;
+            
+            const interval = setInterval(() => {
+                progress += Math.random() * 15;
+                if (progress > 100) progress = 100;
+                
+                if (progressFill) progressFill.style.width = `${progress}%`;
+                
+                // Optional: Update status text based on progress
+                if (progress > 30 && progress < 60) statusText.textContent = "STABILIZING ARCHIVE...";
+                if (progress > 60 && progress < 90) statusText.textContent = "SYNCING RECENT TRANSMISSIONS...";
+                if (progress >= 90) statusText.textContent = "GATES OPENING...";
+
+                if (progress >= 100) {
+                    clearInterval(interval);
+                    setTimeout(() => {
+                        const loader = document.getElementById('loading-screen');
+                        const app = document.getElementById('app');
+                        if (loader) loader.classList.add('hidden');
+                        if (app) app.classList.remove('hidden');
+                        resolve();
+                    }, 500);
+                }
+            }, 200);
+        });
     },
 
     cacheDom() {

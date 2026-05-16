@@ -775,15 +775,10 @@ h1, h2, h3 {
 
 .progress-fill {
     height: 100%;
-    width: 30%;
+    width: 0%; /* Start at 0 for functional loading */
     background: var(--accent-rust);
     box-shadow: var(--glow-rust);
-    animation: progress 2s infinite ease-in-out;
-}
-
-@keyframes progress {
-    0% { left: -30%; }
-    100% { left: 100%; }
+    transition: width 0.3s ease;
 }
 
 .loader-status {
