@@ -1,9 +1,6 @@
-const Alexandria = {
-    // Master Encryption Key - Obfuscated
-    _vaultKey: 'sz_ax_77_alpha_omega',
-    
     state: {
-        view: 'home', // home, movies, tv, search, player, admin
+        view: 'home', // home, movies, tv, search, player, admin, auth
+        user: null,
         pendingUsers: [],
         clickCount: 0,
         searchTimeout: null,
@@ -14,13 +11,17 @@ const Alexandria = {
         history: []
     },
 
+    supabase: null,
+
     // Vault Helper for Secure Storage
     vault: {
         encrypt(data) {
+            if (!Alexandria._vaultKey) return JSON.stringify(data);
             return CryptoJS.AES.encrypt(JSON.stringify(data), Alexandria._vaultKey).toString();
         },
         decrypt(cipherText) {
             try {
+                if (!Alexandria._vaultKey) return JSON.parse(cipherText);
                 const bytes = CryptoJS.AES.decrypt(cipherText, Alexandria._vaultKey);
                 return JSON.parse(bytes.toString(CryptoJS.enc.Utf8));
             } catch (e) {
@@ -32,7 +33,31 @@ const Alexandria = {
     async init() {
         this.main = document.getElementById('content');
         
-        // Load encrypted data
+        // Initialize Supabase via secure handshake
+        try {
+            const configRes = await fetch('/api/config');
+            const config = await configRes.json();
+            this.supabase = supabase.createClient(config.supabaseUrl, config.supabaseAnonKey);
+            
+            // Listen for auth changes
+            this.supabase.auth.onAuthStateChange((event, session) => {
+                this.state.user = session?.user || null;
+                if (event === 'SIGNED_IN') {
+                    this.setView('home');
+                } else if (event === 'SIGNED_OUT') {
+                    this.setView('auth');
+                }
+                this.render();
+            });
+
+            // Check initial session
+            const { data: { session } } = await this.supabase.auth.getSession();
+            this.state.user = session?.user || null;
+        } catch (e) {
+            console.error("Secure handshake failed:", e);
+        }
+
+        // Load encrypted local data (fallback/migration)
         const savedWatchlist = localStorage.getItem('ax_dt_01');
         const savedHistory = localStorage.getItem('ax_dt_02');
         
@@ -147,19 +172,48 @@ const Alexandria = {
         this.render();
     },
 
-    handleLogin() {
-        const btn = document.querySelector('.btn-primary');
-        btn.textContent = "CHECKING GATES...";
-        btn.style.opacity = "0.5";
+    async handleAuth(e, type) {
+        e.preventDefault();
+        const email = document.getElementById('auth-email').value;
+        const password = document.getElementById('auth-password').value;
+        const btn = e.target.querySelector('button');
         
-        setTimeout(() => {
-            this.state.isApproved = true;
-            this.setView('search');
-        }, 1500);
+        btn.textContent = type === 'login' ? "VERIFYING IDENTITY..." : "ETCHING CREDENTIALS...";
+        btn.style.opacity = "0.5";
+
+        try {
+            let result;
+            if (type === 'login') {
+                result = await this.supabase.auth.signInWithPassword({ email, password });
+            } else {
+                result = await this.supabase.auth.signUp({ email, password });
+            }
+
+            if (result.error) throw result.error;
+            
+            if (type === 'signup') {
+                alert("Archive credentials created. Check email for verification link if enabled, or try logging in.");
+                btn.textContent = "ACCESS GRANTED";
+            }
+        } catch (error) {
+            alert("Archive Access Denied: " + error.message);
+            btn.textContent = type === 'login' ? "ACCESS ARCHIVE" : "CREATE CREDENTIALS";
+            btn.style.opacity = "1";
+        }
+    },
+
+    async handleLogout() {
+        await this.supabase.auth.signOut();
     },
 
     render() {
         this.updateNav();
+        
+        if (!this.state.user && this.state.view !== 'auth') {
+            this.renderAuth();
+            return;
+        }
+
         if (this.state.view === 'home') {
             this.renderHome();
         } else if (this.state.view === 'movies') {
@@ -172,9 +226,37 @@ const Alexandria = {
             this.renderSearch();
         } else if (this.state.view === 'player') {
             this.renderPlayer();
-        } else if (this.state.view === 'admin') {
-            this.renderAdmin();
+        } else if (this.state.view === 'auth') {
+            this.renderAuth();
         }
+    },
+
+    renderAuth() {
+        this.main.innerHTML = `
+            <section class="auth-view">
+                <div class="auth-card">
+                    <div class="safe-zone-stamp small">A</div>
+                    <h2>ALEXANDRIA ARCHIVE</h2>
+                    <p class="auth-subtitle">ESTABLISH SECURE IDENTITY</p>
+                    
+                    <form id="login-form" onsubmit="Alexandria.handleAuth(event, 'login')">
+                        <div class="input-group">
+                            <label>SURVIVOR EMAIL</label>
+                            <input type="email" id="auth-email" required placeholder="EMAIL CODE">
+                        </div>
+                        <div class="input-group">
+                            <label>ACCESS PASSKEY</label>
+                            <input type="password" id="auth-password" required placeholder="PASSKEY">
+                        </div>
+                        <button type="submit" class="btn-primary full">ACCESS ARCHIVE</button>
+                    </form>
+                    
+                    <div class="auth-footer">
+                        <p>NEW SURVIVOR? <a href="#" onclick="document.getElementById('login-form').onsubmit = (e) => Alexandria.handleAuth(e, 'signup'); this.parentElement.innerHTML = 'NEED TO LOG IN? <a href=\'#\' onclick=\'location.reload()\'>CLICK HERE</a>'; document.querySelector('.btn-primary').textContent = 'CREATE CREDENTIALS'; return false;">REQUEST ACCESS</a></p>
+                    </div>
+                </div>
+            </section>
+        `;
     },
 
     updateNav() {
