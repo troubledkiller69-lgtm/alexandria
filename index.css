@@ -1240,34 +1240,7 @@ h1, h2, h3 {
     font-weight: 800;
 }
 
-/* --- PREMIUM ROW STYLING (HBO) --- */
-.premium-tier {
-    position: relative;
-    padding: 2rem !important;
-    background: linear-gradient(135deg, rgba(15, 23, 42, 0.8), rgba(0, 0, 0, 0.9));
-    backdrop-filter: blur(40px) saturate(150%);
-    border: 1px solid rgba(225, 29, 72, 0.15);
-    border-radius: 16px;
-    margin: 2rem 4rem;
-    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6), inset 0 0 40px rgba(225, 29, 72, 0.05);
-}
 
-.premium-tier h3 {
-    color: var(--accent-rust) !important;
-    text-shadow: 0 0 10px rgba(225, 29, 72, 0.3);
-}
-
-.premium-tier::before {
-    content: 'TOP SECRET CLEARANCE';
-    position: absolute;
-    top: 10px;
-    right: 20px;
-    font-family: 'Bebas Neue', sans-serif;
-    color: var(--accent-rust);
-    font-size: 0.8rem;
-    letter-spacing: 4px;
-    opacity: 0.5;
-}
 
 /* --- AUTH MICRO-INTERACTIONS --- */
 .input-group input:focus {
