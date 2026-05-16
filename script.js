@@ -20,32 +20,35 @@ const Alexandria = {
         // Start loading sequence immediately
         const loadingPromise = this.simulateLoading();
 
-        // Run network initialization
-        try {
-            await this.initNetwork();
-        } catch (e) {
-            console.error("Alexandria Protocol: Network Error -", e);
+        // Run network initialization in the background - DO NOT AWAIT
+        this.initNetwork().catch(e => {
+            console.error("Alexandria Protocol: Background Init Failed -", e);
             this.state.view = 'auth';
-        }
+        });
 
         // Wait for loading bar to finish
         await loadingPromise;
         
         this.bindEvents();
-        this.render();
+        this.render(); // Render immediately once animation is done
         
         window.addEventListener('hashchange', () => this.handleRouting());
         this.handleRouting();
     },
 
     async initNetwork() {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 5000); // 5s timeout
+
         try {
-            const configRes = await fetch('/api/config');
+            const configRes = await fetch('/api/config', { signal: controller.signal });
+            clearTimeout(timeoutId);
             const config = await configRes.json();
             
             if (!config.supabaseUrl || !config.supabaseAnonKey) {
                 console.error("Alexandria Protocol: Security Keys Missing.");
                 this.state.view = 'auth';
+                this.render();
                 return;
             }
 
@@ -77,8 +80,11 @@ const Alexandria = {
                 this.updateSyncIndicator('GUEST');
             }
         } catch (e) {
-            console.error("Alexandria Protocol: Handshake Failed -", e);
+            console.error("Alexandria Protocol: Handshake Timed Out or Failed -", e);
             this.state.view = 'auth';
+            this.updateSyncIndicator('OFFLINE');
+        } finally {
+            this.render(); // Ensure UI reflects final init state
         }
     },
 
