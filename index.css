@@ -182,34 +182,75 @@ h1, h2, h3 {
     padding: 0 2rem;
 }
 
-.search-hero { margin-bottom: 3rem; }
-.search-hero h2 { font-size: 4rem; margin-bottom: 0.5rem; color: var(--accent-rust); }
-.search-hero p { color: var(--text-secondary); font-size: 1.2rem; text-transform: uppercase; letter-spacing: 2px; }
+.search-hero { margin-bottom: 4rem; }
+.search-hero h2 { 
+    font-size: 4.5rem; 
+    margin: 1.5rem 0 0.5rem; 
+    color: var(--text-primary);
+    letter-spacing: 6px;
+    text-shadow: 0 0 30px rgba(255, 255, 255, 0.1);
+}
+.search-hero p { 
+    color: var(--accent-rust); 
+    font-size: 0.8rem; 
+    text-transform: uppercase; 
+    letter-spacing: 4px; 
+    font-weight: 700;
+}
 
 .search-box {
     display: flex;
-    gap: 1rem;
-    background: var(--card-bg);
-    padding: 1rem;
-    border: 2px solid var(--border-color);
+    gap: 2rem;
+    align-items: center;
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 0.5rem;
+    background: rgba(15, 23, 42, 0.4);
+    border-radius: 12px;
+    border: 1px solid var(--glass-border);
+}
+
+.input-wrapper {
+    flex: 1;
+    position: relative;
+    overflow: hidden;
 }
 
 #tmdb-search {
-    flex: 1;
+    width: 100%;
     background: transparent;
     border: none;
-    padding: 1rem;
-    font-size: 1.8rem;
+    padding: 1.2rem 1.5rem;
+    font-size: 1.5rem;
     color: #fff;
     font-family: 'Bebas Neue', sans-serif;
     letter-spacing: 2px;
+    outline: none;
 }
 
-#tmdb-search:focus { outline: none; }
+.scan-line {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    height: 2px;
+    background: var(--accent-rust);
+    box-shadow: 0 0 10px var(--accent-rust);
+    animation: scan 3s infinite ease-in-out;
+    opacity: 0.5;
+}
+
+@keyframes scan {
+    0%, 100% { transform: scaleX(0); opacity: 0; }
+    50% { transform: scaleX(1); opacity: 0.8; }
+}
 
 .search-box .btn-primary {
-    padding: 0 3rem;
-    border-radius: 0;
+    padding: 1.2rem 3rem;
+    border-radius: 8px;
+    text-transform: uppercase;
+    font-family: 'Bebas Neue', sans-serif;
+    letter-spacing: 2px;
 }
 
 /* Sections & Layout */

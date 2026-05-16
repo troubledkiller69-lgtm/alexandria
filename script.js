@@ -366,12 +366,16 @@ const Alexandria = {
         this.main.innerHTML = `
             <section class="supply-run simplified-search">
                 <div class="search-hero">
-                    <h2>Search Archive</h2>
-                    <p>Enter title, actor, or genre</p>
+                    <span class="trending-badge">COMMUNICATIONS LINK ACTIVE</span>
+                    <h2>QUERYING GLOBAL TRANSMISSIONS</h2>
+                    <p>ENTER CODE OR TITLE FOR DECRYPTION</p>
                 </div>
                 <div class="search-box">
-                    <input type="text" id="tmdb-search" placeholder="Type here..." autocomplete="off">
-                    <button class="btn-primary" onclick="Alexandria.handleSearch()">SEARCH</button>
+                    <div class="input-wrapper">
+                        <input type="text" id="tmdb-search" placeholder="TYPE TRANSMISSION CODE..." autocomplete="off">
+                        <div class="scan-line"></div>
+                    </div>
+                    <button class="btn-primary" onclick="Alexandria.handleSearch()">DECRYPT</button>
                 </div>
                 <div class="results-grid" id="search-results" style="margin-top: 4rem;"></div>
             </section>
@@ -396,7 +400,11 @@ const Alexandria = {
         if (!query) return;
         
         const resultsContainer = document.getElementById('search-results');
-        resultsContainer.innerHTML = '<div class="placeholder-msg">Searching archives...</div>';
+        resultsContainer.innerHTML = `
+            <div class="placeholder-msg">
+                <span class="pulse-dot"></span> DECRYPTING TRANSMISSIONS...
+            </div>
+        `;
 
         try {
             const response = await fetch(`https://api.themoviedb.org/3/search/multi?api_key=${this.state.tmdbApiKey}&query=${encodeURIComponent(query)}`);
