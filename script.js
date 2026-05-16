@@ -1,4 +1,7 @@
 const Alexandria = {
+    // Master Encryption Key - Obfuscated
+    _vaultKey: 'sz_ax_77_alpha_omega',
+    
     state: {
         view: 'home', // home, movies, tv, search, player, admin
         pendingUsers: [],
@@ -7,12 +10,35 @@ const Alexandria = {
         trendingData: null,
         activeContent: { id: null, type: 'movie', season: 1, episode: 1 },
         autoNext: true,
-        watchlist: JSON.parse(localStorage.getItem('alexandria_watchlist')) || [],
-        history: JSON.parse(localStorage.getItem('alexandria_history')) || []
+        watchlist: [],
+        history: []
+    },
+
+    // Vault Helper for Secure Storage
+    vault: {
+        encrypt(data) {
+            return CryptoJS.AES.encrypt(JSON.stringify(data), Alexandria._vaultKey).toString();
+        },
+        decrypt(cipherText) {
+            try {
+                const bytes = CryptoJS.AES.decrypt(cipherText, Alexandria._vaultKey);
+                return JSON.parse(bytes.toString(CryptoJS.enc.Utf8));
+            } catch (e) {
+                return null;
+            }
+        }
     },
 
     async init() {
         this.main = document.getElementById('content');
+        
+        // Load encrypted data
+        const savedWatchlist = localStorage.getItem('ax_dt_01');
+        const savedHistory = localStorage.getItem('ax_dt_02');
+        
+        if (savedWatchlist) this.state.watchlist = this.vault.decrypt(savedWatchlist) || [];
+        if (savedHistory) this.state.history = this.vault.decrypt(savedHistory) || [];
+
         this.bindEvents();
         
         // Start functional loading sequence
@@ -164,7 +190,7 @@ const Alexandria = {
         } else {
             this.state.watchlist.splice(index, 1);
         }
-        localStorage.setItem('alexandria_watchlist', JSON.stringify(this.state.watchlist));
+        localStorage.setItem('ax_dt_01', this.vault.encrypt(this.state.watchlist));
         this.render();
     },
 
@@ -173,7 +199,7 @@ const Alexandria = {
         this.state.history = this.state.history.filter(i => i.id != item.id);
         this.state.history.unshift(item);
         if (this.state.history.length > 10) this.state.history.pop();
-        localStorage.setItem('alexandria_history', JSON.stringify(this.state.history));
+        localStorage.setItem('ax_dt_02', this.vault.encrypt(this.state.history));
     },
 
     async renderHome() {

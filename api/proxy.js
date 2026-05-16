@@ -6,6 +6,12 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: 'Endpoint is required' });
   }
 
+  // Security: Prevent SSRF and malicious injections
+  // Only allow alphanumeric, slashes, underscores, and specific symbols for query params
+  if (!/^[a-zA-Z0-9\/\?\&\_=\-]+$/.test(endpoint)) {
+    return res.status(400).json({ error: 'Invalid endpoint signature detected' });
+  }
+
   if (!apiKey) {
     return res.status(500).json({ error: 'API Key not configured on server' });
   }
