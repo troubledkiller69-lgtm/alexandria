@@ -47,7 +47,7 @@ const Alexandria = {
             
             if (!config.supabaseUrl || !config.supabaseAnonKey) {
                 console.error("Alexandria Protocol: Security Keys Missing.");
-                this.state.view = 'auth';
+                this.state.view = 'home';
                 return;
             }
 
@@ -65,7 +65,7 @@ const Alexandria = {
                 } else if (event === 'SIGNED_OUT') {
                     this.state.watchlist = [];
                     this.state.history = [];
-                    this.setView('auth');
+                    this.setView('home');
                 }
                 this.render();
             });
@@ -77,12 +77,12 @@ const Alexandria = {
                 await this.syncFromCloud();
                 if (this.state.view === 'auth') this.setView('home');
             } else {
-                this.state.view = 'auth';
+                if (this.state.view === 'auth') this.state.view = 'home';
                 this.updateSyncIndicator('GUEST');
             }
         } catch (e) {
             console.error("Alexandria Protocol: Handshake Failure -", e);
-            this.state.view = 'auth';
+            if (this.state.view === 'auth') this.state.view = 'home';
             this.updateSyncIndicator('OFFLINE');
         } finally {
             this.render();
@@ -153,6 +153,7 @@ const Alexandria = {
         document.addEventListener('click', async (e) => {
             const logBtn = e.target.classList.contains('log-btn') ? e.target : e.target.closest('.log-btn');
             const searchTrigger = e.target.id === 'search-trigger' || e.target.closest('#search-trigger');
+            const authTrigger = e.target.id === 'auth-trigger' || e.target.closest('#auth-trigger');
 
             if (logBtn) {
                 e.preventDefault();
@@ -165,6 +166,8 @@ const Alexandria = {
                 await this.toggleWatchlist(item);
             } else if (searchTrigger) {
                 this.setView('search');
+            } else if (authTrigger) {
+                this.setView('auth');
             } else {
                 const card = e.target.classList.contains('movie-card') ? e.target : e.target.closest('.movie-card');
                 if (card) {
@@ -218,7 +221,11 @@ const Alexandria = {
     },
 
     async toggleWatchlist(item) {
-        if (!this.state.user) return;
+        if (!this.state.user) {
+            alert("Identity Protocol required. Please authenticate to save progress.");
+            this.setView('auth');
+            return;
+        }
         const itemId = String(item.id);
         const index = this.state.watchlist.findIndex(i => String(i.id) === itemId);
         
@@ -251,11 +258,6 @@ const Alexandria = {
     render() {
         if (!this.main) this.main = document.getElementById('content');
         if (!this.main) return;
-
-        if (!this.state.user && this.state.view !== 'auth') {
-            this.state.view = 'auth';
-            return this.renderAuth();
-        }
         
         // Update Nav Link Active States
         document.querySelectorAll('.nav-link').forEach(link => {
@@ -300,6 +302,7 @@ const Alexandria = {
                         </form>
                         <div class="auth-footer">
                             <p>NEW TO THE SAFE ZONE? <a href="#" onclick="Alexandria.renderSignup(); return false;">REQUEST ACCESS</a></p>
+                            <p style="margin-top: 1rem;"><a href="#" onclick="Alexandria.setView('home'); return false;" style="color: var(--text-secondary); border-color: transparent;">RETURN TO ARCHIVE</a></p>
                         </div>
                     </div>
                 </section>`;
@@ -330,6 +333,7 @@ const Alexandria = {
                         </form>
                         <div class="auth-footer">
                             <p>ALREADY A SURVIVOR? <a href="#" onclick="Alexandria.renderAuth(); return false;">LOG IN</a></p>
+                            <p style="margin-top: 1rem;"><a href="#" onclick="Alexandria.setView('home'); return false;" style="color: var(--text-secondary); border-color: transparent;">RETURN TO ARCHIVE</a></p>
                         </div>
                     </div>
                 </section>`;
@@ -387,7 +391,7 @@ const Alexandria = {
                     <div class="view-section"><h3>ALEXANDRIA'S SPECIALS</h3><div class="carousel-wrapper"><div class="carousel-grid" id="alexandria-specials"></div></div></div>
                     <div class="view-section"><h3>Trending Movies</h3><div class="carousel-wrapper"><div class="carousel-grid" id="trending-movies"></div></div></div>
                     <div class="view-section"><h3>Netflix Originals</h3><div class="carousel-wrapper"><div class="carousel-grid" id="netflix-hits"></div></div></div>
-                    <div class="view-section"><h3>HBO Masterpieces</h3><div class="carousel-wrapper"><div class="carousel-grid" id="hbo-hits"></div></div></div>
+                    <div class="view-section premium-tier"><h3>HBO Masterpieces</h3><div class="carousel-wrapper"><div class="carousel-grid" id="hbo-hits"></div></div></div>
                     <div class="view-section"><h3>Trending TV Shows</h3><div class="carousel-wrapper"><div class="carousel-grid" id="trending-tv"></div></div></div>
                     <div class="view-section"><h3>Upcoming Missions</h3><div class="carousel-wrapper"><div class="carousel-grid" id="upcoming-hits"></div></div></div>
                     <div class="view-section"><h3>Action Archives</h3><div class="carousel-wrapper"><div class="carousel-grid" id="action-hits"></div></div></div>
