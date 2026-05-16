@@ -202,15 +202,23 @@ const Alexandria = {
         this.main.innerHTML = `
             <section class="auth-view">
                 <div class="auth-card">
-                    <div class="safe-zone-stamp small">A</div>
-                    <h2>ALEXANDRIA ARCHIVE</h2>
-                    <p class="auth-subtitle">ESTABLISH SECURE IDENTITY</p>
+                    <div class="safe-zone-stamp large">A</div>
+                    <h2>ALEXANDRIA</h2>
+                    <p class="auth-subtitle">SECURITY CLEARANCE REQUIRED</p>
                     <form onsubmit="Alexandria.handleAuth(event, 'login')">
-                        <div class="input-group"><label>SURVIVOR EMAIL</label><input type="email" id="auth-email" required></div>
-                        <div class="input-group"><label>ACCESS PASSKEY</label><input type="password" id="auth-password" required></div>
+                        <div class="input-group">
+                            <label>SURVIVOR EMAIL</label>
+                            <input type="email" id="auth-email" required placeholder="IDENTIFICATION CODE">
+                        </div>
+                        <div class="input-group">
+                            <label>ACCESS PASSKEY</label>
+                            <input type="password" id="auth-password" required placeholder="SECURE KEY">
+                        </div>
                         <button type="submit" class="btn-primary full">ACCESS ARCHIVE</button>
                     </form>
-                    <div class="auth-footer"><p>NEW SURVIVOR? <a href="#" onclick="Alexandria.renderSignup(); return false;">REQUEST ACCESS</a></p></div>
+                    <div class="auth-footer">
+                        <p>NEW TO THE SAFE ZONE? <a href="#" onclick="Alexandria.renderSignup(); return false;">REQUEST ACCESS</a></p>
+                    </div>
                 </div>
             </section>`;
     },
@@ -219,15 +227,23 @@ const Alexandria = {
         this.main.innerHTML = `
             <section class="auth-view">
                 <div class="auth-card">
-                    <div class="safe-zone-stamp small">A</div>
-                    <h2>JOIN THE ARCHIVE</h2>
-                    <p class="auth-subtitle">CREATE NEW CREDENTIALS</p>
+                    <div class="safe-zone-stamp large">A</div>
+                    <h2>JOIN ARCHIVE</h2>
+                    <p class="auth-subtitle">ESTABLISH NEW CREDENTIALS</p>
                     <form onsubmit="Alexandria.handleAuth(event, 'signup')">
-                        <div class="input-group"><label>SURVIVOR EMAIL</label><input type="email" id="auth-email" required></div>
-                        <div class="input-group"><label>ACCESS PASSKEY</label><input type="password" id="auth-password" required></div>
+                        <div class="input-group">
+                            <label>SURVIVOR EMAIL</label>
+                            <input type="email" id="auth-email" required placeholder="ASSIGN EMAIL">
+                        </div>
+                        <div class="input-group">
+                            <label>ACCESS PASSKEY</label>
+                            <input type="password" id="auth-password" required placeholder="CREATE KEY">
+                        </div>
                         <button type="submit" class="btn-primary full">CREATE CREDENTIALS</button>
                     </form>
-                    <div class="auth-footer"><p>ALREADY A SURVIVOR? <a href="#" onclick="Alexandria.renderAuth(); return false;">LOG IN</a></p></div>
+                    <div class="auth-footer">
+                        <p>ALREADY A SURVIVOR? <a href="#" onclick="Alexandria.renderAuth(); return false;">LOG IN</a></p>
+                    </div>
                 </div>
             </section>`;
     },
