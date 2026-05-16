@@ -7,8 +7,8 @@ export default async function handler(req, res) {
   }
 
   // Security: Prevent SSRF and malicious injections
-  // Only allow alphanumeric, slashes, underscores, and specific symbols for query params (+ % for encoding)
-  if (!/^[a-zA-Z0-9\/\?\&\_=\-\%\+]+$/.test(endpoint)) {
+  // Only allow valid URL characters for the endpoint
+  if (!/^[a-zA-Z0-9\/\?\&\_=\-\%\+\.\,\:\!\(\)\*\']+$/.test(endpoint)) {
     return res.status(400).json({ error: 'Invalid endpoint signature detected' });
   }
 

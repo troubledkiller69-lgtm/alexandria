@@ -340,13 +340,13 @@ const Alexandria = {
         
         try {
             const [mRes, tRes, nRes, hRes, aRes, uRes, sRes] = await Promise.all([
-                fetch(`/api/proxy?endpoint=trending/movie/day`),
-                fetch(`/api/proxy?endpoint=trending/tv/day`),
-                fetch(`/api/proxy?endpoint=discover/movie?with_watch_providers=8&watch_region=US`),
-                fetch(`/api/proxy?endpoint=discover/movie?with_watch_providers=49&watch_region=US`),
-                fetch(`/api/proxy?endpoint=discover/movie?with_genres=28`),
-                fetch(`/api/proxy?endpoint=movie/upcoming`),
-                fetch(`/api/proxy?endpoint=search/tv?query=${encodeURIComponent('The Walking Dead')}`)
+                fetch(`/api/proxy?endpoint=${encodeURIComponent('trending/movie/day')}`),
+                fetch(`/api/proxy?endpoint=${encodeURIComponent('trending/tv/day')}`),
+                fetch(`/api/proxy?endpoint=${encodeURIComponent('discover/movie?with_watch_providers=8&watch_region=US')}`),
+                fetch(`/api/proxy?endpoint=${encodeURIComponent('discover/movie?with_watch_providers=49&watch_region=US')}`),
+                fetch(`/api/proxy?endpoint=${encodeURIComponent('discover/movie?with_genres=28')}`),
+                fetch(`/api/proxy?endpoint=${encodeURIComponent('movie/upcoming')}`),
+                fetch(`/api/proxy?endpoint=${encodeURIComponent('search/tv?query=The Walking Dead')}`)
             ]);
             
             const mData = await mRes.json();
@@ -420,11 +420,11 @@ const Alexandria = {
         this.main.innerHTML = '<div class="placeholder-msg">SCANNING SECTORS...</div>';
         try {
             const [popRes, topRes, actRes, horRes, sciRes] = await Promise.all([
-                fetch(`/api/proxy?endpoint=${type}/popular`),
-                fetch(`/api/proxy?endpoint=${type}/top_rated`),
-                fetch(`/api/proxy?endpoint=discover/${type}?with_genres=${type === 'movie' ? '28' : '10759'}`),
-                fetch(`/api/proxy?endpoint=discover/${type}?with_genres=27`),
-                fetch(`/api/proxy?endpoint=discover/${type}?with_genres=878`)
+                fetch(`/api/proxy?endpoint=${encodeURIComponent(type + '/popular')}`),
+                fetch(`/api/proxy?endpoint=${encodeURIComponent(type + '/top_rated')}`),
+                fetch(`/api/proxy?endpoint=${encodeURIComponent('discover/' + type + '?with_genres=' + (type === 'movie' ? '28' : '10759'))}`),
+                fetch(`/api/proxy?endpoint=${encodeURIComponent('discover/' + type + '?with_genres=27')}`),
+                fetch(`/api/proxy?endpoint=${encodeURIComponent('discover/' + type + '?with_genres=878')}`)
             ]);
             const popData = await popRes.json();
             const topData = await topRes.json();
@@ -456,10 +456,10 @@ const Alexandria = {
         this.main.innerHTML = '<div class="placeholder-msg">SCANNING ANIME FREQUENCIES...</div>';
         try {
             const [shonenRes, seinenRes, fantasyRes, dramaRes] = await Promise.all([
-                fetch(`/api/proxy?endpoint=discover/tv?with_genres=16&with_keywords=210024&sort_by=popularity.desc`),
-                fetch(`/api/proxy?endpoint=discover/tv?with_genres=16&with_keywords=210024&vote_average.gte=8`),
-                fetch(`/api/proxy?endpoint=discover/tv?with_genres=16&with_keywords=210024&with_genres=14`),
-                fetch(`/api/proxy?endpoint=discover/tv?with_genres=16&with_keywords=210024&with_genres=18`)
+                fetch(`/api/proxy?endpoint=${encodeURIComponent('discover/tv?with_genres=16&with_keywords=210024&sort_by=popularity.desc')}`),
+                fetch(`/api/proxy?endpoint=${encodeURIComponent('discover/tv?with_genres=16&with_keywords=210024&vote_average.gte=8')}`),
+                fetch(`/api/proxy?endpoint=${encodeURIComponent('discover/tv?with_genres=16&with_keywords=210024&with_genres=14')}`),
+                fetch(`/api/proxy?endpoint=${encodeURIComponent('discover/tv?with_genres=16&with_keywords=210024&with_genres=18')}`)
             ]);
             const sData = await shonenRes.json();
             const seData = await seinenRes.json();
