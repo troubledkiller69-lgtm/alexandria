@@ -431,10 +431,9 @@ const Alexandria = {
             const releaseDate = item.release_date || item.first_air_date || item.year || 'Unknown Archive';
 
             // Check if it's SPECIFICALLY Anime
-            const isAnime = item.isAnime || (item.genre_ids && item.genre_ids.includes(16) && 
-                           (item.original_language === 'ja' || (item.origin_country && item.origin_country.includes('JP'))));
+            const isAnime = item.genre_ids && item.genre_ids.includes(16) && 
+                           (item.original_language === 'ja' || (item.origin_country && item.origin_country.includes('JP')));
             
-            const badgeHtml = isAnime ? '<div class="anime-badge">SUB | DUB</div>' : '';
             const inWatchlist = this.state.watchlist.some(i => i.id == item.id);
             
             return `
@@ -442,7 +441,6 @@ const Alexandria = {
                     <div class="poster-wrapper">
                         <img src="${poster}" alt="${title}" onerror="this.src='https://via.placeholder.com/500x750?text=SIGNAL+LOST'">
                         <div class="card-overlay">
-                            ${badgeHtml}
                             <div class="card-actions">
                                 <button class="log-btn ${inWatchlist ? 'active' : ''}" 
                                         data-id="${item.id}" 
@@ -562,27 +560,16 @@ const Alexandria = {
         // Anime (detected via state or genre, for now we check if we're in anime view or use a more robust check)
         const isAnime = this.state.view === 'anime' || (this.state.activeContent.isAnime);
         
-        let embedUrl;
-        if (isAnime) {
-            // vidsrc.pm is currently the most stable signal for anime
-            embedUrl = type === 'movie' 
-                ? `https://vidsrc.pm/embed/movie/${id}`
-                : `https://vidsrc.pm/embed/tv/${id}/${season}/${episode}`;
-        } else {
-            // VidKing is the preferred signal for Movies/TV
-            embedUrl = type === 'movie' 
-                ? `https://www.vidking.net/embed/movie/${id}`
-                : `https://www.vidking.net/embed/tv/${id}/${season}/${episode}`;
-        }
+        // Back to original VidKing frequency for everything
+        const embedUrl = type === 'movie' 
+            ? `https://www.vidking.net/embed/movie/${id}`
+            : `https://www.vidking.net/embed/tv/${id}/${season}/${episode}`;
 
         this.main.innerHTML = `
             <section class="screening-room elite-layout">
                 <div class="player-main">
                     <div class="player-header">
-                        <div class="header-left">
-                            <button class="icon-btn" onclick="Alexandria.handleRouting()">← BACK</button>
-                            <span class="signal-status">SIGNAL: <span id="active-provider">STABLE</span></span>
-                        </div>
+                        <button class="icon-btn" onclick="Alexandria.handleRouting()">← BACK</button>
                         <div class="auto-next-wrap">
                             <span>AUTO NEXT</span>
                             <label class="switch">
@@ -607,7 +594,6 @@ const Alexandria = {
                             scrolling="no"
                             allowfullscreen
                             referrerpolicy="origin"
-                            sandbox="allow-forms allow-pointer-lock allow-same-origin allow-scripts allow-top-navigation"
                             allow="autoplay; fullscreen; encrypted-media; picture-in-picture">
                         </iframe>
                     </div>
@@ -617,23 +603,15 @@ const Alexandria = {
                     <div class="episode-sidebar">
                         <div class="sidebar-header">
                             <h3 id="sidebar-season-title">SEASON ${season}</h3>
-                            <div class="sidebar-actions">
-                                <button class="icon-btn small" onclick="Alexandria.switchProvider()">📡 SWITCH FREQUENCY</button>
-                                <select id="season-select" onchange="Alexandria.changeSeason(this.value)">
-                                    <option value="${season}">Season ${season}</option>
-                                </select>
-                            </div>
+                            <select id="season-select" onchange="Alexandria.changeSeason(this.value)">
+                                <option value="${season}">Season ${season}</option>
+                            </select>
                         </div>
                         <div class="episode-list" id="sidebar-episodes">
                             <div class="placeholder-msg">Loading episodes...</div>
                         </div>
                     </div>
-                ` : `
-                    <div class="movie-sidebar">
-                        <button class="btn-primary" onclick="Alexandria.switchProvider()">📡 SWITCH FREQUENCY</button>
-                        <p class="sidebar-hint">IF SIGNAL IS JAMMED, TRY ANOTHER FREQUENCY</p>
-                    </div>
-                `}
+                ` : ''}
             </section>
         `;
 
@@ -642,49 +620,6 @@ const Alexandria = {
             this.fetchSeasonDetails(id, season);
             this.preFetchNextEpisode();
         }
-    },
-
-    switchProvider() {
-        const { id, type, season, episode, isAnime } = this.state.activeContent;
-        const frame = document.getElementById('player-frame');
-        const loader = document.getElementById('signal-loader');
-        const status = document.getElementById('active-provider');
-        
-        loader.classList.remove('hidden');
-        frame.classList.add('hidden');
-
-        const currentUrl = frame.src;
-        let nextUrl;
-        let providerName;
-
-        // Expanded Provider List for robustness - Prioritizing stable signals
-        const providers = isAnime ? [
-            { name: 'PM', url: type === 'movie' ? `https://vidsrc.pm/embed/movie/${id}` : `https://vidsrc.pm/embed/tv/${id}/${season}/${episode}` },
-            { name: 'PRO', url: type === 'movie' ? `https://vidsrc.pro/embed/movie/${id}` : `https://vidsrc.pro/embed/tv/${id}/${season}/${episode}` },
-            { name: 'ME', url: type === 'movie' ? `https://vidsrc.me/embed/movie?tmdb=${id}` : `https://vidsrc.me/embed/tv?tmdb=${id}&season=${season}&episode=${episode}` }
-        ] : [
-            { name: 'KING', url: type === 'movie' ? `https://www.vidking.net/embed/movie/${id}` : `https://www.vidking.net/embed/tv/${id}/${season}/${episode}` },
-            { name: 'PM', url: type === 'movie' ? `https://vidsrc.pm/embed/movie/${id}` : `https://vidsrc.pm/embed/tv/${id}/${season}/${episode}` },
-            { name: 'PRO', url: type === 'movie' ? `https://vidsrc.pro/embed/movie/${id}` : `https://vidsrc.pro/embed/tv/${id}/${season}/${episode}` }
-        ];
-
-        // Find the current index and move to next
-        const currentIndex = providers.findIndex(p => currentUrl.includes(p.name.toLowerCase()));
-        const nextIndex = (currentIndex + 1) % providers.length;
-        const next = providers[nextIndex];
-
-        nextUrl = next.url;
-        providerName = next.name;
-
-        setTimeout(() => {
-            frame.src = nextUrl;
-            status.textContent = `SYNCING ${providerName}...`;
-            frame.onload = () => {
-                loader.classList.add('hidden');
-                frame.classList.remove('hidden');
-                status.textContent = providerName;
-            };
-        }, 800);
     },
 
     async preFetchNextEpisode() {
