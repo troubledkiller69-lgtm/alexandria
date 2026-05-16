@@ -175,7 +175,7 @@ const Alexandria = {
                     <div class="view-section priority-archive">
                         <div class="section-header">
                             <h3><span class="pulse-dot"></span> PRIORITY ARCHIVE</h3>
-                            <p class="section-tagline">YOUR SAVED TRANSMISSIONS</p>
+                            <p class="section-tagline">YOUR SAVED TITLES</p>
                         </div>
                         <div class="carousel-wrapper">
                             <div class="carousel-grid" id="watchlist-results"></div>
@@ -190,9 +190,9 @@ const Alexandria = {
                 historyHtml = `
                     <div class="resume-widget" onclick="Alexandria.playContent(${last.id}, '${last.type}')">
                         <div class="resume-content">
-                            <span class="resume-label">RESUMING TRANSMISSION...</span>
+                            <span class="resume-label">RESUMING...</span>
                             <h4>${last.title}</h4>
-                            <p>CLICK TO RE-ESTABLISH CONNECTION</p>
+                            <p>CLICK TO RESUME WATCHING</p>
                         </div>
                     </div>
                 `;
@@ -366,16 +366,16 @@ const Alexandria = {
         this.main.innerHTML = `
             <section class="supply-run simplified-search">
                 <div class="search-hero">
-                    <span class="trending-badge">COMMUNICATIONS LINK ACTIVE</span>
-                    <h2>QUERYING GLOBAL TRANSMISSIONS</h2>
-                    <p>ENTER CODE OR TITLE FOR DECRYPTION</p>
+                    <span class="trending-badge">SECURE ACCESS</span>
+                    <h2>ARCHIVE SEARCH</h2>
+                    <p>FIND YOUR NEXT TITLE</p>
                 </div>
                 <div class="search-box">
                     <div class="input-wrapper">
-                        <input type="text" id="tmdb-search" placeholder="TYPE TRANSMISSION CODE..." autocomplete="off">
+                        <input type="text" id="tmdb-search" placeholder="SEARCH TITLES..." autocomplete="off">
                         <div class="scan-line"></div>
                     </div>
-                    <button class="btn-primary" onclick="Alexandria.handleSearch()">DECRYPT</button>
+                    <button class="btn-primary" onclick="Alexandria.handleSearch()">ACCESS</button>
                 </div>
                 <div class="results-grid" id="search-results" style="margin-top: 4rem;"></div>
             </section>
@@ -402,7 +402,7 @@ const Alexandria = {
         const resultsContainer = document.getElementById('search-results');
         resultsContainer.innerHTML = `
             <div class="placeholder-msg">
-                <span class="pulse-dot"></span> DECRYPTING TRANSMISSIONS...
+                <span class="pulse-dot"></span> LOCATING TITLES...
             </div>
         `;
 
@@ -589,7 +589,7 @@ const Alexandria = {
                     <div class="player-container">
                         <div id="signal-loader" class="hidden">
                             <div class="loader-content">
-                                <p class="loader-status">RE-ESTABLISHING SIGNAL...</p>
+                                <p class="loader-status">STABILIZING...</p>
                                 <div class="progress-bar"><div class="progress-fill"></div></div>
                             </div>
                         </div>
