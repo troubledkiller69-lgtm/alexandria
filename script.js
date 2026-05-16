@@ -333,25 +333,18 @@ const Alexandria = {
                     </div>
                 </section>`;
         }, card ? 300 : 0);
-    },
-
     async renderHome() {
         this.main.innerHTML = '<div class="placeholder-msg"><span class="pulse-dot"></span> LOADING SECTORS...</div>';
         
         try {
-            const [mRes, tRes, nRes, hRes, aRes, uRes, ...sResRaw] = await Promise.all([
+            // Sector 1: Core Content Scans
+            const [mRes, tRes, nRes, hRes, aRes, uRes] = await Promise.all([
                 fetch(`/api/proxy?endpoint=${encodeURIComponent('trending/movie/day')}`),
                 fetch(`/api/proxy?endpoint=${encodeURIComponent('trending/tv/day')}`),
                 fetch(`/api/proxy?endpoint=${encodeURIComponent('discover/movie?with_watch_providers=8&watch_region=US')}`),
                 fetch(`/api/proxy?endpoint=${encodeURIComponent('discover/movie?with_watch_providers=49&watch_region=US')}`),
                 fetch(`/api/proxy?endpoint=${encodeURIComponent('discover/movie?with_genres=28')}`),
-                fetch(`/api/proxy?endpoint=${encodeURIComponent('movie/upcoming')}`),
-                fetch(`/api/proxy?endpoint=${encodeURIComponent('tv/1402')}`),
-                fetch(`/api/proxy?endpoint=${encodeURIComponent('tv/62289')}`),
-                fetch(`/api/proxy?endpoint=${encodeURIComponent('tv/94305')}`),
-                fetch(`/api/proxy?endpoint=${encodeURIComponent('tv/157202')}`),
-                fetch(`/api/proxy?endpoint=${encodeURIComponent('tv/205312')}`),
-                fetch(`/api/proxy?endpoint=${encodeURIComponent('tv/212563')}`)
+                fetch(`/api/proxy?endpoint=${encodeURIComponent('movie/upcoming')}`)
             ]);
             
             const mData = await mRes.json();
@@ -360,8 +353,13 @@ const Alexandria = {
             const hData = await hRes.json();
             const aData = await aRes.json();
             const uData = await uRes.json();
-            const walkingDeadSpecials = await Promise.all(sResRaw.map(r => r.json()));
             
+            // Sector 2: Chronicle Extraction (Walking Dead Specials)
+            const chronicleIds = [1402, 62289, 94305, 157202, 205312, 212563];
+            const specialsRaw = await Promise.all(chronicleIds.map(id => 
+                fetch(`/api/proxy?endpoint=${encodeURIComponent('tv/' + id)}`).then(r => r.json())
+            ));
+
             const featured = mData.results?.[0];
             const last = this.state.history?.[0];
 
@@ -391,7 +389,7 @@ const Alexandria = {
                 </section>`;
             
             this.renderWatchlist();
-            this.renderResults(walkingDeadSpecials, 'alexandria-specials');
+            this.renderResults(specialsRaw, 'alexandria-specials');
             this.renderResults(mData.results, 'trending-movies');
             this.renderResults(tData.results, 'trending-tv');
             this.renderResults(nData.results, 'netflix-hits');
