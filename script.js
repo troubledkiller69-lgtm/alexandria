@@ -564,14 +564,14 @@ const Alexandria = {
         
         let embedUrl;
         if (isAnime) {
-            // vidsrc.to is usually better for anime sub/dub toggles
+            // vidsrc.pm is currently the most stable signal
             embedUrl = type === 'movie' 
-                ? `https://vidsrc.to/embed/movie/${id}`
-                : `https://vidsrc.to/embed/tv/${id}/${season}/${episode}`;
+                ? `https://vidsrc.pm/embed/movie/${id}`
+                : `https://vidsrc.pm/embed/tv/${id}/${season}/${episode}`;
         } else {
             embedUrl = type === 'movie' 
-                ? `https://vidsrc.xyz/embed/movie?tmdb=${id}`
-                : `https://vidsrc.xyz/embed/tv?tmdb=${id}&season=${season}&episode=${episode}`;
+                ? `https://vidsrc.pm/embed/movie/${id}`
+                : `https://vidsrc.pm/embed/tv/${id}/${season}/${episode}`;
         }
 
         this.main.innerHTML = `
@@ -656,14 +656,14 @@ const Alexandria = {
         let nextUrl;
         let providerName;
 
-        // Expanded Provider List for robustness
+        // Expanded Provider List for robustness - Prioritizing stable signals
         const providers = isAnime ? [
             { name: 'PM', url: type === 'movie' ? `https://vidsrc.pm/embed/movie/${id}` : `https://vidsrc.pm/embed/tv/${id}/${season}/${episode}` },
-            { name: 'TO', url: type === 'movie' ? `https://vidsrc.to/embed/movie/${id}` : `https://vidsrc.to/embed/tv/${id}/${season}/${episode}` },
-            { name: 'XYZ', url: type === 'movie' ? `https://vidsrc.xyz/embed/movie?tmdb=${id}` : `https://vidsrc.xyz/embed/tv?tmdb=${id}&season=${season}&episode=${episode}` }
+            { name: 'PRO', url: type === 'movie' ? `https://vidsrc.pro/embed/movie/${id}` : `https://vidsrc.pro/embed/tv/${id}/${season}/${episode}` },
+            { name: 'ME', url: type === 'movie' ? `https://vidsrc.me/embed/movie?tmdb=${id}` : `https://vidsrc.me/embed/tv?tmdb=${id}&season=${season}&episode=${episode}` }
         ] : [
-            { name: 'XYZ', url: type === 'movie' ? `https://vidsrc.xyz/embed/movie?tmdb=${id}` : `https://vidsrc.xyz/embed/tv?tmdb=${id}&season=${season}&episode=${episode}` },
             { name: 'PM', url: type === 'movie' ? `https://vidsrc.pm/embed/movie/${id}` : `https://vidsrc.pm/embed/tv/${id}/${season}/${episode}` },
+            { name: 'PRO', url: type === 'movie' ? `https://vidsrc.pro/embed/movie/${id}` : `https://vidsrc.pro/embed/tv/${id}/${season}/${episode}` },
             { name: 'KING', url: type === 'movie' ? `https://www.vidking.net/embed/movie/${id}` : `https://www.vidking.net/embed/tv/${id}/${season}/${episode}` }
         ];
 
