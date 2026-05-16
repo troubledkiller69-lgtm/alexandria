@@ -489,38 +489,48 @@ const Alexandria = {
 
     async render420() {
         this.main.innerHTML = '<div class="placeholder-msg"><span class="pulse-dot" style="background:#10b981;box-shadow:0 0 15px #10b981"></span> SCANNING ELEVATED FREQUENCIES...</div>';
+        
+        // Curated catalog sourced from highmovies.net — searched by title for 100% accuracy
+        const catalog = {
+            'pophigh':   ['Inception', 'The Matrix', 'Fight Club', 'Pulp Fiction', 'The Big Lebowski', 'Fear and Loathing in Las Vegas', 'Donnie Darko', 'The Prestige', 'Spirited Away', 'Scott Pilgrim vs. the World'],
+            'trip':      ['Avatar', 'Doctor Strange', 'Blade Runner 2049', 'Everything Everywhere All at Once', '2001 A Space Odyssey', 'Dune', 'Tron Legacy', 'Life of Pi', 'Enter the Void', 'Spider-Man Into the Spider-Verse'],
+            'funny':     ['Superbad', 'Pineapple Express', 'The Hangover', 'Step Brothers', 'This is the End', 'Half Baked', 'Tropic Thunder', 'Anchorman', 'Dumb and Dumber', 'Hot Rod'],
+            'chill':     ['The Lobster', 'Swiss Army Man', 'Sorry to Bother You', 'Being John Malkovich', 'Under the Silver Lake', 'Waking Life', 'The Life Aquatic with Steve Zissou', 'Beau Is Afraid', 'Holy Motors', 'Eraserhead'],
+            'deep':      ['Interstellar', 'Arrival', 'Her', 'Ex Machina', 'The Truman Show', 'Eternal Sunshine of the Spotless Mind', 'A Ghost Story', 'The Tree of Life', 'Coherence', 'Predestination']
+        };
+
         try {
-            const [tripRes, funnyRes, chillRes, deepRes, classicRes] = await Promise.all([
-                fetch(`/api/proxy?endpoint=${encodeURIComponent('discover/movie?with_genres=878,14&sort_by=popularity.desc&vote_average.gte=6')}`),
-                fetch(`/api/proxy?endpoint=${encodeURIComponent('discover/movie?with_genres=35&sort_by=popularity.desc&vote_count.gte=500')}`),
-                fetch(`/api/proxy?endpoint=${encodeURIComponent('discover/movie?with_genres=16,35&sort_by=popularity.desc')}`),
-                fetch(`/api/proxy?endpoint=${encodeURIComponent('discover/movie?with_genres=878,9648&sort_by=vote_average.desc&vote_count.gte=200')}`),
-                fetch(`/api/proxy?endpoint=${encodeURIComponent('discover/movie?with_genres=35,12&sort_by=popularity.desc&vote_count.gte=300')}`)
-            ]);
-            const tripData = await tripRes.json();
-            const funnyData = await funnyRes.json();
-            const chillData = await chillRes.json();
-            const deepData = await deepRes.json();
-            const classicData = await classicRes.json();
+            // Search all movies in parallel — one TMDB search per title
+            const searchMovie = (title) => 
+                fetch(`/api/proxy?endpoint=${encodeURIComponent('search/movie?query=' + encodeURIComponent(title))}`)
+                .then(r => r.json())
+                .then(d => d.results?.[0] || null)
+                .catch(() => null);
+
+            const [pophigh, trip, funny, chill, deep] = await Promise.all(
+                Object.values(catalog).map(titles => 
+                    Promise.all(titles.map(searchMovie)).then(r => r.filter(Boolean))
+                )
+            );
 
             this.main.innerHTML = `
                 <section class="filtered-view">
                     <div class="view-header" style="text-align:center;padding:3rem 4rem 1rem;">
                         <h2 style="font-size:4rem;background:linear-gradient(135deg,#065f46,#10b981,#34d399);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;">🌿 420 ZONE</h2>
-                        <p style="color:#10b981;font-size:0.8rem;letter-spacing:4px;font-weight:700;margin-top:0.5rem;">CURATED FOR YOUR ELEVATED EXPERIENCE</p>
+                        <p style="color:#10b981;font-size:0.8rem;letter-spacing:4px;font-weight:700;margin-top:0.5rem;">CURATED BY HIGHMOVIES.NET • FIND YOUR VIBE</p>
                     </div>
+                    <div class="view-section"><h3 style="color:#10b981">🔥 PopHigh's Recommendations</h3><div class="carousel-wrapper"><div class="carousel-grid" id="420-pophigh"></div></div></div>
                     <div class="view-section"><h3 style="color:#10b981">🚀 Visual Trip Movies</h3><div class="carousel-wrapper"><div class="carousel-grid" id="420-trip"></div></div></div>
                     <div class="view-section"><h3 style="color:#10b981">😂 Funniest Movies</h3><div class="carousel-wrapper"><div class="carousel-grid" id="420-funny"></div></div></div>
                     <div class="view-section"><h3 style="color:#10b981">😌 "I'm Chillin'"</h3><div class="carousel-wrapper"><div class="carousel-grid" id="420-chill"></div></div></div>
                     <div class="view-section"><h3 style="color:#10b981">🧠 Deep Thought Movies</h3><div class="carousel-wrapper"><div class="carousel-grid" id="420-deep"></div></div></div>
-                    <div class="view-section"><h3 style="color:#10b981">🎬 Adventure Highs</h3><div class="carousel-wrapper"><div class="carousel-grid" id="420-classic"></div></div></div>
                 </section>`;
             
-            this.renderResults(tripData.results, '420-trip');
-            this.renderResults(funnyData.results, '420-funny');
-            this.renderResults(chillData.results, '420-chill');
-            this.renderResults(deepData.results, '420-deep');
-            this.renderResults(classicData.results, '420-classic');
+            this.renderResults(pophigh, '420-pophigh');
+            this.renderResults(trip, '420-trip');
+            this.renderResults(funny, '420-funny');
+            this.renderResults(chill, '420-chill');
+            this.renderResults(deep, '420-deep');
         } catch (error) {
             console.error("Alexandria Protocol: 420 Zone Failed -", error);
             this.main.innerHTML = '<div class="placeholder-msg">ELEVATED SIGNAL LOST. TRY AGAIN.</div>';
