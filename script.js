@@ -618,9 +618,11 @@ const Alexandria = {
             : `https://www.vidking.net/embed/tv/${id}/${season}/${episode}`;
 
         this.main.innerHTML = `
-            <section class="screening-room">
-                <div class="player-container">
-                    <iframe src="${embedUrl}" width="100%" height="100%" frameborder="0" allowfullscreen></iframe>
+            <section class="elite-layout safe-zone-player">
+                <div class="player-main">
+                    <div class="player-container active-transmission">
+                        <iframe src="${embedUrl}" width="100%" height="100%" frameborder="0" allowfullscreen></iframe>
+                    </div>
                 </div>
                 ${type === 'tv' ? `
                     <div class="episode-sidebar">
