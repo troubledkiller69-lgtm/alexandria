@@ -151,8 +151,10 @@ const Alexandria = {
         // Global click listener
         document.addEventListener('click', async (e) => {
             const logBtn = e.target.classList.contains('log-btn') ? e.target : e.target.closest('.log-btn');
+            const searchTrigger = e.target.id === 'search-trigger' || e.target.closest('#search-trigger');
+
             if (logBtn) {
-                e.stopPropagation();
+                e.preventDefault();
                 const item = {
                     id: logBtn.dataset.id,
                     type: logBtn.dataset.type,
@@ -160,13 +162,13 @@ const Alexandria = {
                     poster_path: logBtn.dataset.poster.replace('https://image.tmdb.org/t/p/w500', '')
                 };
                 await this.toggleWatchlist(item);
-            }
-
-            if (e.target.id === 'search-trigger') this.setView('search');
-            
-            const card = e.target.classList.contains('movie-card') ? e.target : e.target.closest('.movie-card');
-            if (card) {
-                this.playContent(card.dataset.id, card.dataset.type, card.dataset.isAnime === 'true');
+            } else if (searchTrigger) {
+                this.setView('search');
+            } else {
+                const card = e.target.classList.contains('movie-card') ? e.target : e.target.closest('.movie-card');
+                if (card) {
+                    this.playContent(card.dataset.id, card.dataset.type);
+                }
             }
         });
     },
