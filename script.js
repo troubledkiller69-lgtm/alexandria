@@ -267,6 +267,7 @@ const Alexandria = {
         else if (this.state.view === 'movies') this.renderFiltered('movie');
         else if (this.state.view === 'tv') this.renderFiltered('tv');
         else if (this.state.view === 'anime') this.renderAnime();
+        else if (this.state.view === '420') this.render420();
         else if (this.state.view === 'search') this.renderSearch();
         else if (this.state.view === 'player') this.renderPlayer();
         else if (this.state.view === 'auth') this.renderAuth();
@@ -344,7 +345,7 @@ const Alexandria = {
                 fetch(`/api/proxy?endpoint=${encodeURIComponent('trending/movie/day')}`),
                 fetch(`/api/proxy?endpoint=${encodeURIComponent('trending/tv/day')}`),
                 fetch(`/api/proxy?endpoint=${encodeURIComponent('discover/movie?with_watch_providers=8&watch_region=US')}`),
-                fetch(`/api/proxy?endpoint=${encodeURIComponent('discover/movie?with_watch_providers=49&watch_region=US')}`),
+                fetch(`/api/proxy?endpoint=${encodeURIComponent('discover/movie?with_watch_providers=384&watch_region=US')}`),
                 fetch(`/api/proxy?endpoint=${encodeURIComponent('discover/movie?with_genres=28')}`),
                 fetch(`/api/proxy?endpoint=${encodeURIComponent('movie/upcoming')}`)
             ]);
@@ -483,6 +484,46 @@ const Alexandria = {
             this.renderResults(dData.results, 'anime-drama');
         } catch (error) {
             console.error("Alexandria Protocol: Anime Scout Failed -", error);
+        }
+    },
+
+    async render420() {
+        this.main.innerHTML = '<div class="placeholder-msg"><span class="pulse-dot" style="background:#10b981;box-shadow:0 0 15px #10b981"></span> SCANNING ELEVATED FREQUENCIES...</div>';
+        try {
+            const [tripRes, funnyRes, chillRes, deepRes, classicRes] = await Promise.all([
+                fetch(`/api/proxy?endpoint=${encodeURIComponent('discover/movie?with_genres=878,14&sort_by=popularity.desc&vote_average.gte=6')}`),
+                fetch(`/api/proxy?endpoint=${encodeURIComponent('discover/movie?with_genres=35&sort_by=popularity.desc&vote_count.gte=500')}`),
+                fetch(`/api/proxy?endpoint=${encodeURIComponent('discover/movie?with_genres=16,35&sort_by=popularity.desc')}`),
+                fetch(`/api/proxy?endpoint=${encodeURIComponent('discover/movie?with_genres=878,9648&sort_by=vote_average.desc&vote_count.gte=200')}`),
+                fetch(`/api/proxy?endpoint=${encodeURIComponent('discover/movie?with_genres=35,12&sort_by=popularity.desc&vote_count.gte=300')}`)
+            ]);
+            const tripData = await tripRes.json();
+            const funnyData = await funnyRes.json();
+            const chillData = await chillRes.json();
+            const deepData = await deepRes.json();
+            const classicData = await classicRes.json();
+
+            this.main.innerHTML = `
+                <section class="filtered-view">
+                    <div class="view-header" style="text-align:center;padding:3rem 4rem 1rem;">
+                        <h2 style="font-size:4rem;background:linear-gradient(135deg,#065f46,#10b981,#34d399);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;">🌿 420 ZONE</h2>
+                        <p style="color:#10b981;font-size:0.8rem;letter-spacing:4px;font-weight:700;margin-top:0.5rem;">CURATED FOR YOUR ELEVATED EXPERIENCE</p>
+                    </div>
+                    <div class="view-section"><h3 style="color:#10b981">🚀 Visual Trip Movies</h3><div class="carousel-wrapper"><div class="carousel-grid" id="420-trip"></div></div></div>
+                    <div class="view-section"><h3 style="color:#10b981">😂 Funniest Movies</h3><div class="carousel-wrapper"><div class="carousel-grid" id="420-funny"></div></div></div>
+                    <div class="view-section"><h3 style="color:#10b981">😌 "I'm Chillin'"</h3><div class="carousel-wrapper"><div class="carousel-grid" id="420-chill"></div></div></div>
+                    <div class="view-section"><h3 style="color:#10b981">🧠 Deep Thought Movies</h3><div class="carousel-wrapper"><div class="carousel-grid" id="420-deep"></div></div></div>
+                    <div class="view-section"><h3 style="color:#10b981">🎬 Adventure Highs</h3><div class="carousel-wrapper"><div class="carousel-grid" id="420-classic"></div></div></div>
+                </section>`;
+            
+            this.renderResults(tripData.results, '420-trip');
+            this.renderResults(funnyData.results, '420-funny');
+            this.renderResults(chillData.results, '420-chill');
+            this.renderResults(deepData.results, '420-deep');
+            this.renderResults(classicData.results, '420-classic');
+        } catch (error) {
+            console.error("Alexandria Protocol: 420 Zone Failed -", error);
+            this.main.innerHTML = '<div class="placeholder-msg">ELEVATED SIGNAL LOST. TRY AGAIN.</div>';
         }
     },
 
