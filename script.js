@@ -354,8 +354,11 @@ const Alexandria = {
                 ? `https://image.tmdb.org/t/p/w500${item.poster_path}` 
                 : 'https://via.placeholder.com/500x750?text=NO+IMAGE';
             
-            // Check if anime (Genre 16)
-            const isAnime = item.genre_ids && item.genre_ids.includes(16);
+            // Check if it's SPECIFICALLY Anime, not just general Animation
+            // TMDB 16 is Animation. We need to check if it's also Japanese (origin_country) to be sure it's 'Anime'
+            const isAnime = item.genre_ids && item.genre_ids.includes(16) && 
+                           (item.original_language === 'ja' || (item.origin_country && item.origin_country.includes('JP')));
+            
             const badgeHtml = isAnime ? '<div class="anime-badge">SUB | DUB</div>' : '';
             
             return `
@@ -434,8 +437,10 @@ const Alexandria = {
         document.querySelector('.modal-close').onclick = () => document.getElementById('movie-modal').remove();
         document.getElementById('final-play-btn').onclick = (e) => {
             const { id, type } = e.target.dataset;
-            // Detect if it's anime before playing (using multiple checks)
-            const isAnime = data.isAnimeFlag || (data.genres && data.genres.some(g => g.id === 16 || g.name.toLowerCase().includes('anime')));
+            // Refined anime check for modal data
+            const isAnime = data.isAnimeFlag || 
+                           (data.genres && data.genres.some(g => g.id === 16) && 
+                           (data.original_language === 'ja' || (data.origin_country && data.origin_country.includes('JP'))));
             
             this.state.activeContent = { 
                 id, 
@@ -493,8 +498,10 @@ const Alexandria = {
                             width="100%" 
                             height="100%" 
                             frameborder="0" 
+                            scrolling="no"
                             allowfullscreen
-                            allow="autoplay; fullscreen">
+                            referrerpolicy="no-referrer"
+                            allow="autoplay; fullscreen; encrypted-media; picture-in-picture">
                         </iframe>
                     </div>
                 </div>
