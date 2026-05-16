@@ -1135,3 +1135,69 @@ h1, h2, h3 {
         transition: none !important;
     }
 }
+
+/* QOL Features & Refinements */
+.placeholder-msg {
+    padding: 10rem 4rem;
+    text-align: center;
+    font-family: 'Bebas Neue', sans-serif;
+    letter-spacing: 6px;
+    font-size: 1.2rem;
+    color: var(--text-secondary);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 1rem;
+}
+
+.pulse-dot {
+    width: 8px;
+    height: 8px;
+    background: var(--accent-rust);
+    border-radius: 50%;
+    box-shadow: 0 0 15px var(--accent-rust);
+    animation: blink 0.8s infinite;
+}
+
+#back-to-top {
+    position: fixed;
+    bottom: 2rem;
+    right: 2rem;
+    width: 50px;
+    height: 50px;
+    background: rgba(15, 23, 42, 0.8);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: #fff;
+    border-radius: 50%;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.5rem;
+    opacity: 0;
+    visibility: hidden;
+    transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+    z-index: 1000;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+    transform: translateY(20px);
+}
+
+#back-to-top.visible {
+    opacity: 1;
+    visibility: visible;
+    transform: translateY(0);
+}
+
+#back-to-top:hover {
+    background: var(--accent-rust);
+    border-color: var(--accent-rust);
+    transform: translateY(-5px);
+    box-shadow: 0 15px 40px rgba(225, 29, 72, 0.3);
+}
+
+.status-text {
+    font-size: 0.6rem;
+    letter-spacing: 3px;
+    font-weight: 800;
+}
