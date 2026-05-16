@@ -211,7 +211,16 @@ const Alexandria = {
     },
 
     async syncFromCloud() {
-        if (!this.state.user) return;
+        if (!this.state.user) {
+            try {
+                this.state.watchlist = JSON.parse(localStorage.getItem('alexandria_watchlist')) || [];
+                this.state.history = JSON.parse(localStorage.getItem('alexandria_history')) || [];
+            } catch (e) {
+                this.state.watchlist = [];
+                this.state.history = [];
+            }
+            return;
+        }
         const [wRes, hRes] = await Promise.all([
             this.supabase.from('watchlist').select('*').order('created_at', { ascending: false }),
             this.supabase.from('history').select('*').order('created_at', { ascending: false }).limit(10)
@@ -221,11 +230,6 @@ const Alexandria = {
     },
 
     async toggleWatchlist(item) {
-        if (!this.state.user) {
-            alert("Identity Protocol required. Please authenticate to save progress.");
-            this.setView('auth');
-            return;
-        }
         const itemId = String(item.id);
         const index = this.state.watchlist.findIndex(i => String(i.id) === itemId);
         
@@ -238,10 +242,18 @@ const Alexandria = {
 
         if (index === -1) {
             this.state.watchlist.unshift(item);
-            await this.supabase.from('watchlist').insert({ user_id: this.state.user.id, content_id: itemId, type: item.type, title: item.title, poster_path: item.poster_path });
+            if (this.state.user) {
+                await this.supabase.from('watchlist').insert({ user_id: this.state.user.id, content_id: itemId, type: item.type, title: item.title, poster_path: item.poster_path });
+            }
         } else {
             this.state.watchlist.splice(index, 1);
-            await this.supabase.from('watchlist').delete().match({ user_id: this.state.user.id, content_id: itemId });
+            if (this.state.user) {
+                await this.supabase.from('watchlist').delete().match({ user_id: this.state.user.id, content_id: itemId });
+            }
+        }
+        
+        if (!this.state.user) {
+            localStorage.setItem('alexandria_watchlist', JSON.stringify(this.state.watchlist));
         }
         
         // If we are in the Home view, we only need to update the Watchlist row, not re-fetch everything
@@ -249,10 +261,14 @@ const Alexandria = {
     },
 
     async addToHistory(item) {
-        if (!this.state.user) return;
         this.state.history = this.state.history.filter(i => i.id != item.id);
         this.state.history.unshift(item);
-        await this.supabase.from('history').insert({ user_id: this.state.user.id, content_id: item.id, type: item.type, title: item.title, poster_path: item.poster_path });
+        
+        if (this.state.user) {
+            await this.supabase.from('history').insert({ user_id: this.state.user.id, content_id: item.id, type: item.type, title: item.title, poster_path: item.poster_path });
+        } else {
+            localStorage.setItem('alexandria_history', JSON.stringify(this.state.history));
+        }
     },
 
     render() {
@@ -345,11 +361,10 @@ const Alexandria = {
         
         try {
             // Sector 1: Core Content Scans
-            const [mRes, tRes, nRes, hRes, aRes, uRes] = await Promise.all([
+            const [mRes, tRes, nRes, aRes, uRes] = await Promise.all([
                 fetch(`/api/proxy?endpoint=${encodeURIComponent('trending/movie/day')}`),
                 fetch(`/api/proxy?endpoint=${encodeURIComponent('trending/tv/day')}`),
                 fetch(`/api/proxy?endpoint=${encodeURIComponent('discover/movie?with_watch_providers=8&watch_region=US')}`),
-                fetch(`/api/proxy?endpoint=${encodeURIComponent('discover/movie?with_watch_providers=384&watch_region=US')}`),
                 fetch(`/api/proxy?endpoint=${encodeURIComponent('discover/movie?with_genres=28')}`),
                 fetch(`/api/proxy?endpoint=${encodeURIComponent('movie/upcoming')}`)
             ]);
@@ -357,7 +372,6 @@ const Alexandria = {
             const mData = await mRes.json();
             const tData = await tRes.json();
             const nData = await nRes.json();
-            const hData = await hRes.json();
             const aData = await aRes.json();
             const uData = await uRes.json();
             
@@ -391,7 +405,6 @@ const Alexandria = {
                     <div class="view-section"><h3>ALEXANDRIA'S SPECIALS</h3><div class="carousel-wrapper"><div class="carousel-grid" id="alexandria-specials"></div></div></div>
                     <div class="view-section"><h3>Trending Movies</h3><div class="carousel-wrapper"><div class="carousel-grid" id="trending-movies"></div></div></div>
                     <div class="view-section"><h3>Netflix Originals</h3><div class="carousel-wrapper"><div class="carousel-grid" id="netflix-hits"></div></div></div>
-                    <div class="view-section premium-tier"><h3>HBO Masterpieces</h3><div class="carousel-wrapper"><div class="carousel-grid" id="hbo-hits"></div></div></div>
                     <div class="view-section"><h3>Trending TV Shows</h3><div class="carousel-wrapper"><div class="carousel-grid" id="trending-tv"></div></div></div>
                     <div class="view-section"><h3>Upcoming Missions</h3><div class="carousel-wrapper"><div class="carousel-grid" id="upcoming-hits"></div></div></div>
                     <div class="view-section"><h3>Action Archives</h3><div class="carousel-wrapper"><div class="carousel-grid" id="action-hits"></div></div></div>
@@ -402,7 +415,6 @@ const Alexandria = {
             this.renderResults(mData.results, 'trending-movies');
             this.renderResults(tData.results, 'trending-tv');
             this.renderResults(nData.results, 'netflix-hits');
-            this.renderResults(hData.results, 'hbo-hits');
             this.renderResults(aData.results, 'action-hits');
             this.renderResults(uData.results, 'upcoming-hits');
         } catch (error) {
