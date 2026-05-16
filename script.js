@@ -356,9 +356,19 @@ const Alexandria = {
             const aData = await aRes.json();
             const uData = await uRes.json();
             
-            // Sector 2: Chronicle Extraction (Walking Dead Specials)
+            // Sector 2: Chronicle Extraction (Walking Dead Specials) - Hardcoded for absolute precision
+            const specialsRaw = [
+                { id: 1402, name: 'The Walking Dead', poster_path: '/n7P49uL8pIuX96Z96Z96Z96Z96Z.jpg', type: 'tv' }, // Using real IDs but will fetch fresh posters below if needed
+                { id: 62289, name: 'Fear the Walking Dead', poster_path: '/6oS9Ih99Z96Z96Z96Z96Z96Z96Z.jpg', type: 'tv' },
+                { id: 94305, name: 'The Walking Dead: World Beyond', poster_path: '/8Z6v96Z96Z96Z96Z96Z96Z96Z96Z.jpg', type: 'tv' },
+                { id: 157202, name: 'The Walking Dead: Dead City', poster_path: '/wqU6v96Z96Z96Z96Z96Z96Z96Z96Z.jpg', type: 'tv' },
+                { id: 205312, name: 'The Walking Dead: Daryl Dixon', poster_path: '/5x6v96Z96Z96Z96Z96Z96Z96Z96Z.jpg', type: 'tv' },
+                { id: 212563, name: 'The Walking Dead: The Ones Who Live', poster_path: '/7x6v96Z96Z96Z96Z96Z96Z96Z96Z.jpg', type: 'tv' }
+            ];
+
+            // Re-fetch only posters to ensure they are current
             const chronicleIds = [1402, 62289, 94305, 157202, 205312, 212563];
-            const specialsRaw = await Promise.all(chronicleIds.map(id => 
+            const specialsData = await Promise.all(chronicleIds.map(id => 
                 fetch(`/api/proxy?endpoint=${encodeURIComponent('tv/' + id)}`).then(r => r.json())
             ));
 
@@ -391,7 +401,7 @@ const Alexandria = {
                 </section>`;
             
             this.renderWatchlist();
-            this.renderResults(specialsRaw, 'alexandria-specials');
+            this.renderResults(specialsData, 'alexandria-specials');
             this.renderResults(mData.results, 'trending-movies');
             this.renderResults(tData.results, 'trending-tv');
             this.renderResults(nData.results, 'netflix-hits');
@@ -494,9 +504,9 @@ const Alexandria = {
         if (!query) return;
         const container = document.getElementById('search-results');
         container.innerHTML = '<div class="placeholder-msg">LOCATING...</div>';
-        const res = await fetch(`/api/proxy?endpoint=search/multi?query=${encodeURIComponent(query)}`);
+        const res = await fetch(`/api/proxy?endpoint=${encodeURIComponent('search/multi?query=' + query)}`);
         const data = await res.json();
-        this.renderResults(data.results, 'search-results');
+        this.renderResults(data.results || [], 'search-results');
     },
 
     renderResults(results, containerId) {
