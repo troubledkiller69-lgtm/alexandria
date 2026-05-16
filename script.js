@@ -222,6 +222,13 @@ const Alexandria = {
         const itemId = String(item.id);
         const index = this.state.watchlist.findIndex(i => String(i.id) === itemId);
         
+        // Find all buttons for this item in the DOM and update them immediately
+        document.querySelectorAll(`.log-btn[data-id="${itemId}"]`).forEach(btn => {
+            const isActive = btn.classList.contains('active');
+            btn.classList.toggle('active');
+            btn.innerHTML = isActive ? '🔖' : '📑';
+        });
+
         if (index === -1) {
             this.state.watchlist.unshift(item);
             await this.supabase.from('watchlist').insert({ user_id: this.state.user.id, content_id: itemId, type: item.type, title: item.title, poster_path: item.poster_path });
@@ -229,7 +236,9 @@ const Alexandria = {
             this.state.watchlist.splice(index, 1);
             await this.supabase.from('watchlist').delete().match({ user_id: this.state.user.id, content_id: itemId });
         }
-        this.render();
+        
+        // If we are in the Home view, we DO need to re-render to update the "Priority Archive" row
+        if (this.state.view === 'home') this.renderHome();
     },
 
     async addToHistory(item) {
