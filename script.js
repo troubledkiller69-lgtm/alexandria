@@ -1,7 +1,6 @@
 const Alexandria = {
     state: {
         view: 'home', // home, movies, tv, search, player, admin
-        tmdbApiKey: '1674b87b5b127b3c4a5d81846fed3a41', // LO's Key
         pendingUsers: [],
         clickCount: 0,
         searchTimeout: null,
@@ -180,19 +179,19 @@ const Alexandria = {
     async renderHome() {
         try {
             // Fetch All Data first
-            const [mRes, tRes, netflixRes, hboRes, actionRes] = await Promise.all([
-                fetch(`https://api.themoviedb.org/3/trending/movie/week?api_key=${this.state.tmdbApiKey}`),
-                fetch(`https://api.themoviedb.org/3/trending/tv/week?api_key=${this.state.tmdbApiKey}`),
-                fetch(`https://api.themoviedb.org/3/discover/movie?api_key=${this.state.tmdbApiKey}&with_watch_providers=8&watch_region=US`),
-                fetch(`https://api.themoviedb.org/3/discover/movie?api_key=${this.state.tmdbApiKey}&with_companies=3268`),
-                fetch(`https://api.themoviedb.org/3/discover/movie?api_key=${this.state.tmdbApiKey}&with_genres=28`)
+            const [mRes, tRes, nRes, hRes, aRes] = await Promise.all([
+                fetch(`/api/proxy?endpoint=trending/movie/day`),
+                fetch(`/api/proxy?endpoint=trending/tv/day`),
+                fetch(`/api/proxy?endpoint=discover/movie?with_networks=213`), // Netflix
+                fetch(`/api/proxy?endpoint=discover/movie?with_networks=49`),  // HBO
+                fetch(`/api/proxy?endpoint=discover/movie?with_genres=28`)    // Action
             ]);
             
             const mData = await mRes.json();
             const tData = await tRes.json();
-            const nData = await netflixRes.json();
-            const hData = await hboRes.json();
-            const aData = await actionRes.json();
+            const nData = await nRes.json();
+            const hData = await hRes.json();
+            const aData = await aRes.json();
             
             const featured = mData.results[0];
             const backdrop = `https://image.tmdb.org/t/p/original${featured.backdrop_path}`;
@@ -295,9 +294,9 @@ const Alexandria = {
         const title = type === 'movie' ? 'Movies' : 'TV Shows';
         try {
             const [popRes, topRes, newRes] = await Promise.all([
-                fetch(`https://api.themoviedb.org/3/${type}/popular?api_key=${this.state.tmdbApiKey}`),
-                fetch(`https://api.themoviedb.org/3/${type}/top_rated?api_key=${this.state.tmdbApiKey}`),
-                fetch(`https://api.themoviedb.org/3/${type}/${type === 'movie' ? 'now_playing' : 'on_the_air'}?api_key=${this.state.tmdbApiKey}`)
+                fetch(`/api/proxy?endpoint=${type}/popular`),
+                fetch(`/api/proxy?endpoint=${type}/top_rated`),
+                fetch(`/api/proxy?endpoint=${type}/${type === 'movie' ? 'now_playing' : 'on_the_air'}`)
             ]);
             
             const popData = await popRes.json();
@@ -344,9 +343,9 @@ const Alexandria = {
     async renderAnime() {
         try {
             const [shonenRes, seinenRes, trendingRes] = await Promise.all([
-                fetch(`https://api.themoviedb.org/3/discover/tv?api_key=${this.state.tmdbApiKey}&with_genres=16&with_keywords=210024&sort_by=popularity.desc`),
-                fetch(`https://api.themoviedb.org/3/discover/tv?api_key=${this.state.tmdbApiKey}&with_genres=16&with_keywords=210024&vote_average.gte=8`),
-                fetch(`https://api.themoviedb.org/3/discover/tv?api_key=${this.state.tmdbApiKey}&with_genres=16&with_keywords=210024&first_air_date.gte=2024-01-01`)
+                fetch(`/api/proxy?endpoint=discover/tv?with_genres=16&with_keywords=210024&sort_by=popularity.desc`),
+                fetch(`/api/proxy?endpoint=discover/tv?with_genres=16&with_keywords=210024&vote_average.gte=8`),
+                fetch(`/api/proxy?endpoint=discover/tv?with_genres=16&with_keywords=210024&first_air_date.gte=2024-01-01`)
             ]);
             
             const sData = await shonenRes.json();
@@ -434,7 +433,7 @@ const Alexandria = {
         `;
 
         try {
-            const response = await fetch(`https://api.themoviedb.org/3/search/multi?api_key=${this.state.tmdbApiKey}&query=${encodeURIComponent(query)}`);
+            const response = await fetch(`/api/proxy?endpoint=search/multi?query=${encodeURIComponent(query)}`);
             const data = await response.json();
             this.renderResults(data.results, 'search-results');
         } catch (error) {
@@ -505,7 +504,7 @@ const Alexandria = {
 
     async fetchDetails(id, type, isAnimeFlag = false) {
         try {
-            const response = await fetch(`https://api.themoviedb.org/3/${type}/${id}?api_key=${this.state.tmdbApiKey}`);
+            const response = await fetch(`/api/proxy?endpoint=${type}/${id}`);
             const data = await response.json();
             // Store the anime flag for the player
             data.isAnimeFlag = isAnimeFlag;
@@ -652,7 +651,7 @@ const Alexandria = {
 
         if (type === 'tv') {
             this.fetchShowDetails(id);
-            this.fetchSeasonDetails(id, season);
+            this.loadEpisodes(id, season);
             this.preFetchNextEpisode();
         }
     },
@@ -661,9 +660,10 @@ const Alexandria = {
         const { id, season, episode } = this.state.activeContent;
         const nextEp = episode + 1;
         try {
-            // Just a ping to TMDB to cache the next episode metadata in the browser
-            await fetch(`https://api.themoviedb.org/3/tv/${id}/season/${season}/episode/${nextEp}?api_key=${this.state.tmdbApiKey}`);
-            console.log(`Pre-fetched metadata for Episode ${nextEp}`);
+            const response = await fetch(`/api/proxy?endpoint=tv/${id}/season/${season}/episode/${nextEp}`);
+            if (response.ok) {
+                console.log(`Pre-fetched metadata for Episode ${nextEp}`);
+            }
         } catch (e) {
             // End of season or error
         }
@@ -671,7 +671,7 @@ const Alexandria = {
 
     async fetchShowDetails(id) {
         try {
-            const res = await fetch(`https://api.themoviedb.org/3/tv/${id}?api_key=${this.state.tmdbApiKey}`);
+            const res = await fetch(`/api/proxy?endpoint=tv/${id}`);
             const data = await res.json();
             const select = document.getElementById('season-select');
             if (!select) return;
@@ -685,10 +685,13 @@ const Alexandria = {
         }
     },
 
-    async fetchSeasonDetails(id, season) {
+    async loadEpisodes(id, season) {
+        const episodeList = document.getElementById('sidebar-episodes');
+        const seasonTitle = document.getElementById('sidebar-season-title');
+        
         try {
-            const res = await fetch(`https://api.themoviedb.org/3/tv/${id}/season/${season}?api_key=${this.state.tmdbApiKey}`);
-            const data = await res.json();
+            const response = await fetch(`/api/proxy?endpoint=tv/${id}/season/${season}`);
+            const data = await response.json();
             const container = document.getElementById('sidebar-episodes');
             if (!container) return;
 
