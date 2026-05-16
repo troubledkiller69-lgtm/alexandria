@@ -346,7 +346,7 @@ const Alexandria = {
                 fetch(`/api/proxy?endpoint=discover/movie?with_watch_providers=49&watch_region=US`),
                 fetch(`/api/proxy?endpoint=discover/movie?with_genres=28`),
                 fetch(`/api/proxy?endpoint=movie/upcoming`),
-                fetch(`/api/proxy?endpoint=search/tv?query=The Walking Dead`)
+                fetch(`/api/proxy?endpoint=search/tv?query=${encodeURIComponent('The Walking Dead')}`)
             ]);
             
             const mData = await mRes.json();
