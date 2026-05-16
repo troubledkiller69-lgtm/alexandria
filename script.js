@@ -564,14 +564,15 @@ const Alexandria = {
         
         let embedUrl;
         if (isAnime) {
-            // vidsrc.pm is currently the most stable signal
+            // vidsrc.pm is currently the most stable signal for anime
             embedUrl = type === 'movie' 
                 ? `https://vidsrc.pm/embed/movie/${id}`
                 : `https://vidsrc.pm/embed/tv/${id}/${season}/${episode}`;
         } else {
+            // VidKing is the preferred signal for Movies/TV
             embedUrl = type === 'movie' 
-                ? `https://vidsrc.pm/embed/movie/${id}`
-                : `https://vidsrc.pm/embed/tv/${id}/${season}/${episode}`;
+                ? `https://www.vidking.net/embed/movie/${id}`
+                : `https://www.vidking.net/embed/tv/${id}/${season}/${episode}`;
         }
 
         this.main.innerHTML = `
@@ -662,9 +663,9 @@ const Alexandria = {
             { name: 'PRO', url: type === 'movie' ? `https://vidsrc.pro/embed/movie/${id}` : `https://vidsrc.pro/embed/tv/${id}/${season}/${episode}` },
             { name: 'ME', url: type === 'movie' ? `https://vidsrc.me/embed/movie?tmdb=${id}` : `https://vidsrc.me/embed/tv?tmdb=${id}&season=${season}&episode=${episode}` }
         ] : [
+            { name: 'KING', url: type === 'movie' ? `https://www.vidking.net/embed/movie/${id}` : `https://www.vidking.net/embed/tv/${id}/${season}/${episode}` },
             { name: 'PM', url: type === 'movie' ? `https://vidsrc.pm/embed/movie/${id}` : `https://vidsrc.pm/embed/tv/${id}/${season}/${episode}` },
-            { name: 'PRO', url: type === 'movie' ? `https://vidsrc.pro/embed/movie/${id}` : `https://vidsrc.pro/embed/tv/${id}/${season}/${episode}` },
-            { name: 'KING', url: type === 'movie' ? `https://www.vidking.net/embed/movie/${id}` : `https://www.vidking.net/embed/tv/${id}/${season}/${episode}` }
+            { name: 'PRO', url: type === 'movie' ? `https://vidsrc.pro/embed/movie/${id}` : `https://vidsrc.pro/embed/tv/${id}/${season}/${episode}` }
         ];
 
         // Find the current index and move to next
