@@ -20,16 +20,19 @@ const Alexandria = {
         // Start loading sequence immediately
         const loadingPromise = this.simulateLoading();
 
-        // Run network initialization in parallel - don't let it block the render
-        this.initNetwork().finally(() => {
-            console.log("Alexandria Protocol: Archive Initialized.");
-            this.render(); // Ensure we render after network check (even if it fails)
-        });
+        // Run network initialization
+        try {
+            await this.initNetwork();
+        } catch (e) {
+            console.error("Alexandria Protocol: Network Error -", e);
+            this.state.view = 'auth';
+        }
 
+        // Wait for loading bar to finish
         await loadingPromise;
         
         this.bindEvents();
-        this.render(); // Render once loading bar is done
+        this.render();
         
         window.addEventListener('hashchange', () => this.handleRouting());
         this.handleRouting();
@@ -50,10 +53,11 @@ const Alexandria = {
             
             this.supabase.auth.onAuthStateChange(async (event, session) => {
                 console.log("Alexandria Protocol: Auth Event -", event);
+                const prevUser = this.state.user;
                 this.state.user = session?.user || null;
-                this.updateSyncIndicator(event === 'SIGNED_IN' ? 'SYNCED' : 'OFFLINE');
+                this.updateSyncIndicator(this.state.user ? 'SYNCED' : 'OFFLINE');
                 
-                if (event === 'SIGNED_IN') {
+                if (event === 'SIGNED_IN' && !prevUser) {
                     await this.syncFromCloud();
                     this.setView('home');
                 } else if (event === 'SIGNED_OUT') {
@@ -61,7 +65,6 @@ const Alexandria = {
                     this.state.history = [];
                     this.setView('auth');
                 }
-                this.render();
             });
 
             const { data: { session } } = await this.supabase.auth.getSession();
@@ -74,7 +77,7 @@ const Alexandria = {
                 this.updateSyncIndicator('GUEST');
             }
         } catch (e) {
-            console.error("Alexandria Protocol: Network Init Failed -", e);
+            console.error("Alexandria Protocol: Handshake Failed -", e);
             this.state.view = 'auth';
         }
     },
@@ -219,12 +222,20 @@ const Alexandria = {
     },
 
     render() {
-        if (!this.state.user && this.state.view !== 'auth') return this.renderAuth();
+        if (!this.main) this.main = document.getElementById('content');
+        if (!this.main) return;
+
+        if (!this.state.user && this.state.view !== 'auth') {
+            this.state.view = 'auth';
+            return this.renderAuth();
+        }
         
+        // Update Nav Link Active States
         document.querySelectorAll('.nav-link').forEach(link => {
             link.classList.toggle('active', link.getAttribute('href') === `#${this.state.view}`);
         });
 
+        // Main View Routing
         if (this.state.view === 'home') this.renderHome();
         else if (this.state.view === 'movies') this.renderFiltered('movie');
         else if (this.state.view === 'tv') this.renderFiltered('tv');
@@ -234,8 +245,11 @@ const Alexandria = {
         else if (this.state.view === 'auth') this.renderAuth();
     },
 
-    async renderAuth() {
-        const card = document.querySelector('.auth-card');
+    renderAuth() {
+        // Prevent re-rendering if already on auth screen (unless forced)
+        if (this.main.querySelector('.auth-card') && !this.main.querySelector('[onsubmit*="signup"]')) return;
+
+        const card = this.main.querySelector('.auth-card');
         if (card) card.classList.add('switching');
         
         setTimeout(() => {
@@ -264,8 +278,8 @@ const Alexandria = {
         }, card ? 300 : 0);
     },
 
-    async renderSignup() {
-        const card = document.querySelector('.auth-card');
+    renderSignup() {
+        const card = this.main.querySelector('.auth-card');
         if (card) card.classList.add('switching');
         
         setTimeout(() => {
