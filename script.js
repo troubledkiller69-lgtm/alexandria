@@ -259,18 +259,20 @@ const Alexandria = {
     },
 
     async renderHome() {
-        const [mRes, tRes, nRes, hRes, aRes] = await Promise.all([
+        const [mRes, tRes, nRes, hRes, aRes, uRes] = await Promise.all([
             fetch(`/api/proxy?endpoint=trending/movie/day`),
             fetch(`/api/proxy?endpoint=trending/tv/day`),
-            fetch(`/api/proxy?endpoint=discover/movie?with_networks=213`),
-            fetch(`/api/proxy?endpoint=discover/movie?with_networks=49`),
-            fetch(`/api/proxy?endpoint=discover/movie?with_genres=28`)
+            fetch(`/api/proxy?endpoint=discover/movie?with_networks=213`), // Netflix
+            fetch(`/api/proxy?endpoint=discover/movie?with_networks=49`),  // HBO
+            fetch(`/api/proxy?endpoint=discover/movie?with_genres=28`),    // Action
+            fetch(`/api/proxy?endpoint=movie/upcoming`)
         ]);
         const mData = await mRes.json();
         const tData = await tRes.json();
         const nData = await nRes.json();
         const hData = await hRes.json();
         const aData = await aRes.json();
+        const uData = await uRes.json();
         
         const featured = mData.results[0];
         const last = this.state.history[0];
@@ -290,36 +292,78 @@ const Alexandria = {
                 </div>
                 ${this.state.watchlist.length > 0 ? `<div class="view-section"><h3>PRIORITY ARCHIVE</h3><div class="carousel-wrapper"><div class="carousel-grid" id="watchlist-results"></div></div></div>` : ''}
                 <div class="view-section"><h3>Trending Movies</h3><div class="carousel-wrapper"><div class="carousel-grid" id="trending-movies"></div></div></div>
+                <div class="view-section"><h3>Netflix Originals</h3><div class="carousel-wrapper"><div class="carousel-grid" id="netflix-hits"></div></div></div>
+                <div class="view-section"><h3>HBO Masterpieces</h3><div class="carousel-wrapper"><div class="carousel-grid" id="hbo-hits"></div></div></div>
                 <div class="view-section"><h3>Trending TV Shows</h3><div class="carousel-wrapper"><div class="carousel-grid" id="trending-tv"></div></div></div>
+                <div class="view-section"><h3>Upcoming Missions</h3><div class="carousel-wrapper"><div class="carousel-grid" id="upcoming-hits"></div></div></div>
+                <div class="view-section"><h3>Action Archives</h3><div class="carousel-wrapper"><div class="carousel-grid" id="action-hits"></div></div></div>
             </section>`;
         
         if (this.state.watchlist.length > 0) this.renderResults(this.state.watchlist, 'watchlist-results');
         this.renderResults(mData.results, 'trending-movies');
         this.renderResults(tData.results, 'trending-tv');
+        this.renderResults(nData.results, 'netflix-hits');
+        this.renderResults(hData.results, 'hbo-hits');
+        this.renderResults(aData.results, 'action-hits');
+        this.renderResults(uData.results, 'upcoming-hits');
     },
 
     async renderFiltered(type) {
-        const [popRes, topRes] = await Promise.all([
+        const [popRes, topRes, actRes, horRes, sciRes] = await Promise.all([
             fetch(`/api/proxy?endpoint=${type}/popular`),
-            fetch(`/api/proxy?endpoint=${type}/top_rated`)
+            fetch(`/api/proxy?endpoint=${type}/top_rated`),
+            fetch(`/api/proxy?endpoint=discover/${type}?with_genres=${type === 'movie' ? '28' : '10759'}`), // Action
+            fetch(`/api/proxy?endpoint=discover/${type}?with_genres=27`), // Horror
+            fetch(`/api/proxy?endpoint=discover/${type}?with_genres=878`) // Sci-Fi
         ]);
         const popData = await popRes.json();
         const topData = await topRes.json();
-        this.main.innerHTML = `<section class="filtered-view"><div class="view-header"><h2>${type === 'movie' ? 'Movies' : 'TV Shows'}</h2></div><div class="view-section"><h3>Popular</h3><div class="carousel-wrapper"><div class="carousel-grid" id="pop-results"></div></div></div><div class="view-section"><h3>Top Rated</h3><div class="carousel-wrapper"><div class="carousel-grid" id="top-results"></div></div></div></section>`;
+        const actData = await actRes.json();
+        const horData = await horRes.json();
+        const sciData = await sciRes.json();
+
+        this.main.innerHTML = `
+            <section class="filtered-view">
+                <div class="view-header"><h2>${type === 'movie' ? 'Movies' : 'TV Shows'}</h2></div>
+                <div class="view-section"><h3>Popular Now</h3><div class="carousel-wrapper"><div class="carousel-grid" id="pop-results"></div></div></div>
+                <div class="view-section"><h3>Top Rated</h3><div class="carousel-wrapper"><div class="carousel-grid" id="top-results"></div></div></div>
+                <div class="view-section"><h3>Action & Adventure</h3><div class="carousel-wrapper"><div class="carousel-grid" id="action-results"></div></div></div>
+                <div class="view-section"><h3>Horror Archives</h3><div class="carousel-wrapper"><div class="carousel-grid" id="horror-results"></div></div></div>
+                <div class="view-section"><h3>Sci-Fi & Fantasy</h3><div class="carousel-wrapper"><div class="carousel-grid" id="sci-results"></div></div></div>
+            </section>`;
+        
         this.renderResults(popData.results, 'pop-results');
         this.renderResults(topData.results, 'top-results');
+        this.renderResults(actData.results, 'action-results');
+        this.renderResults(horData.results, 'horror-results');
+        this.renderResults(sciData.results, 'sci-results');
     },
 
     async renderAnime() {
-        const [shonenRes, seinenRes] = await Promise.all([
+        const [shonenRes, seinenRes, fantasyRes, dramaRes] = await Promise.all([
             fetch(`/api/proxy?endpoint=discover/tv?with_genres=16&with_keywords=210024&sort_by=popularity.desc`),
-            fetch(`/api/proxy?endpoint=discover/tv?with_genres=16&with_keywords=210024&vote_average.gte=8`)
+            fetch(`/api/proxy?endpoint=discover/tv?with_genres=16&with_keywords=210024&vote_average.gte=8`),
+            fetch(`/api/proxy?endpoint=discover/tv?with_genres=16&with_keywords=210024&with_genres=14`), // Fantasy
+            fetch(`/api/proxy?endpoint=discover/tv?with_genres=16&with_keywords=210024&with_genres=18`)  // Drama
         ]);
         const sData = await shonenRes.json();
         const seData = await seinenRes.json();
-        this.main.innerHTML = `<section class="filtered-view"><div class="view-header"><h2>Anime Hub</h2></div><div class="view-section"><h3>Trending</h3><div class="carousel-wrapper"><div class="carousel-grid" id="anime-trending"></div></div></div><div class="view-section"><h3>Top Rated</h3><div class="carousel-wrapper"><div class="carousel-grid" id="anime-top"></div></div></div></section>`;
+        const fData = await fantasyRes.json();
+        const dData = await dramaRes.json();
+
+        this.main.innerHTML = `
+            <section class="filtered-view">
+                <div class="view-header"><h2>Anime Hub</h2></div>
+                <div class="view-section"><h3>Trending Anime</h3><div class="carousel-wrapper"><div class="carousel-grid" id="anime-trending"></div></div></div>
+                <div class="view-section"><h3>Top Rated Masterpieces</h3><div class="carousel-wrapper"><div class="carousel-grid" id="anime-top"></div></div></div>
+                <div class="view-section"><h3>Epic Fantasy Anime</h3><div class="carousel-wrapper"><div class="carousel-grid" id="anime-fantasy"></div></div></div>
+                <div class="view-section"><h3>Intense Drama Anime</h3><div class="carousel-wrapper"><div class="carousel-grid" id="anime-drama"></div></div></div>
+            </section>`;
+        
         this.renderResults(sData.results, 'anime-trending');
         this.renderResults(seData.results, 'anime-top');
+        this.renderResults(fData.results, 'anime-fantasy');
+        this.renderResults(dData.results, 'anime-drama');
     },
 
     renderSearch() {
