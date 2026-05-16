@@ -366,7 +366,6 @@ const Alexandria = {
         this.main.innerHTML = `
             <section class="supply-run simplified-search">
                 <div class="search-hero">
-                    <span class="trending-badge">SECURE ACCESS</span>
                     <h2>ARCHIVE SEARCH</h2>
                     <p>FIND YOUR NEXT TITLE</p>
                 </div>
