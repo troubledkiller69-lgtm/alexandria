@@ -171,7 +171,8 @@ const Alexandria = {
             } else {
                 const card = e.target.classList.contains('movie-card') ? e.target : e.target.closest('.movie-card');
                 if (card) {
-                    this.playContent(card.dataset.id, card.dataset.type);
+                    const isAnime = card.dataset.isAnime === 'true';
+                    this.playContent(card.dataset.id, card.dataset.type, isAnime);
                 }
             }
         });
@@ -533,15 +534,16 @@ const Alexandria = {
             );
 
             this.main.innerHTML = `
-                <section class="filtered-view">
-                    <div class="view-header" style="text-align:center;padding:3rem 4rem 1rem;">
-                        <h2 style="font-size:4rem;background:linear-gradient(135deg,#065f46,#10b981,#34d399);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;">420 ZONE</h2>
+                <section class="filtered-view vip-section">
+                    <div class="vip-420-header">
+                        <h2>420 ZONE</h2>
+                        <p style="color:var(--text-muted);font-family:var(--font-display);letter-spacing:2px">ELEVATED FREQUENCIES</p>
                     </div>
-                    <div class="view-section"><h3 style="color:#10b981">Stoner Classics</h3><div class="carousel-wrapper"><div class="carousel-grid" id="420-classics"></div></div></div>
-                    <div class="view-section"><h3 style="color:#10b981">Modern Hits</h3><div class="carousel-wrapper"><div class="carousel-grid" id="420-modern"></div></div></div>
-                    <div class="view-section"><h3 style="color:#10b981">Trippy & Surreal</h3><div class="carousel-wrapper"><div class="carousel-grid" id="420-trippy"></div></div></div>
-                    <div class="view-section"><h3 style="color:#10b981">Chill Vibes</h3><div class="carousel-wrapper"><div class="carousel-grid" id="420-chill"></div></div></div>
-                    <div class="view-section"><h3 style="color:#10b981">Cult Favorites</h3><div class="carousel-wrapper"><div class="carousel-grid" id="420-cult"></div></div></div>
+                    <div class="view-section"><h3 style="color:var(--accent-emerald)">Stoner Classics</h3><div class="carousel-wrapper"><div class="carousel-grid" id="420-classics"></div></div></div>
+                    <div class="view-section"><h3 style="color:var(--accent-emerald)">Modern Hits</h3><div class="carousel-wrapper"><div class="carousel-grid" id="420-modern"></div></div></div>
+                    <div class="view-section"><h3 style="color:var(--accent-emerald)">Trippy & Surreal</h3><div class="carousel-wrapper"><div class="carousel-grid" id="420-trippy"></div></div></div>
+                    <div class="view-section"><h3 style="color:var(--accent-emerald)">Chill Vibes</h3><div class="carousel-wrapper"><div class="carousel-grid" id="420-chill"></div></div></div>
+                    <div class="view-section"><h3 style="color:var(--accent-emerald)">Cult Favorites</h3><div class="carousel-wrapper"><div class="carousel-grid" id="420-cult"></div></div></div>
                 </section>`;
             
             this.renderResults(classics, '420-classics');
@@ -594,11 +596,19 @@ const Alexandria = {
             const title = item.title || item.name;
             const poster = item.poster_path ? `https://image.tmdb.org/t/p/w500${item.poster_path}` : 'https://via.placeholder.com/500x750?text=NO+IMAGE';
             const inWatchlist = this.state.watchlist.some(i => String(i.id) === String(item.id));
+
+            // Check if it's SPECIFICALLY Anime (16 = Animation, origin Japan)
+            const isAnime = item.genre_ids && item.genre_ids.includes(16) && 
+                           (item.original_language === 'ja' || (item.origin_country && item.origin_country.includes('JP')));
+            
+            const badgeHtml = isAnime ? '<div class="anime-badge">SUB/DUB</div>' : '';
+
             return `
-                <div class="movie-card" data-id="${item.id}" data-type="${type}">
+                <div class="movie-card" data-id="${item.id}" data-type="${type}" data-is-anime="${isAnime}">
                     <div class="poster-wrapper">
                         <img src="${poster}">
                         <div class="card-overlay">
+                            ${badgeHtml}
                             <button class="log-btn ${inWatchlist ? 'active' : ''}" data-id="${item.id}" data-type="${type}" data-title="${title}" data-poster="${poster}">
                                 ${inWatchlist ? '📑' : '🔖'}
                             </button>
@@ -609,32 +619,42 @@ const Alexandria = {
         }).join('');
     },
 
-    playContent(id, type) {
-        this.state.activeContent = { id, type, season: 1, episode: 1 };
+    playContent(id, type, isAnime = false) {
+        this.state.activeContent = { id, type, isAnime, season: 1, episode: 1 };
         this.setView('player');
     },
 
     async renderPlayer() {
-        const { id, type, season, episode } = this.state.activeContent;
-        const embedUrl = type === 'movie' 
-            ? `https://www.vidking.net/embed/movie/${id}`
-            : `https://www.vidking.net/embed/tv/${id}/${season}/${episode}`;
+        const { id, type, season, episode, isAnime } = this.state.activeContent;
+        
+        let embedUrl;
+        if (isAnime) {
+            // Anime Provider: vidsrc.cc (Excellent Sub/Dub)
+            embedUrl = type === 'movie' 
+                ? `https://vidsrc.cc/v2/embed/movie/${id}`
+                : `https://vidsrc.cc/v2/embed/tv/${id}/${season}/${episode}`;
+        } else {
+            // General Provider: embed.su (Highly reliable)
+            embedUrl = type === 'movie' 
+                ? `https://embed.su/embed/movie/${id}`
+                : `https://embed.su/embed/tv/${id}/${season}/${episode}`;
+        }
 
         this.main.innerHTML = `
-            <section class="elite-layout safe-zone-player">
+            <section class="player-layout">
                 <div class="player-main">
-                    <div class="player-container active-transmission">
-                        <iframe src="${embedUrl}" width="100%" height="100%" frameborder="0" allowfullscreen></iframe>
+                    <div class="player-frame-container">
+                        <iframe src="${embedUrl}" width="100%" height="100%" frameborder="0" scrolling="no" allowfullscreen referrerpolicy="no-referrer" allow="autoplay; fullscreen; encrypted-media; picture-in-picture"></iframe>
                     </div>
                 </div>
                 ${type === 'tv' ? `
                     <div class="episode-sidebar">
-                        <div class="sidebar-header">
-                            <h3 id="sidebar-title">COMMUNICATIONS</h3>
+                        <div class="sidebar-top">
+                            <h3 id="sidebar-title">DATA LINK</h3>
                             <select id="season-selector" class="season-select" onchange="Alexandria.handleSeasonChange(this.value)"></select>
                         </div>
                         <div class="episode-list" id="sidebar-episodes">
-                            <div class="placeholder-msg">LOADING EPISODES...</div>
+                            <div class="placeholder-msg">DECRYPTING EPISODES...</div>
                         </div>
                     </div>` : ''}
             </section>`;

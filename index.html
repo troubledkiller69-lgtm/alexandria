@@ -3,54 +3,56 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Alexandria</title>
+    <title>Alexandria | Neon Core</title>
     <link rel="stylesheet" href="index.css">
-    <link href="https://fonts.googleapis.com/css2?family=Stardos+Stencil:wght@400;700&family=Bebas+Neue&family=Inter:wght@400;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&family=Rajdhani:wght@500;700&display=swap" rel="stylesheet">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
-<body class="grime-theme">
+<body class="neon-synth-theme">
     <div id="loading-screen">
         <div class="loader-content">
-            <div class="safe-zone-stamp">A</div>
-            <h1 class="archive-title">ALEXANDRIA</h1>
-            <div class="progress-bar"><div class="progress-fill"></div></div>
-            <p class="loader-status">OPENING THE GATES...</p>
+            <div class="cyber-ring"></div>
+            <h1 class="archive-title synth-glow">ALEXANDRIA</h1>
+            <p class="loader-status">INITIALIZING NEON CORE...</p>
         </div>
     </div>
 
-    <div id="app" class="hidden">
-        <!-- React will mount here, but for now we'll start with the base UI -->
-        <header class="watchtower">
-            <h1 onclick="location.hash='#home'">ALEXANDRIA</h1>
-            <nav class="main-nav">
-                <a href="#home" class="nav-link">Home</a>
-                <a href="#movies" class="nav-link">Movies</a>
-                <a href="#tv" class="nav-link">TV Shows</a>
-                <a href="#anime" class="nav-link">Anime</a>
-                <a href="#420" class="nav-link nav-420">420</a>
-            </nav>
-            <div class="header-actions">
-                <button id="search-trigger" class="icon-btn" title="Search">🔍</button>
-                <button id="auth-trigger" class="icon-btn" title="Identity Protocol">👤</button>
+    <div id="app" class="hidden layout-wrapper">
+        <aside class="cyber-sidebar">
+            <div class="sidebar-brand" onclick="location.hash='#home'">
+                <h1 class="synth-glow">ALEX.</h1>
             </div>
-        </header>
+            
+            <nav class="main-nav">
+                <a href="#home" class="nav-link"><span class="nav-icon">✦</span> Home</a>
+                <a href="#movies" class="nav-link"><span class="nav-icon">▶</span> Movies</a>
+                <a href="#tv" class="nav-link"><span class="nav-icon">📺</span> TV Shows</a>
+                <a href="#anime" class="nav-link"><span class="nav-icon">🎌</span> Anime</a>
+                <a href="#420" class="nav-link nav-vip"><span class="nav-icon">🌿</span> 420 Zone</a>
+            </nav>
 
-        <main id="content">
-            <div class="placeholder-msg">INITIALIZING ARCHIVE ACCESS...</div>
-        </main>
-
-        <footer class="survivor-log">
-            <div class="footer-content">
+            <div class="sidebar-footer">
+                <div class="sidebar-actions">
+                    <button id="search-trigger" class="icon-btn tooltip" data-tip="Search Protocol">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+                    </button>
+                    <button id="auth-trigger" class="icon-btn tooltip" data-tip="Identity Core">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+                    </button>
+                </div>
                 <div class="system-status">
                     <div class="status-dot"></div>
-                    <span class="status-text">ESTABLISHING CONNECTION...</span>
+                    <span class="status-text">OFFLINE</span>
                 </div>
-                <p>Thoughtfully Crafted By Rxtribution & Yuntoez</p>
             </div>
-        </footer>
+        </aside>
+
+        <main id="content" class="main-view">
+            <div class="placeholder-msg">BOOTING NEON CORE...</div>
+        </main>
         
-        <button id="back-to-top" title="Back to Surface">↑</button>
+        <button id="back-to-top" title="Return to Top">↑</button>
     </div>
     <script src="script.js"></script>
 </body>
