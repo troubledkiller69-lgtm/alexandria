@@ -194,9 +194,11 @@ h1, h2, h3, h4 { font-family: var(--font-display); font-weight: 700; text-transf
 .main-view {
     margin-left: var(--sidebar-width);
     flex-grow: 1;
+    min-width: 0; /* Fixes flexbox blowout issue with carousels */
     min-height: 100vh;
     padding-bottom: 4rem;
     position: relative;
+    overflow-x: hidden;
 }
 
 /* Hero Section */
