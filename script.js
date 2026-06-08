@@ -140,7 +140,7 @@ const Alexandria = {
 
     bindEvents() {
         // Logo secret click
-        const logo = document.querySelector('.watchtower h1');
+        const logo = document.querySelector('.sidebar-brand h1');
         logo?.addEventListener('click', () => {
             this.state.clickCount++;
             if (this.state.clickCount >= 5) {
@@ -558,7 +558,7 @@ const Alexandria = {
     },
 
     renderSearch() {
-        this.main.innerHTML = `<section class="supply-run"><div class="search-hero"><h2>ARCHIVE SEARCH</h2><p>FIND YOUR NEXT TITLE</p></div><div class="search-box"><div class="input-wrapper"><input type="text" id="tmdb-search" placeholder="SEARCH TITLES..."><div class="scan-line"></div></div><button class="btn-primary" onclick="Alexandria.handleSearch()">ACCESS</button></div><div class="results-grid" id="search-results"></div></section>`;
+        this.main.innerHTML = `<section class="search-view"><div class="search-header"><h2>ARCHIVE SEARCH</h2><p>FIND YOUR NEXT TITLE</p></div><div class="search-box"><div class="input-wrapper" style="flex-grow:1"><input type="text" id="tmdb-search" placeholder="SEARCH TITLES..." style="width:100%"></div><button class="btn-primary" onclick="Alexandria.handleSearch()">ACCESS</button></div><div class="results-grid" id="search-results"></div></section>`;
         document.getElementById('tmdb-search').addEventListener('keyup', (e) => { if (e.key === 'Enter') this.handleSearch(); });
     },
 
