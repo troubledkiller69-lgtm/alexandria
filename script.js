@@ -629,15 +629,15 @@ const Alexandria = {
         
         let embedUrl;
         if (isAnime) {
-            // Anime Provider: vidsrc.cc (Excellent Sub/Dub)
+            // Anime Provider: autoembed.co (reliable fallback since vidsrc.cc is 522)
             embedUrl = type === 'movie' 
-                ? `https://vidsrc.cc/v2/embed/movie/${id}`
-                : `https://vidsrc.cc/v2/embed/tv/${id}/${season}/${episode}`;
+                ? `https://autoembed.co/movie/tmdb/${id}`
+                : `https://autoembed.co/tv/tmdb/${id}-${season}-${episode}`;
         } else {
-            // General Provider: embed.su (Highly reliable)
+            // General Provider: vidlink.pro (Very stable replacement for embed.su)
             embedUrl = type === 'movie' 
-                ? `https://embed.su/embed/movie/${id}`
-                : `https://embed.su/embed/tv/${id}/${season}/${episode}`;
+                ? `https://vidlink.pro/movie/${id}`
+                : `https://vidlink.pro/tv/${id}/${season}/${episode}`;
         }
 
         this.main.innerHTML = `
