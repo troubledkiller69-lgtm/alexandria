@@ -1,4 +1,4 @@
-﻿const Alexandria = {
+const Alexandria = {
     state: {
         view: 'home', // home, movies, tv, anime, search, player, auth
         user: null,
@@ -629,9 +629,10 @@
             const badgeHtml = isAnime ? '<div class="anime-badge">SUB/DUB</div>' : '';
 
             return `
-                <div class="movie-card" data-id="${item.id}" data-type="${type}" data-is-anime="${isAnime}">
+                <div class="movie-card" data-id="${item.id}" data-type="${type}" data-is-anime="${isAnime}" onmouseenter="Alexandria.handleCardHover(this)" onmouseleave="Alexandria.handleCardLeave(this)">
                     <div class="poster-wrapper">
                         <img src="${poster}">
+                        <div class="trailer-container"></div>
                         <div class="card-overlay">
                             ${badgeHtml}
                             <button class="log-btn ${inWatchlist ? 'active' : ''}" data-id="${item.id}" data-type="${type}" data-title="${title}" data-poster="${poster}">
@@ -643,6 +644,43 @@
                     <div class="movie-info"><h3>${title}</h3></div>
                 </div>`;
         }).join('');
+    },
+
+    handleCardHover(card) {
+        if (card.hoverTimeout) clearTimeout(card.hoverTimeout);
+        card.hoverTimeout = setTimeout(async () => {
+            const id = card.dataset.id;
+            const type = card.dataset.type;
+            const trailerContainer = card.querySelector('.trailer-container');
+            if (!trailerContainer) return;
+            
+            if (trailerContainer.innerHTML) {
+                trailerContainer.classList.add('active');
+                return;
+            }
+            
+            try {
+                const res = await fetch(`/api/proxy?endpoint=${encodeURIComponent(type + '/' + id + '/videos')}`);
+                const data = await res.json();
+                const trailer = data.results?.find(v => v.site === 'YouTube' && v.type === 'Trailer');
+                
+                // Only inject if still hovering after the fetch
+                if (trailer && card.matches(':hover')) {
+                    trailerContainer.innerHTML = `<iframe src="https://www.youtube.com/embed/${trailer.key}?autoplay=1&mute=1&controls=0&modestbranding=1&rel=0&loop=1&playlist=${trailer.key}" allow="autoplay"></iframe>`;
+                    setTimeout(() => { if (card.matches(':hover')) trailerContainer.classList.add('active'); }, 300);
+                }
+            } catch(e) { console.error("Alexandria: Trailer Fetch Failed", e); }
+        }, 1000);
+    },
+
+    handleCardLeave(card) {
+        if (card.hoverTimeout) clearTimeout(card.hoverTimeout);
+        const trailerContainer = card.querySelector('.trailer-container');
+        if (trailerContainer) {
+            trailerContainer.classList.remove('active');
+            // Destroy iframe to stop video playback and save memory
+            setTimeout(() => { if (!card.matches(':hover')) trailerContainer.innerHTML = ''; }, 300); 
+        }
     },
 
     scrollCarousel(btn, amount) {
