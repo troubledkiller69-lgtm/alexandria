@@ -629,10 +629,9 @@ const Alexandria = {
             const badgeHtml = isAnime ? '<div class="anime-badge">SUB/DUB</div>' : '';
 
             return `
-                <div class="movie-card" data-id="${item.id}" data-type="${type}" data-is-anime="${isAnime}" onmouseenter="Alexandria.handleCardHover(this)" onmouseleave="Alexandria.handleCardLeave(this)">
+                <div class="movie-card" data-id="${item.id}" data-type="${type}" data-title="${title}" data-is-anime="${isAnime}" onmouseenter="Alexandria.handleCardHover(this)" onmouseleave="Alexandria.handleCardLeave(this)">
                     <div class="poster-wrapper">
                         <img src="${poster}">
-                        <div class="trailer-container"></div>
                         <div class="card-overlay">
                             ${badgeHtml}
                             <button class="log-btn ${inWatchlist ? 'active' : ''}" data-id="${item.id}" data-type="${type}" data-title="${title}" data-poster="${poster}">
@@ -649,25 +648,44 @@ const Alexandria = {
     handleCardHover(card) {
         if (card.hoverTimeout) clearTimeout(card.hoverTimeout);
         card.hoverTimeout = setTimeout(async () => {
+            if (!card.matches(':hover')) return;
+
             const id = card.dataset.id;
             const type = card.dataset.type;
-            const trailerContainer = card.querySelector('.trailer-container');
-            if (!trailerContainer) return;
-            
-            if (trailerContainer.innerHTML) {
-                trailerContainer.classList.add('active');
-                return;
-            }
+            const title = card.dataset.title;
+            const isAnime = card.dataset.isAnime === 'true';
+
+            // Check if modal already exists
+            if (card.querySelector('.preview-modal')) return;
             
             try {
                 const res = await fetch(`/api/proxy?endpoint=${encodeURIComponent(type + '/' + id + '/videos')}`);
                 const data = await res.json();
                 const trailer = data.results?.find(v => v.site === 'YouTube' && v.type === 'Trailer');
                 
-                // Only inject if still hovering after the fetch
                 if (trailer && card.matches(':hover')) {
-                    trailerContainer.innerHTML = `<iframe src="https://www.youtube.com/embed/${trailer.key}?autoplay=1&mute=1&controls=0&modestbranding=1&rel=0&loop=1&playlist=${trailer.key}" allow="autoplay"></iframe>`;
-                    setTimeout(() => { if (card.matches(':hover')) trailerContainer.classList.add('active'); }, 300);
+                    const modal = document.createElement('div');
+                    modal.className = 'preview-modal';
+                    modal.innerHTML = `
+                        <div class="preview-video">
+                            <iframe src="https://www.youtube.com/embed/${trailer.key}?autoplay=1&mute=1&controls=0&modestbranding=1&rel=0&loop=1&playlist=${trailer.key}" allow="autoplay"></iframe>
+                        </div>
+                        <div class="preview-info">
+                            <div class="preview-title">${title}</div>
+                            <div class="preview-actions">
+                                <button class="preview-btn play" onclick="event.stopPropagation(); Alexandria.playContent(${id}, '${type}', ${isAnime})">
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg> Play
+                                </button>
+                                <button class="preview-btn add" onclick="event.stopPropagation(); this.closest('.movie-card').querySelector('.log-btn').click();">
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"></path></svg> List
+                                </button>
+                            </div>
+                        </div>
+                    `;
+                    card.appendChild(modal);
+                    
+                    // Small delay to allow iframe to init before scaling up
+                    setTimeout(() => { if (card.matches(':hover')) modal.classList.add('active'); }, 50);
                 }
             } catch(e) { console.error("Alexandria: Trailer Fetch Failed", e); }
         }, 1000);
@@ -675,11 +693,10 @@ const Alexandria = {
 
     handleCardLeave(card) {
         if (card.hoverTimeout) clearTimeout(card.hoverTimeout);
-        const trailerContainer = card.querySelector('.trailer-container');
-        if (trailerContainer) {
-            trailerContainer.classList.remove('active');
-            // Destroy iframe to stop video playback and save memory
-            setTimeout(() => { if (!card.matches(':hover')) trailerContainer.innerHTML = ''; }, 300); 
+        const modal = card.querySelector('.preview-modal');
+        if (modal) {
+            modal.classList.remove('active');
+            setTimeout(() => { if (!card.matches(':hover') && modal.parentElement) modal.remove(); }, 300);
         }
     },
 
