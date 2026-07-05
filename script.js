@@ -628,16 +628,11 @@ const Alexandria = {
         const { id, type, season, episode, isAnime } = this.state.activeContent;
         
         let embedUrl;
-        if (isAnime) {
-            // Anime Provider: autoembed.co (reliable fallback since vidsrc.cc is 522)
-            embedUrl = type === 'movie' 
-                ? `https://autoembed.co/movie/tmdb/${id}`
-                : `https://autoembed.co/tv/tmdb/${id}-${season}-${episode}`;
+        // Standardizing all video routing through the new moviepire.co source
+        if (type === 'movie') {
+            embedUrl = `https://video.moviepire.co/embed/movie/${id}`;
         } else {
-            // General Provider: vidlink.pro (Very stable replacement for embed.su)
-            embedUrl = type === 'movie' 
-                ? `https://vidlink.pro/movie/${id}`
-                : `https://vidlink.pro/tv/${id}/${season}/${episode}`;
+            embedUrl = `https://video.moviepire.co/embed/tv/${id}/${season}/${episode}`;
         }
 
         this.main.innerHTML = `
