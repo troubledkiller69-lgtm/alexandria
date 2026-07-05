@@ -139,6 +139,31 @@ const Alexandria = {
     },
 
     bindEvents() {
+        // Sidebar Toggle Logic
+        const sidebar = document.querySelector('.cyber-sidebar');
+        const overlay = document.getElementById('sidebar-overlay');
+        const toggleBtn = document.getElementById('sidebar-toggle');
+        const closeBtn = document.getElementById('sidebar-close');
+
+        const toggleSidebar = (force) => {
+            if (typeof force === 'boolean') {
+                sidebar?.classList.toggle('open', force);
+                overlay?.classList.toggle('active', force);
+            } else {
+                sidebar?.classList.toggle('open');
+                overlay?.classList.toggle('active');
+            }
+        };
+
+        toggleBtn?.addEventListener('click', toggleSidebar);
+        closeBtn?.addEventListener('click', () => toggleSidebar(false));
+        overlay?.addEventListener('click', () => toggleSidebar(false));
+        
+        // Auto-close sidebar on nav clicks
+        document.querySelectorAll('.nav-link, .sidebar-brand, .header-brand').forEach(el => {
+            el.addEventListener('click', () => toggleSidebar(false));
+        });
+
         // Logo secret click
         const logo = document.querySelector('.sidebar-brand h1');
         logo?.addEventListener('click', () => {
