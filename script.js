@@ -6,10 +6,19 @@ const Alexandria = {
         searchTimeout: null,
         trendingData: null,
         activeContent: { id: null, type: 'movie', season: 1, episode: 1 },
+        searchQuery: '',
+        activeServer: 0,
         autoNext: true,
         watchlist: [],
         history: []
     },
+
+    servers: [
+        { name: "Moviepire (Primary)", getMovie: id => `https://video.moviepire.co/embed/movie/${id}`, getTv: (id, s, e) => `https://video.moviepire.co/embed/tv/${id}/${s}/${e}` },
+        { name: "VidLink (High Speed)", getMovie: id => `https://vidlink.pro/movie/${id}`, getTv: (id, s, e) => `https://vidlink.pro/tv/${id}/${s}/${e}` },
+        { name: "VidSrc PRO", getMovie: id => `https://vidsrc.pro/embed/movie/${id}`, getTv: (id, s, e) => `https://vidsrc.pro/embed/tv/${id}/${s}/${e}` },
+        { name: "AutoEmbed (Anime/Alt)", getMovie: id => `https://player.autoembed.cc/embed/movie/${id}`, getTv: (id, s, e) => `https://player.autoembed.cc/embed/tv/${id}-${s}-${e}` }
+    ],
 
     supabase: null,
 
@@ -134,8 +143,28 @@ const Alexandria = {
 
     handleRouting() {
         const hash = window.location.hash || '#home';
-        const view = hash.replace('#', '');
-        this.setView(view);
+        const path = hash.replace('#', '');
+        
+        // Deep Link Parsing
+        if (path.startsWith('movie/')) {
+            const id = path.split('/')[1];
+            this.state.activeContent = { id, type: 'movie', isAnime: false, season: 1, episode: 1 };
+            this.setView('player');
+        } else if (path.startsWith('tv/')) {
+            const parts = path.split('/');
+            const id = parts[1];
+            const sIndex = parts.indexOf('s');
+            const eIndex = parts.indexOf('e');
+            const season = sIndex !== -1 ? parseInt(parts[sIndex+1]) || 1 : 1;
+            const episode = eIndex !== -1 ? parseInt(parts[eIndex+1]) || 1 : 1;
+            this.state.activeContent = { id, type: 'tv', isAnime: false, season, episode };
+            this.setView('player');
+        } else if (path.startsWith('search/')) {
+            this.state.searchQuery = decodeURIComponent(path.replace('search/', ''));
+            this.setView('search');
+        } else {
+            this.setView(path);
+        }
     },
 
     bindEvents() {
@@ -585,11 +614,21 @@ const Alexandria = {
     renderSearch() {
         this.main.innerHTML = `<section class="search-view"><div class="search-header"><h2>ARCHIVE SEARCH</h2><p>FIND YOUR NEXT TITLE</p></div><div class="search-box"><div class="input-wrapper" style="flex-grow:1"><input type="text" id="tmdb-search" placeholder="SEARCH TITLES..." style="width:100%"></div><button class="btn-primary" onclick="Alexandria.handleSearch()">ACCESS</button></div><div class="results-grid" id="search-results"></div></section>`;
         document.getElementById('tmdb-search').addEventListener('keyup', (e) => { if (e.key === 'Enter') this.handleSearch(); });
+        
+        if (this.state.searchQuery) {
+            document.getElementById('tmdb-search').value = this.state.searchQuery;
+            this.executeSearch(this.state.searchQuery);
+        }
     },
 
-    async handleSearch() {
+    handleSearch() {
         const queryField = document.getElementById('tmdb-search');
         const query = queryField.value.trim();
+        if (!query) return;
+        window.location.hash = `#search/${encodeURIComponent(query)}`;
+    },
+
+    async executeSearch(query) {
         if (!query) return;
         const container = document.getElementById('search-results');
         container.innerHTML = '<div class="placeholder-msg">LOCATING...</div>';
@@ -706,26 +745,30 @@ const Alexandria = {
     },
 
     playContent(id, type, isAnime = false) {
-        this.state.activeContent = { id, type, isAnime, season: 1, episode: 1 };
-        this.setView('player');
+        if (type === 'movie') {
+            window.location.hash = `#movie/${id}`;
+        } else {
+            window.location.hash = `#tv/${id}/s/1/e/1`;
+        }
     },
 
     async renderPlayer() {
         const { id, type, season, episode, isAnime } = this.state.activeContent;
+        const server = this.servers[this.state.activeServer];
         
-        let embedUrl;
-        // Standardizing all video routing through the new moviepire.co source
-        if (type === 'movie') {
-            embedUrl = `https://video.moviepire.co/embed/movie/${id}`;
-        } else {
-            embedUrl = `https://video.moviepire.co/embed/tv/${id}/${season}/${episode}`;
-        }
+        let embedUrl = type === 'movie' ? server.getMovie(id) : server.getTv(id, season, episode);
 
         this.main.innerHTML = `
             <section class="player-layout">
                 <div class="player-main">
+                    <div class="server-controls">
+                        <span class="server-label">SERVER <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"></polyline></svg></span>
+                        <select class="server-select-dropdown" onchange="Alexandria.handleServerChange(this.value)">
+                            ${this.servers.map((s, i) => `<option value="${i}" ${i === this.state.activeServer ? 'selected' : ''}>${s.name}</option>`).join('')}
+                        </select>
+                    </div>
                     <div class="player-frame-container">
-                        <iframe src="${embedUrl}" width="100%" height="100%" frameborder="0" scrolling="no" allowfullscreen referrerpolicy="no-referrer" allow="autoplay; fullscreen; encrypted-media; picture-in-picture"></iframe>
+                        <iframe id="video-iframe" src="${embedUrl}" width="100%" height="100%" frameborder="0" scrolling="no" allowfullscreen referrerpolicy="no-referrer" allow="autoplay; fullscreen; encrypted-media; picture-in-picture"></iframe>
                     </div>
                 </div>
                 ${type === 'tv' ? `
@@ -770,6 +813,16 @@ const Alexandria = {
         this.renderPlayer();
     },
 
+    handleServerChange(newServerIndex) {
+        this.state.activeServer = parseInt(newServerIndex);
+        const { id, type, season, episode } = this.state.activeContent;
+        const server = this.servers[this.state.activeServer];
+        const embedUrl = type === 'movie' ? server.getMovie(id) : server.getTv(id, season, episode);
+        
+        const iframe = document.getElementById('video-iframe');
+        if (iframe) iframe.src = embedUrl;
+    },
+
     async loadEpisodes(id, season) {
         try {
             const res = await fetch(`/api/proxy?endpoint=${encodeURIComponent('tv/' + id + '/season/' + season)}`);
@@ -779,7 +832,7 @@ const Alexandria = {
             
             container.innerHTML = data.episodes.map(ep => `
                 <div class="episode-item ${this.state.activeContent.episode == ep.episode_number ? 'active' : ''}" 
-                     onclick="Alexandria.state.activeContent.episode = ${ep.episode_number}; Alexandria.renderPlayer();">
+                     onclick="window.location.hash = '#tv/${id}/s/${season}/e/${ep.episode_number}'">
                     <span class="ep-num">EP ${ep.episode_number}</span>
                     <span class="ep-name">${ep.name}</span>
                 </div>`).join('');
