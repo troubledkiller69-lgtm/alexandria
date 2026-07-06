@@ -171,6 +171,9 @@ const Alexandria = {
             const id = path.split('/')[1];
             this.state.activeContent = { id, type: 'person' };
             this.setView('person');
+        } else if (path.startsWith('shared/')) {
+            this.state._sharedPayload = path.replace('shared/', '');
+            this.setView('shared');
         } else {
             this.setView(path);
         }
@@ -388,6 +391,7 @@ const Alexandria = {
         else if (this.state.view === 'details') this.renderDetails();
         else if (this.state.view === 'person') this.renderPerson();
         else if (this.state.view === 'collections') this.renderCollections();
+        else if (this.state.view === 'shared') this.renderSharedCollection();
         else if (this.state.view === 'auth') this.renderAuth();
     },
 
@@ -1242,7 +1246,12 @@ const Alexandria = {
                     <div class="view-section collection-section">
                         <div class="collection-header">
                             <h3>${col.name} <span class="col-item-count">(${col.items.length})</span></h3>
-                            <button class="btn-danger-sm" onclick="if(confirm('Delete ${col.name}?')) Alexandria.deleteCollection(${ci})">Delete</button>
+                            <div class="collection-header-actions">
+                                <button class="btn-share-sm" onclick="Alexandria.shareCollection(${ci})">
+                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="18" cy="5" r="3"></circle><circle cx="6" cy="12" r="3"></circle><circle cx="18" cy="19" r="3"></circle><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line></svg> Share
+                                </button>
+                                <button class="btn-danger-sm" onclick="if(confirm('Delete ${col.name}?')) Alexandria.deleteCollection(${ci})">Delete</button>
+                            </div>
                         </div>
                         ${col.items.length > 0 ? `
                         <div class="carousel-container">
@@ -1259,6 +1268,92 @@ const Alexandria = {
                 this.renderResults(col.items, `col-${ci}-results`);
             }
         });
+    },
+
+    shareCollection(index) {
+        const col = this.state.collections[index];
+        if (!col) return;
+        if (col.items.length === 0) { this.showToast('Add some titles first!'); return; }
+        
+        // Encode: compact format — name|id:type,id:type,...
+        const payload = col.name + '|' + col.items.map(i => `${i.id}:${i.type || 'movie'}`).join(',');
+        const encoded = btoa(unescape(encodeURIComponent(payload)));
+        const url = `${window.location.origin}${window.location.pathname}#shared/${encoded}`;
+        
+        navigator.clipboard.writeText(url).then(() => {
+            this.showToast('Share link copied to clipboard!');
+        }).catch(() => {
+            // Fallback
+            prompt('Copy this link:', url);
+        });
+    },
+
+    async renderSharedCollection() {
+        const payload = this.state._sharedPayload;
+        if (!payload) { this.main.innerHTML = '<div class="placeholder-msg">Invalid share link.</div>'; return; }
+        
+        this.main.innerHTML = '<div class="placeholder-msg">DECODING SHARED COLLECTION...</div>';
+        
+        try {
+            const decoded = decodeURIComponent(escape(atob(payload)));
+            const [name, itemsStr] = decoded.split('|');
+            const itemRefs = itemsStr.split(',').map(s => { const [id, type] = s.split(':'); return { id, type: type || 'movie' }; });
+            
+            // Fetch metadata for each item from TMDB
+            const items = await Promise.all(itemRefs.map(async ref => {
+                try {
+                    const res = await fetch(`/api/proxy?endpoint=${encodeURIComponent(ref.type + '/' + ref.id)}`);
+                    const data = await res.json();
+                    return { ...data, id: ref.id, media_type: ref.type };
+                } catch { return null; }
+            })).then(results => results.filter(Boolean));
+            
+            this.main.innerHTML = `
+                <section class="collections-view">
+                    <div class="view-header">
+                        <div>
+                            <span class="shared-badge">SHARED COLLECTION</span>
+                            <h2>${name}</h2>
+                        </div>
+                        <button class="btn-primary" onclick="Alexandria.importSharedCollection('${name.replace(/'/g, "\\'") }', '${payload}')">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14"></path><path d="M5 12h14"></path></svg> Save to My Collections
+                        </button>
+                    </div>
+                    <div class="view-section">
+                        <div class="person-credits-grid" id="shared-results"></div>
+                    </div>
+                </section>`;
+            
+            this.renderResults(items, 'shared-results');
+        } catch(e) {
+            console.error('Alexandria: Shared Collection Decode Failed', e);
+            this.main.innerHTML = '<div class="placeholder-msg">This share link is corrupted or invalid.</div>';
+        }
+    },
+
+    async importSharedCollection(name, payload) {
+        try {
+            const decoded = decodeURIComponent(escape(atob(payload)));
+            const [, itemsStr] = decoded.split('|');
+            const itemRefs = itemsStr.split(',').map(s => { const [id, type] = s.split(':'); return { id, type: type || 'movie' }; });
+            
+            const items = await Promise.all(itemRefs.map(async ref => {
+                try {
+                    const res = await fetch(`/api/proxy?endpoint=${encodeURIComponent(ref.type + '/' + ref.id)}`);
+                    const data = await res.json();
+                    return { id: parseInt(ref.id), type: ref.type, title: data.title || data.name, poster_path: data.poster_path };
+                } catch { return null; }
+            })).then(results => results.filter(Boolean));
+            
+            const exists = this.state.collections.some(c => c.name.toLowerCase() === name.toLowerCase());
+            const finalName = exists ? name + ' (Shared)' : name;
+            
+            this.state.collections.push({ name: finalName, items, created: Date.now() });
+            this.saveCollections();
+            this.showToast(`"${finalName}" saved to your collections!`);
+        } catch(e) {
+            this.showToast('Failed to import collection.');
+        }
     }
 };
 
