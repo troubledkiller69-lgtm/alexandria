@@ -876,7 +876,7 @@ const Alexandria = {
 
             this.main.innerHTML = `
                 <section class="details-layout">
-                    <div class="hero-details" style="background-image: linear-gradient(0deg, var(--bg-color) 0%, rgba(0,0,0,0.85) 100%), url('${backdrop}')">
+                    <div class="hero-details" style="background-image: linear-gradient(to top, var(--bg-color) 0%, transparent 80%), linear-gradient(to right, var(--bg-color) 0%, rgba(10,10,15,0.7) 40%, transparent 100%), url('${backdrop}')">
                         <div class="details-content-wrapper">
                             <div class="details-poster"><img src="${poster}"></div>
                             <div class="details-info">
