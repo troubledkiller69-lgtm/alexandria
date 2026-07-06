@@ -226,7 +226,14 @@ const Alexandria = {
                 const card = e.target.classList.contains('movie-card') ? e.target : e.target.closest('.movie-card');
                 if (card) {
                     const isAnime = card.dataset.isAnime === 'true';
-                    this.playContent(card.dataset.id, card.dataset.type, isAnime);
+                    const season = parseInt(card.dataset.season);
+                    const episode = parseInt(card.dataset.episode);
+                    
+                    if (season && episode) {
+                        window.location.hash = `#tv/${card.dataset.id}/s/${season}/e/${episode}`;
+                    } else {
+                        this.playContent(card.dataset.id, card.dataset.type, isAnime);
+                    }
                 }
             }
         });
@@ -281,7 +288,15 @@ const Alexandria = {
             this.supabase.from('history').select('*').order('created_at', { ascending: false }).limit(10)
         ]);
         this.state.watchlist = wRes.data?.map(i => ({ id: String(i.content_id), type: i.type, title: i.title, poster_path: i.poster_path })) || [];
-        this.state.history = hRes.data?.map(i => ({ id: String(i.content_id), type: i.type, title: i.title, poster_path: i.poster_path })) || [];
+        
+        const localHistory = JSON.parse(localStorage.getItem('alexandria_history')) || [];
+        this.state.history = hRes.data?.map(i => {
+            const local = localHistory.find(lh => lh.id == i.content_id);
+            return {
+                id: String(i.content_id), type: i.type, title: i.title, poster_path: i.poster_path,
+                season: local?.season || 1, episode: local?.episode || 1, isAnime: local?.isAnime || false
+            };
+        }) || [];
     },
 
     async toggleWatchlist(item) {
@@ -318,11 +333,18 @@ const Alexandria = {
     async addToHistory(item) {
         this.state.history = this.state.history.filter(i => i.id != item.id);
         this.state.history.unshift(item);
+        if (this.state.history.length > 20) this.state.history.pop();
+        
+        // Always save to localStorage to preserve season/episode data
+        localStorage.setItem('alexandria_history', JSON.stringify(this.state.history));
         
         if (this.state.user) {
-            await this.supabase.from('history').insert({ user_id: this.state.user.id, content_id: item.id, type: item.type, title: item.title, poster_path: item.poster_path });
-        } else {
-            localStorage.setItem('alexandria_history', JSON.stringify(this.state.history));
+            try {
+                // Remove existing to prevent duplicates
+                await this.supabase.from('history').delete().match({ user_id: this.state.user.id, content_id: item.id });
+                // Only insert known columns to prevent schema errors
+                await this.supabase.from('history').insert({ user_id: this.state.user.id, content_id: item.id, type: item.type, title: item.title, poster_path: item.poster_path });
+            } catch(e) { console.error('Alexandria: History Sync Error', e); }
         }
     },
 
@@ -452,10 +474,12 @@ const Alexandria = {
                             <p>${featured.overview}</p>
                             <button class="btn-primary" onclick="Alexandria.playContent(${featured.id}, 'movie')">WATCH NOW</button>
                         </div>
-                        ${last ? `<div class="resume-widget" onclick="Alexandria.playContent(${last.id}, '${last.type}')">
+                        </div>
+                        ${last ? `<div class="resume-widget" onclick="window.location.hash = '${last.type === 'tv' ? `#tv/${last.id}/s/${last.season || 1}/e/${last.episode || 1}` : `#movie/${last.id}`}'">
                             <div class="resume-content"><span class="resume-label">RESUMING...</span><h4>${last.title}</h4><p>CLICK TO RESUME</p></div>
                         </div>` : ''}
                     </div>
+                    <div id="continue-watching-section"></div>
                     <div id="priority-archive-section"></div>
                     <div class="view-section"><h3>ALEXANDRIA'S SPECIALS</h3><div class="carousel-container"><button class="carousel-arrow left" onclick="Alexandria.scrollCarousel(this, -800)">&#10094;</button><div class="carousel-wrapper"><div class="carousel-grid" id="alexandria-specials"></div></div><button class="carousel-arrow right" onclick="Alexandria.scrollCarousel(this, 800)">&#10095;</button></div></div>
                     <div class="view-section"><h3>Trending Movies</h3><div class="carousel-container"><button class="carousel-arrow left" onclick="Alexandria.scrollCarousel(this, -800)">&#10094;</button><div class="carousel-wrapper"><div class="carousel-grid" id="trending-movies"></div></div><button class="carousel-arrow right" onclick="Alexandria.scrollCarousel(this, 800)">&#10095;</button></div></div>
@@ -465,6 +489,7 @@ const Alexandria = {
                     <div class="view-section"><h3>Action Archives</h3><div class="carousel-container"><button class="carousel-arrow left" onclick="Alexandria.scrollCarousel(this, -800)">&#10094;</button><div class="carousel-wrapper"><div class="carousel-grid" id="action-hits"></div></div><button class="carousel-arrow right" onclick="Alexandria.scrollCarousel(this, 800)">&#10095;</button></div></div>
                 </section>`;
             
+            this.renderHistory();
             this.renderWatchlist();
             this.renderResults(specialsData, 'alexandria-specials');
             this.renderResults(mData.results, 'trending-movies');
@@ -485,6 +510,18 @@ const Alexandria = {
         if (this.state.watchlist.length > 0) {
             container.innerHTML = `<div class="view-section"><h3>PRIORITY ARCHIVE</h3><div class="carousel-container"><button class="carousel-arrow left" onclick="Alexandria.scrollCarousel(this, -800)">&#10094;</button><div class="carousel-wrapper"><div class="carousel-grid" id="watchlist-results"></div></div><button class="carousel-arrow right" onclick="Alexandria.scrollCarousel(this, 800)">&#10095;</button></div></div>`;
             this.renderResults(this.state.watchlist, 'watchlist-results');
+        } else {
+            container.innerHTML = '';
+        }
+    },
+
+    renderHistory() {
+        const container = document.getElementById('continue-watching-section');
+        if (!container) return;
+        
+        if (this.state.history && this.state.history.length > 0) {
+            container.innerHTML = `<div class="view-section"><h3>CONTINUE WATCHING</h3><div class="carousel-container"><button class="carousel-arrow left" onclick="Alexandria.scrollCarousel(this, -800)">&#10094;</button><div class="carousel-wrapper"><div class="carousel-grid" id="history-results"></div></div><button class="carousel-arrow right" onclick="Alexandria.scrollCarousel(this, 800)">&#10095;</button></div></div>`;
+            this.renderResults(this.state.history, 'history-results', true);
         } else {
             container.innerHTML = '';
         }
@@ -648,38 +685,45 @@ const Alexandria = {
         }
     },
 
-    renderResults(results, containerId) {
+    renderResults(results, containerId, isHistoryRow = false) {
         const container = document.getElementById(containerId);
-        if (!container) return;
-        if (!results || results.length === 0) {
+        if (!container || !results) return;
+
+        if (results.length === 0) {
             container.innerHTML = '<div class="placeholder-msg">NO ARCHIVE RECORDS FOUND.</div>';
             return;
         }
-        container.innerHTML = results.map(item => {
-            const type = item.media_type || (item.title ? 'movie' : 'tv');
-            const title = item.title || item.name;
-            const poster = item.poster_path ? `https://image.tmdb.org/t/p/w500${item.poster_path}` : 'https://via.placeholder.com/500x750?text=NO+IMAGE';
-            const inWatchlist = this.state.watchlist.some(i => String(i.id) === String(item.id));
 
-            // Check if it's SPECIFICALLY Anime (16 = Animation, origin Japan)
-            const isAnime = item.genre_ids && item.genre_ids.includes(16) && 
-                           (item.original_language === 'ja' || (item.origin_country && item.origin_country.includes('JP')));
+        container.innerHTML = results.map(item => {
+            const title = item.title || item.name;
+            const poster = item.poster_path ? `https://image.tmdb.org/t/p/w500${item.poster_path}` : 'https://via.placeholder.com/500x750?text=No+Poster';
+            const type = item.type || (item.first_air_date ? 'tv' : 'movie');
+            const inWatchlist = this.state.watchlist.some(i => i.id == item.id);
+            const isAnime = item.isAnime || (item.origin_country && item.origin_country.includes('JP') && item.genre_ids && item.genre_ids.includes(16));
             
-            const badgeHtml = isAnime ? '<div class="anime-badge">SUB/DUB</div>' : '';
+            const badgeHtml = isHistoryRow && type === 'tv' && item.season && item.episode
+                ? `<div class="continue-badge">S${item.season}:E${item.episode}</div>`
+                : (isAnime ? '<div class="anime-badge">SUB/DUB</div>' : '');
+
+            const dataAttributes = isHistoryRow && type === 'tv' 
+                ? `data-season="${item.season}" data-episode="${item.episode}"` 
+                : '';
 
             return `
-                <div class="movie-card" data-id="${item.id}" data-type="${type}" data-title="${title}" data-is-anime="${isAnime}" onmouseenter="Alexandria.handleCardHover(this)" onmouseleave="Alexandria.handleCardLeave(this)">
+                <div class="movie-card" data-id="${item.id}" data-type="${type}" data-title="${title}" data-is-anime="${isAnime}" ${dataAttributes} onmouseenter="Alexandria.handleCardHover(this)" onmouseleave="Alexandria.handleCardLeave(this)">
                     <div class="poster-wrapper">
                         <img src="${poster}">
                         <div class="card-overlay">
                             ${badgeHtml}
                             <button class="log-btn ${inWatchlist ? 'active' : ''}" data-id="${item.id}" data-type="${type}" data-title="${title}" data-poster="${poster}">
-                                ${inWatchlist ? 'ðŸ“‘' : 'ðŸ”–'}
+                                ${inWatchlist ? '✅' : '📑'}
                             </button>
+                            <svg class="overlay-play" width="48" height="48" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
                         </div>
-                        <div class="play-overlay"><svg viewBox="0 0 24 24"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg></div>
                     </div>
-                    <div class="movie-info"><h3>${title}</h3></div>
+                    <div class="card-info">
+                        <h3>${title}</h3>
+                    </div>
                 </div>`;
         }).join('');
     },
@@ -755,6 +799,15 @@ const Alexandria = {
     async renderPlayer() {
         const { id, type, season, episode, isAnime } = this.state.activeContent;
         const server = this.servers[this.state.activeServer];
+        
+        // Record History async
+        try {
+            const res = await fetch(`/api/proxy?endpoint=${encodeURIComponent(type + '/' + id)}`);
+            const data = await res.json();
+            const title = type === 'movie' ? data.title : data.name;
+            const poster = data.poster_path ? `https://image.tmdb.org/t/p/w500${data.poster_path}` : '';
+            this.addToHistory({ id, type, title, poster_path: data.poster_path, season, episode, isAnime });
+        } catch(e) { console.error("Alexandria: History Metadata Fetch Failed", e); }
         
         let embedUrl = type === 'movie' ? server.getMovie(id) : server.getTv(id, season, episode);
 
