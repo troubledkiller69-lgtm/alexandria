@@ -707,7 +707,7 @@ const Alexandria = {
         container.innerHTML = results.map(item => {
             const title = item.title || item.name;
             const poster = item.poster_path ? `https://image.tmdb.org/t/p/w500${item.poster_path}` : 'https://via.placeholder.com/500x750?text=No+Poster';
-            const type = item.type || (item.first_air_date ? 'tv' : 'movie');
+            const type = item.media_type || (item.first_air_date ? 'tv' : 'movie');
             const inWatchlist = this.state.watchlist.some(i => i.id == item.id);
             const isAnime = item.isAnime || (item.origin_country && item.origin_country.includes('JP') && item.genre_ids && item.genre_ids.includes(16));
             
