@@ -7,6 +7,7 @@ const Alexandria = {
         trendingData: null,
         activeContent: { id: null, type: 'movie', season: 1, episode: 1 },
         searchQuery: '',
+        searchFilter: 'multi',
         activeServer: 0,
         autoNext: true,
         watchlist: [],
@@ -676,39 +677,107 @@ const Alexandria = {
     },
 
     renderSearch() {
-        this.main.innerHTML = `<section class="search-view"><div class="search-header"><h2>ARCHIVE SEARCH</h2><p>FIND YOUR NEXT TITLE</p></div><div class="search-box"><div class="input-wrapper" style="flex-grow:1"><input type="text" id="tmdb-search" placeholder="SEARCH TITLES..." style="width:100%"></div><button class="btn-primary" onclick="Alexandria.handleSearch()">ACCESS</button></div><div class="results-grid" id="search-results"></div></section>`;
-        document.getElementById('tmdb-search').addEventListener('keyup', (e) => { if (e.key === 'Enter') this.handleSearch(); });
+        this.main.innerHTML = `
+            <section class="search-view modern-search">
+                <div class="search-header-sticky">
+                    <div class="search-input-container">
+                        <svg class="search-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+                        <input type="text" id="tmdb-search" placeholder="Search for movies, TV shows..." autocomplete="off">
+                        <button class="clear-search" id="clear-search-btn" style="display:none" onclick="document.getElementById('tmdb-search').value=''; Alexandria.handleSearchInput();">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                        </button>
+                    </div>
+                    <div class="search-filters">
+                        <button class="filter-btn ${this.state.searchFilter === 'multi' ? 'active' : ''}" onclick="Alexandria.setSearchFilter('multi')">All</button>
+                        <button class="filter-btn ${this.state.searchFilter === 'movie' ? 'active' : ''}" onclick="Alexandria.setSearchFilter('movie')">Movies</button>
+                        <button class="filter-btn ${this.state.searchFilter === 'tv' ? 'active' : ''}" onclick="Alexandria.setSearchFilter('tv')">TV Shows</button>
+                    </div>
+                </div>
+                <div class="results-grid" id="search-results">
+                    <div class="search-empty-state">
+                        <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="var(--text-secondary)" stroke-width="1"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+                        <h3>Find your next favorite</h3>
+                        <p>Search by title to explore the archive.</p>
+                    </div>
+                </div>
+            </section>
+        `;
+        
+        const searchInput = document.getElementById('tmdb-search');
+        searchInput.addEventListener('input', () => this.handleSearchInput());
         
         if (this.state.searchQuery) {
-            document.getElementById('tmdb-search').value = this.state.searchQuery;
+            searchInput.value = this.state.searchQuery;
+            document.getElementById('clear-search-btn').style.display = 'block';
             this.executeSearch(this.state.searchQuery);
+        } else {
+            // Focus input if empty
+            setTimeout(() => searchInput.focus(), 100);
         }
     },
 
-    handleSearch() {
+    handleSearchInput() {
         const queryField = document.getElementById('tmdb-search');
-        const query = queryField.value.trim();
-        if (!query) return;
-        window.location.hash = `#search/${encodeURIComponent(query)}`;
+        const clearBtn = document.getElementById('clear-search-btn');
+        const query = queryField.value;
+        
+        clearBtn.style.display = query.trim() ? 'block' : 'none';
+        
+        if (this.state.searchTimeout) clearTimeout(this.state.searchTimeout);
+        
+        if (!query.trim()) {
+            this.state.searchQuery = '';
+            document.getElementById('search-results').innerHTML = `
+                <div class="search-empty-state">
+                    <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="var(--text-secondary)" stroke-width="1"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+                    <h3>Find your next favorite</h3>
+                    <p>Search by title to explore the archive.</p>
+                </div>`;
+            history.replaceState(null, null, '#search');
+            return;
+        }
+
+        this.state.searchTimeout = setTimeout(() => {
+            this.state.searchQuery = query.trim();
+            history.replaceState(null, null, `#search/${encodeURIComponent(query.trim())}`);
+            this.executeSearch(query.trim());
+        }, 500); // 500ms debounce
+    },
+
+    setSearchFilter(filter) {
+        this.state.searchFilter = filter;
+        this.renderSearch();
     },
 
     async executeSearch(query) {
         if (!query) return;
         const container = document.getElementById('search-results');
-        container.innerHTML = '<div class="placeholder-msg">LOCATING...</div>';
+        container.innerHTML = '<div class="search-loading"><div class="elegant-spinner"></div></div>';
         
         try {
-            // Signal Tunneling V2: Triple-Encoded for maximum security through the proxy
-            const endpoint = `search/multi?query=${encodeURIComponent(query)}`;
+            const filter = this.state.searchFilter || 'multi';
+            const endpoint = `search/${filter}?query=${encodeURIComponent(query)}`;
             const res = await fetch(`/api/proxy?endpoint=${encodeURIComponent(endpoint)}`);
             
             if (!res.ok) throw new Error("Signal Blocked");
             
             const data = await res.json();
-            this.renderResults(data.results || [], 'search-results');
+            const results = data.results || [];
+            
+            // Filter out people if multi search returns them
+            const filteredResults = results.filter(item => item.media_type !== 'person');
+            
+            if (filteredResults.length === 0) {
+                 container.innerHTML = '<div class="placeholder-msg">NO ARCHIVE RECORDS FOUND FOR "' + query.toUpperCase() + '".</div>';
+                 return;
+            }
+            
+            // Clear inner HTML specifically and let renderResults inject
+            container.innerHTML = '';
+            this.renderResults(filteredResults, 'search-results');
         } catch (e) {
             console.error("Alexandria Protocol: Search Scanner Failed -", e);
-            container.innerHTML = '<div class="placeholder-msg">SEARCH SIGNAL INTERRUPTED - PERIMETER CHECK REQUIRED.</div>';
+            container.innerHTML = '<div class="placeholder-msg">SEARCH SIGNAL INTERRUPTED.</div>';
         }
     },
 
@@ -739,7 +808,7 @@ const Alexandria = {
                 : '';
 
             return `
-                <div class="movie-card" data-id="${item.id}" data-type="${type}" data-title="${title}" data-is-anime="${isAnime}" ${dataAttributes} onmouseenter="Alexandria.handleCardHover(this)" onmouseleave="Alexandria.handleCardLeave(this)">
+                <div class="movie-card" data-id="${item.id}" data-type="${type}" data-title="${title}" data-is-anime="${isAnime}" ${dataAttributes}>
                     <div class="poster-wrapper">
                         <img src="${poster}">
                         <div class="card-overlay">
@@ -757,60 +826,7 @@ const Alexandria = {
         }).join('');
     },
 
-    handleCardHover(card) {
-        if (card.hoverTimeout) clearTimeout(card.hoverTimeout);
-        card.hoverTimeout = setTimeout(async () => {
-            if (!card.matches(':hover')) return;
 
-            const id = card.dataset.id;
-            const type = card.dataset.type;
-            const title = card.dataset.title;
-            const isAnime = card.dataset.isAnime === 'true';
-
-            // Check if modal already exists
-            if (card.querySelector('.preview-modal')) return;
-            
-            try {
-                const res = await fetch(`/api/proxy?endpoint=${encodeURIComponent(type + '/' + id + '/videos')}`);
-                const data = await res.json();
-                const trailer = data.results?.find(v => v.site === 'YouTube' && v.type === 'Trailer');
-                
-                if (trailer && card.matches(':hover')) {
-                    const modal = document.createElement('div');
-                    modal.className = 'preview-modal';
-                    modal.innerHTML = `
-                        <div class="preview-video">
-                            <iframe src="https://www.youtube.com/embed/${trailer.key}?autoplay=1&mute=1&controls=0&modestbranding=1&rel=0&loop=1&playlist=${trailer.key}" allow="autoplay"></iframe>
-                        </div>
-                        <div class="preview-info">
-                            <div class="preview-title">${title}</div>
-                            <div class="preview-actions">
-                                <button class="preview-btn play" onclick="event.stopPropagation(); Alexandria.playContent(${id}, '${type}', ${isAnime})">
-                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg> Play
-                                </button>
-                                <button class="preview-btn add" onclick="event.stopPropagation(); this.closest('.movie-card').querySelector('.log-btn').click();">
-                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"></path></svg> List
-                                </button>
-                            </div>
-                        </div>
-                    `;
-                    card.appendChild(modal);
-                    
-                    // Small delay to allow iframe to init before scaling up
-                    setTimeout(() => { if (card.matches(':hover')) modal.classList.add('active'); }, 50);
-                }
-            } catch(e) { console.error("Alexandria: Trailer Fetch Failed", e); }
-        }, 1000);
-    },
-
-    handleCardLeave(card) {
-        if (card.hoverTimeout) clearTimeout(card.hoverTimeout);
-        const modal = card.querySelector('.preview-modal');
-        if (modal) {
-            modal.classList.remove('active');
-            setTimeout(() => { if (!card.matches(':hover') && modal.parentElement) modal.remove(); }, 300);
-        }
-    },
 
     scrollCarousel(btn, amount) {
         const wrapper = btn.parentElement.querySelector('.carousel-wrapper');
@@ -830,7 +846,7 @@ const Alexandria = {
         this.main.innerHTML = '<div class="placeholder-msg">DECRYPTING ARCHIVE...</div>';
         
         try {
-            const endpoint = `${type}/${id}?append_to_response=credits,aggregate_credits,similar`;
+            const endpoint = `${type}/${id}?append_to_response=credits,aggregate_credits,similar,videos`;
             const res = await fetch(`/api/proxy?endpoint=${encodeURIComponent(endpoint)}`);
             if (!res.ok) throw new Error("Data Corrupted");
             const data = await res.json();
@@ -844,6 +860,8 @@ const Alexandria = {
             const poster = data.poster_path ? `https://image.tmdb.org/t/p/w500${data.poster_path}` : '';
             
             const inWatchlist = this.state.watchlist.some(i => i.id == id);
+            
+            const trailer = data.videos?.results?.find(v => v.site === 'YouTube' && v.type === 'Trailer');
             
             const castData = data.credits?.cast?.length ? data.credits.cast : (data.aggregate_credits?.cast || []);
             const castHtml = castData.slice(0, 15).map(c => `
@@ -892,6 +910,14 @@ const Alexandria = {
                             <button class="carousel-arrow right" onclick="Alexandria.scrollCarousel(this, 800)">&#10095;</button>
                         </div>
                     </div>
+
+                    ${trailer ? `
+                    <div class="view-section details-trailer-section">
+                        <h3>OFFICIAL TRAILER</h3>
+                        <div class="trailer-container">
+                            <iframe src="https://www.youtube.com/embed/${trailer.key}?controls=1&modestbranding=1&rel=0" frameborder="0" allowfullscreen allow="autoplay; encrypted-media"></iframe>
+                        </div>
+                    </div>` : ''}
 
                     ${data.similar?.results?.length ? `
                     <div class="view-section">
