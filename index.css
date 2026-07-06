@@ -1044,3 +1044,282 @@ h1, h2, h3, h4 {
     grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
     gap: 1.5rem;
 }
+
+/* Feature 4: Next Episode Widget */
+.next-ep-widget {
+    position: absolute;
+    bottom: 24px;
+    right: 24px;
+    background: rgba(0,0,0,0.85);
+    backdrop-filter: blur(16px);
+    border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 12px;
+    padding: 14px 20px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    z-index: 20;
+    animation: slideInRight 0.4s ease;
+}
+@keyframes slideInRight {
+    from { transform: translateX(100px); opacity: 0; }
+    to { transform: translateX(0); opacity: 1; }
+}
+.next-ep-content {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+.next-ep-label {
+    font-size: 0.65rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--text-secondary);
+}
+.next-ep-title {
+    font-size: 1rem;
+    font-weight: 600;
+}
+.next-ep-actions {
+    display: flex;
+    gap: 8px;
+}
+.next-ep-btn {
+    background: var(--accent-primary, #6366f1);
+    border: none;
+    color: white;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: transform 0.2s, background 0.2s;
+}
+.next-ep-btn:hover {
+    transform: scale(1.15);
+    background: #818cf8;
+}
+.next-ep-countdown-btn {
+    background: rgba(255,255,255,0.08);
+    border: 1px solid rgba(255,255,255,0.15);
+    color: var(--text-secondary);
+    padding: 8px 14px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 0.8rem;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    transition: all 0.2s;
+    min-width: 55px;
+    text-align: center;
+}
+.next-ep-countdown-btn:hover {
+    background: rgba(255,255,255,0.14);
+}
+.next-ep-countdown-btn.active {
+    background: rgba(99,102,241,0.25);
+    border-color: var(--accent-primary, #6366f1);
+    color: #a5b4fc;
+}
+
+/* Toast */
+.alexandria-toast {
+    position: fixed;
+    bottom: 30px;
+    left: 50%;
+    transform: translateX(-50%) translateY(20px);
+    background: rgba(15,15,20,0.92);
+    backdrop-filter: blur(12px);
+    border: 1px solid rgba(255,255,255,0.1);
+    color: #e2e8f0;
+    padding: 14px 28px;
+    border-radius: 10px;
+    font-size: 0.9rem;
+    z-index: 10000;
+    opacity: 0;
+    transition: opacity 0.35s, transform 0.35s;
+    pointer-events: none;
+}
+.alexandria-toast.show {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+}
+
+/* Feature 5: Collections */
+.collections-view {
+    padding: 100px 5rem 5rem;
+}
+.view-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 1rem;
+    margin-bottom: 2rem;
+}
+.collections-create-inline {
+    display: flex;
+    gap: 0.75rem;
+}
+.collections-create-inline input {
+    background: rgba(255,255,255,0.06);
+    border: 1px solid rgba(255,255,255,0.12);
+    padding: 0.7rem 1rem;
+    color: var(--text-primary);
+    border-radius: 8px;
+    outline: none;
+    font-size: 0.9rem;
+    width: 220px;
+}
+.collections-create-inline input:focus {
+    border-color: var(--accent-primary, #6366f1);
+}
+.collections-empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 1.5rem;
+    padding: 6rem 2rem;
+    text-align: center;
+}
+.collections-empty h3 {
+    font-size: 1.5rem;
+    font-weight: 300;
+}
+.collections-empty p {
+    color: var(--text-secondary);
+    max-width: 450px;
+    line-height: 1.6;
+}
+.collection-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+}
+.col-item-count {
+    font-weight: 300;
+    color: var(--text-secondary);
+    font-size: 0.9em;
+}
+.btn-secondary {
+    background: rgba(255,255,255,0.06);
+    border: 1px solid rgba(255,255,255,0.12);
+    color: var(--text-primary);
+    padding: 10px 20px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 0.85rem;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    transition: all 0.2s;
+}
+.btn-secondary:hover {
+    background: rgba(255,255,255,0.12);
+    border-color: rgba(255,255,255,0.2);
+}
+.btn-danger-sm {
+    background: rgba(239,68,68,0.1);
+    border: 1px solid rgba(239,68,68,0.25);
+    color: #f87171;
+    padding: 6px 14px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    transition: all 0.2s;
+}
+.btn-danger-sm:hover {
+    background: rgba(239,68,68,0.2);
+}
+
+/* Collection Modal */
+.collection-modal {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.7);
+    backdrop-filter: blur(6px);
+    z-index: 9000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    transition: opacity 0.3s;
+}
+.collection-modal.show {
+    opacity: 1;
+}
+.collection-modal-content {
+    background: rgba(20,20,28,0.96);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 16px;
+    width: 100%;
+    max-width: 420px;
+    overflow: hidden;
+    box-shadow: 0 25px 60px rgba(0,0,0,0.5);
+}
+.collection-modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1.25rem 1.5rem;
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+}
+.collection-modal-header h3 {
+    font-size: 1.1rem;
+    font-weight: 500;
+}
+.collection-modal-list {
+    padding: 0.75rem;
+    max-height: 300px;
+    overflow-y: auto;
+}
+.collection-pick-btn {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
+    padding: 12px 16px;
+    background: transparent;
+    border: none;
+    color: var(--text-primary);
+    cursor: pointer;
+    border-radius: 8px;
+    transition: background 0.2s;
+    font-size: 0.95rem;
+}
+.collection-pick-btn:hover {
+    background: rgba(255,255,255,0.06);
+}
+.col-count {
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+}
+.collection-modal-create {
+    display: flex;
+    gap: 0.75rem;
+    padding: 1rem 1.5rem;
+    border-top: 1px solid rgba(255,255,255,0.06);
+}
+.collection-modal-create input {
+    flex: 1;
+    background: rgba(255,255,255,0.06);
+    border: 1px solid rgba(255,255,255,0.1);
+    padding: 0.7rem 1rem;
+    color: var(--text-primary);
+    border-radius: 8px;
+    outline: none;
+}
+.collection-modal-create input:focus {
+    border-color: var(--accent-primary, #6366f1);
+}
+
+.player-frame-container {
+    position: relative;
+}
+

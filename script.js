@@ -10,7 +10,8 @@ const Alexandria = {
         activeServer: 0,
         autoNext: true,
         watchlist: [],
-        history: []
+        history: [],
+        collections: JSON.parse(localStorage.getItem('alexandria_collections') || '[]')
     },
 
     servers: [
@@ -245,10 +246,21 @@ const Alexandria = {
                 }
             }
         });
+
+        // Keyboard shortcuts
+        document.addEventListener('keydown', (e) => {
+            if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+            if (e.key === 'n' || e.key === 'N') {
+                if (this.state.view === 'player' && this.state.activeContent.type === 'tv') {
+                    this.playNextEpisode();
+                }
+            }
+        });
     },
 
     setView(view) {
         this.state.view = view;
+        if (this._autoNextTimer) { clearInterval(this._autoNextTimer); this._autoNextTimer = null; }
         this.render();
     },
 
@@ -375,6 +387,7 @@ const Alexandria = {
         else if (this.state.view === 'player') this.renderPlayer();
         else if (this.state.view === 'details') this.renderDetails();
         else if (this.state.view === 'person') this.renderPerson();
+        else if (this.state.view === 'collections') this.renderCollections();
         else if (this.state.view === 'auth') this.renderAuth();
     },
 
@@ -859,6 +872,9 @@ const Alexandria = {
                                     <button class="icon-btn log-btn ${inWatchlist ? 'active' : ''}" data-id="${id}" data-type="${type}" data-title="${title}" data-poster="${poster}">
                                         ${inWatchlist ? '✅' : '📑'}
                                     </button>
+                                    <button class="btn-secondary" onclick="Alexandria.showCollectionPicker(${id}, '${type}', '${title.replace(/'/g, "\\'") }', '${poster}')">
+                                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14"></path><path d="M5 12h14"></path></svg> Collection
+                                    </button>
                                 </div>
                             </div>
                         </div>
@@ -966,6 +982,21 @@ const Alexandria = {
                     </div>
                     <div class="player-frame-container">
                         <iframe id="video-iframe" src="${embedUrl}" width="100%" height="100%" frameborder="0" scrolling="no" allowfullscreen referrerpolicy="no-referrer" allow="autoplay; fullscreen; encrypted-media; picture-in-picture"></iframe>
+                        ${type === 'tv' ? `
+                        <div class="next-ep-widget" id="next-ep-widget">
+                            <div class="next-ep-content">
+                                <span class="next-ep-label">NEXT EPISODE</span>
+                                <span class="next-ep-title" id="next-ep-title">S${season}:E${episode + 1}</span>
+                            </div>
+                            <div class="next-ep-actions">
+                                <button class="next-ep-btn" onclick="Alexandria.playNextEpisode()">
+                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21"></polygon><rect x="19" y="3" width="3" height="18"></rect></svg>
+                                </button>
+                                <button class="next-ep-countdown-btn" id="auto-next-btn" onclick="Alexandria.toggleAutoNext()">
+                                    AUTO
+                                </button>
+                            </div>
+                        </div>` : ''}
                     </div>
                 </div>
                 ${type === 'tv' ? `
@@ -1036,8 +1067,199 @@ const Alexandria = {
         } catch (e) {
             console.error("Alexandria Protocol: Episode Load Failed -", e);
         }
+    },
+
+    async playNextEpisode() {
+        const { id, type, season, episode } = this.state.activeContent;
+        if (type !== 'tv') return;
+        
+        if (this._autoNextTimer) { clearInterval(this._autoNextTimer); this._autoNextTimer = null; }
+
+        try {
+            const res = await fetch(`/api/proxy?endpoint=${encodeURIComponent('tv/' + id + '/season/' + season)}`);
+            const data = await res.json();
+            const maxEp = data.episodes?.length || 20;
+
+            if (episode < maxEp) {
+                window.location.hash = `#tv/${id}/s/${season}/e/${episode + 1}`;
+            } else {
+                // Try next season
+                const showRes = await fetch(`/api/proxy?endpoint=${encodeURIComponent('tv/' + id)}`);
+                const showData = await showRes.json();
+                const seasons = showData.seasons?.filter(s => s.season_number > 0) || [];
+                const nextSeason = seasons.find(s => s.season_number > season);
+                if (nextSeason) {
+                    window.location.hash = `#tv/${id}/s/${nextSeason.season_number}/e/1`;
+                } else {
+                    // No more seasons — show a toast
+                    this.showToast('You have reached the final episode!');
+                }
+            }
+        } catch(e) {
+            // Fallback: just increment episode
+            window.location.hash = `#tv/${id}/s/${season}/e/${episode + 1}`;
+        }
+    },
+
+    toggleAutoNext() {
+        const btn = document.getElementById('auto-next-btn');
+        if (this._autoNextTimer) {
+            clearInterval(this._autoNextTimer);
+            this._autoNextTimer = null;
+            if (btn) { btn.textContent = 'AUTO'; btn.classList.remove('active'); }
+            return;
+        }
+
+        let countdown = 30;
+        if (btn) { btn.textContent = countdown + 's'; btn.classList.add('active'); }
+        this._autoNextTimer = setInterval(() => {
+            countdown--;
+            if (btn) btn.textContent = countdown + 's';
+            if (countdown <= 0) {
+                clearInterval(this._autoNextTimer);
+                this._autoNextTimer = null;
+                this.playNextEpisode();
+            }
+        }, 1000);
+    },
+
+    showToast(message) {
+        const existing = document.querySelector('.alexandria-toast');
+        if (existing) existing.remove();
+        const toast = document.createElement('div');
+        toast.className = 'alexandria-toast';
+        toast.textContent = message;
+        document.body.appendChild(toast);
+        setTimeout(() => toast.classList.add('show'), 10);
+        setTimeout(() => { toast.classList.remove('show'); setTimeout(() => toast.remove(), 400); }, 3000);
+    },
+
+    // ---- COLLECTIONS SYSTEM ----
+    saveCollections() {
+        localStorage.setItem('alexandria_collections', JSON.stringify(this.state.collections));
+    },
+
+    createCollection(name) {
+        if (!name || name.trim() === '') return;
+        const exists = this.state.collections.some(c => c.name.toLowerCase() === name.trim().toLowerCase());
+        if (exists) { this.showToast('Collection already exists!'); return; }
+        this.state.collections.push({ name: name.trim(), items: [], created: Date.now() });
+        this.saveCollections();
+        this.showToast(`"${name.trim()}" created!`);
+    },
+
+    deleteCollection(index) {
+        const name = this.state.collections[index]?.name;
+        this.state.collections.splice(index, 1);
+        this.saveCollections();
+        this.showToast(`"${name}" deleted.`);
+        if (this.state.view === 'collections') this.renderCollections();
+    },
+
+    addToCollection(colIndex, item) {
+        const col = this.state.collections[colIndex];
+        if (!col) return;
+        if (col.items.some(i => i.id == item.id)) { this.showToast('Already in this collection!'); return; }
+        col.items.push(item);
+        this.saveCollections();
+        this.showToast(`Added to "${col.name}"`);
+    },
+
+    removeFromCollection(colIndex, itemId) {
+        const col = this.state.collections[colIndex];
+        if (!col) return;
+        col.items = col.items.filter(i => i.id != itemId);
+        this.saveCollections();
+        if (this.state.view === 'collections') this.renderCollections();
+    },
+
+    showCollectionPicker(id, type, title, poster) {
+        const existing = document.querySelector('.collection-modal');
+        if (existing) existing.remove();
+
+        const modal = document.createElement('div');
+        modal.className = 'collection-modal';
+        modal.innerHTML = `
+            <div class="collection-modal-content">
+                <div class="collection-modal-header">
+                    <h3>Add to Collection</h3>
+                    <button class="icon-btn" onclick="this.closest('.collection-modal').remove()">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                    </button>
+                </div>
+                <div class="collection-modal-list">
+                    ${this.state.collections.length === 0 ? '<p class="placeholder-msg">No collections yet. Create one below.</p>' : 
+                    this.state.collections.map((col, i) => `
+                        <button class="collection-pick-btn" onclick="Alexandria.addToCollection(${i}, {id:${id},type:'${type}',title:'${title.replace(/'/g, "\\'")}',poster_path:'${poster.replace('https://image.tmdb.org/t/p/w500','')}'});this.closest('.collection-modal').remove()">
+                            <span>${col.name}</span>
+                            <span class="col-count">${col.items.length} items</span>
+                        </button>
+                    `).join('')}
+                </div>
+                <div class="collection-modal-create">
+                    <input type="text" id="new-collection-name" placeholder="New collection name..." maxlength="40">
+                    <button class="btn-primary" onclick="Alexandria.createCollection(document.getElementById('new-collection-name').value);this.closest('.collection-modal').remove();">
+                        Create
+                    </button>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(modal);
+        setTimeout(() => modal.classList.add('show'), 10);
+        modal.addEventListener('click', (e) => { if (e.target === modal) modal.remove(); });
+    },
+
+    renderCollections() {
+        const cols = this.state.collections;
+        
+        if (cols.length === 0) {
+            this.main.innerHTML = `
+                <section class="collections-view">
+                    <div class="view-header"><h2>My Collections</h2></div>
+                    <div class="collections-empty">
+                        <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="var(--text-secondary)" stroke-width="1"><rect x="2" y="4" width="20" height="16" rx="2"></rect><path d="M2 10h20"></path></svg>
+                        <h3>No collections yet</h3>
+                        <p>Browse movies and shows, then use the "+ Collection" button on any title's details page to start curating.</p>
+                        <div class="collections-create-inline">
+                            <input type="text" id="empty-col-name" placeholder="Or create one now..." maxlength="40">
+                            <button class="btn-primary" onclick="Alexandria.createCollection(document.getElementById('empty-col-name').value);Alexandria.renderCollections();">Create</button>
+                        </div>
+                    </div>
+                </section>`;
+            return;
+        }
+
+        this.main.innerHTML = `
+            <section class="collections-view">
+                <div class="view-header">
+                    <h2>My Collections</h2>
+                    <div class="collections-create-inline">
+                        <input type="text" id="header-col-name" placeholder="New collection..." maxlength="40">
+                        <button class="btn-primary" onclick="Alexandria.createCollection(document.getElementById('header-col-name').value);Alexandria.renderCollections();">Create</button>
+                    </div>
+                </div>
+                ${cols.map((col, ci) => `
+                    <div class="view-section collection-section">
+                        <div class="collection-header">
+                            <h3>${col.name} <span class="col-item-count">(${col.items.length})</span></h3>
+                            <button class="btn-danger-sm" onclick="if(confirm('Delete ${col.name}?')) Alexandria.deleteCollection(${ci})">Delete</button>
+                        </div>
+                        ${col.items.length > 0 ? `
+                        <div class="carousel-container">
+                            <button class="carousel-arrow left" onclick="Alexandria.scrollCarousel(this, -800)">&#10094;</button>
+                            <div class="carousel-wrapper"><div class="carousel-grid" id="col-${ci}-results"></div></div>
+                            <button class="carousel-arrow right" onclick="Alexandria.scrollCarousel(this, 800)">&#10095;</button>
+                        </div>` : '<p class="placeholder-msg">This collection is empty. Add titles from their details page.</p>'}
+                    </div>
+                `).join('')}
+            </section>`;
+
+        cols.forEach((col, ci) => {
+            if (col.items.length > 0) {
+                this.renderResults(col.items, `col-${ci}-results`);
+            }
+        });
     }
 };
 
 Alexandria.init();
-
