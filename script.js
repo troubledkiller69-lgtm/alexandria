@@ -162,6 +162,14 @@ const Alexandria = {
         } else if (path.startsWith('search/')) {
             this.state.searchQuery = decodeURIComponent(path.replace('search/', ''));
             this.setView('search');
+        } else if (path.startsWith('details/')) {
+            const parts = path.split('/');
+            this.state.activeContent = { id: parts[2], type: parts[1], isAnime: false, season: 1, episode: 1 };
+            this.setView('details');
+        } else if (path.startsWith('person/')) {
+            const id = path.split('/')[1];
+            this.state.activeContent = { id, type: 'person' };
+            this.setView('person');
         } else {
             this.setView(path);
         }
@@ -232,7 +240,7 @@ const Alexandria = {
                     if (season && episode) {
                         window.location.hash = `#tv/${card.dataset.id}/s/${season}/e/${episode}`;
                     } else {
-                        this.playContent(card.dataset.id, card.dataset.type, isAnime);
+                        window.location.hash = `#details/${card.dataset.type}/${card.dataset.id}`;
                     }
                 }
             }
@@ -365,6 +373,8 @@ const Alexandria = {
         else if (this.state.view === '420') this.render420();
         else if (this.state.view === 'search') this.renderSearch();
         else if (this.state.view === 'player') this.renderPlayer();
+        else if (this.state.view === 'details') this.renderDetails();
+        else if (this.state.view === 'person') this.renderPerson();
         else if (this.state.view === 'auth') this.renderAuth();
     },
 
@@ -793,6 +803,137 @@ const Alexandria = {
             window.location.hash = `#movie/${id}`;
         } else {
             window.location.hash = `#tv/${id}/s/1/e/1`;
+        }
+    },
+
+    async renderDetails() {
+        const { id, type } = this.state.activeContent;
+        this.main.innerHTML = '<div class="placeholder-msg">DECRYPTING ARCHIVE...</div>';
+        
+        try {
+            const endpoint = `${type}/${id}?append_to_response=credits,similar`;
+            const res = await fetch(`/api/proxy?endpoint=${encodeURIComponent(endpoint)}`);
+            if (!res.ok) throw new Error("Data Corrupted");
+            const data = await res.json();
+            
+            const title = data.title || data.name;
+            const year = (data.release_date || data.first_air_date || '').split('-')[0];
+            const runtime = data.runtime ? `${Math.floor(data.runtime/60)}h ${data.runtime%60}m` : (data.episode_run_time?.[0] ? `${data.episode_run_time[0]}m` : '');
+            const rating = data.vote_average ? data.vote_average.toFixed(1) : 'NR';
+            const genres = data.genres?.map(g => g.name).join(' • ');
+            const backdrop = data.backdrop_path ? `https://image.tmdb.org/t/p/original${data.backdrop_path}` : '';
+            const poster = data.poster_path ? `https://image.tmdb.org/t/p/w500${data.poster_path}` : '';
+            
+            const inWatchlist = this.state.watchlist.some(i => i.id == id);
+            
+            const castHtml = data.credits?.cast?.slice(0, 15).map(c => `
+                <div class="cast-card" onclick="window.location.hash = '#person/${c.id}'">
+                    <img src="${c.profile_path ? `https://image.tmdb.org/t/p/w185${c.profile_path}` : 'https://via.placeholder.com/185x278?text=No+Photo'}" alt="${c.name}">
+                    <div class="cast-info">
+                        <div class="cast-name">${c.name}</div>
+                        <div class="cast-role">${c.character}</div>
+                    </div>
+                </div>
+            `).join('') || '<div class="placeholder-msg">NO CAST DATA</div>';
+
+            this.main.innerHTML = `
+                <section class="details-layout">
+                    <div class="hero-details" style="background-image: linear-gradient(0deg, var(--bg-color) 0%, rgba(0,0,0,0.85) 100%), url('${backdrop}')">
+                        <div class="details-content-wrapper">
+                            <div class="details-poster"><img src="${poster}"></div>
+                            <div class="details-info">
+                                <h1>${title} <span class="year-span">(${year})</span></h1>
+                                <div class="details-meta">
+                                    <span class="rating">⭐ ${rating}</span>
+                                    ${runtime ? `<span>${runtime}</span>` : ''}
+                                    <span>${genres}</span>
+                                </div>
+                                <p class="details-overview">${data.overview}</p>
+                                <div class="details-actions">
+                                    <button class="btn-primary play-btn" onclick="Alexandria.playContent(${id}, '${type}')">
+                                        <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg> WATCH NOW
+                                    </button>
+                                    <button class="icon-btn log-btn ${inWatchlist ? 'active' : ''}" data-id="${id}" data-type="${type}" data-title="${title}" data-poster="${poster}">
+                                        ${inWatchlist ? '✅' : '📑'}
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="view-section">
+                        <h3>TOP CAST</h3>
+                        <div class="carousel-container">
+                            <button class="carousel-arrow left" onclick="Alexandria.scrollCarousel(this, -800)">&#10094;</button>
+                            <div class="carousel-wrapper"><div class="cast-grid">${castHtml}</div></div>
+                            <button class="carousel-arrow right" onclick="Alexandria.scrollCarousel(this, 800)">&#10095;</button>
+                        </div>
+                    </div>
+
+                    ${data.similar?.results?.length ? `
+                    <div class="view-section">
+                        <h3>SIMILAR TITLES</h3>
+                        <div class="carousel-container">
+                            <button class="carousel-arrow left" onclick="Alexandria.scrollCarousel(this, -800)">&#10094;</button>
+                            <div class="carousel-wrapper"><div class="carousel-grid" id="similar-results"></div></div>
+                            <button class="carousel-arrow right" onclick="Alexandria.scrollCarousel(this, 800)">&#10095;</button>
+                        </div>
+                    </div>` : ''}
+                </section>
+            `;
+            
+            if (data.similar?.results?.length) {
+                this.renderResults(data.similar.results, 'similar-results');
+            }
+        } catch(e) {
+            console.error("Alexandria Protocol: Details Render Failed", e);
+            this.main.innerHTML = '<div class="placeholder-msg">DATA CORRUPTED.</div>';
+        }
+    },
+
+    async renderPerson() {
+        const { id } = this.state.activeContent;
+        this.main.innerHTML = '<div class="placeholder-msg">LOCATING DOSSIER...</div>';
+        
+        try {
+            const endpoint = `person/${id}?append_to_response=combined_credits`;
+            const res = await fetch(`/api/proxy?endpoint=${encodeURIComponent(endpoint)}`);
+            if (!res.ok) throw new Error("Dossier Blocked");
+            const data = await res.json();
+            
+            const photo = data.profile_path ? `https://image.tmdb.org/t/p/h632${data.profile_path}` : 'https://via.placeholder.com/400x600?text=No+Photo';
+            
+            this.main.innerHTML = `
+                <section class="person-layout">
+                    <div class="person-header">
+                        <img src="${photo}" alt="${data.name}" class="person-photo">
+                        <div class="person-info">
+                            <h1>${data.name}</h1>
+                            <div class="person-meta">
+                                <span>${data.known_for_department}</span>
+                                <span>${data.birthday ? `Born: ${data.birthday}` : ''}</span>
+                                <span>${data.place_of_birth || ''}</span>
+                            </div>
+                            <div class="person-bio">${data.biography ? data.biography.replace(/\n\n/g, '<br><br>') : 'No biography available.'}</div>
+                        </div>
+                    </div>
+                    
+                    <div class="view-section">
+                        <h3>KNOWN FOR</h3>
+                        <div class="person-credits-grid" id="person-credits"></div>
+                    </div>
+                </section>
+            `;
+            
+            if (data.combined_credits?.cast?.length) {
+                const sorted = data.combined_credits.cast.sort((a,b) => b.popularity - a.popularity).slice(0, 40);
+                // Temporarily disable the "Continue Watching" tracking styling by using a standard render
+                const tempGrid = document.createElement('div');
+                this.renderResults(sorted, 'person-credits');
+            }
+        } catch(e) {
+            console.error("Alexandria Protocol: Person Render Failed", e);
+            this.main.innerHTML = '<div class="placeholder-msg">DOSSIER CORRUPTED.</div>';
         }
     },
 
