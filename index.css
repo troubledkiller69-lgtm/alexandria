@@ -649,6 +649,53 @@ h1, h2, h3, h4 {
     flex-grow: 1;
     display: flex;
     flex-direction: column;
+    background: var(--bg-surface);
+    border: var(--glass-border);
+    border-radius: 12px;
+    overflow: hidden;
+}
+
+/* Server Selection */
+.server-controls {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 1rem;
+    background: rgba(0,0,0,0.4);
+    border-bottom: var(--glass-border);
+}
+
+.server-label {
+    font-size: 0.8rem;
+    font-weight: 700;
+    color: rgba(255,255,255,0.5);
+    letter-spacing: 1px;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.server-select-dropdown {
+    background: rgba(255, 255, 255, 0.05);
+    color: var(--text-primary);
+    border: var(--glass-border);
+    padding: 0.5rem 1rem;
+    border-radius: 8px;
+    font-family: inherit;
+    font-size: 0.9rem;
+    font-weight: 500;
+    cursor: pointer;
+    outline: none;
+    transition: background 0.2s;
+}
+
+.server-select-dropdown:hover {
+    background: rgba(255, 255, 255, 0.1);
+}
+
+.server-select-dropdown option {
+    background: var(--bg-base);
+    color: var(--text-primary);
 }
 
 .player-frame-container {
