@@ -811,7 +811,7 @@ const Alexandria = {
         this.main.innerHTML = '<div class="placeholder-msg">DECRYPTING ARCHIVE...</div>';
         
         try {
-            const endpoint = `${type}/${id}?append_to_response=credits,similar`;
+            const endpoint = `${type}/${id}?append_to_response=credits,aggregate_credits,similar`;
             const res = await fetch(`/api/proxy?endpoint=${encodeURIComponent(endpoint)}`);
             if (!res.ok) throw new Error("Data Corrupted");
             const data = await res.json();
@@ -820,13 +820,14 @@ const Alexandria = {
             const year = (data.release_date || data.first_air_date || '').split('-')[0];
             const runtime = data.runtime ? `${Math.floor(data.runtime/60)}h ${data.runtime%60}m` : (data.episode_run_time?.[0] ? `${data.episode_run_time[0]}m` : '');
             const rating = data.vote_average ? data.vote_average.toFixed(1) : 'NR';
-            const genres = data.genres?.map(g => g.name).join(' • ');
+            const genres = (data.genres || []).map(g => g.name).join(' • ');
             const backdrop = data.backdrop_path ? `https://image.tmdb.org/t/p/original${data.backdrop_path}` : '';
             const poster = data.poster_path ? `https://image.tmdb.org/t/p/w500${data.poster_path}` : '';
             
             const inWatchlist = this.state.watchlist.some(i => i.id == id);
             
-            const castHtml = data.credits?.cast?.slice(0, 15).map(c => `
+            const castData = data.credits?.cast?.length ? data.credits.cast : (data.aggregate_credits?.cast || []);
+            const castHtml = castData.slice(0, 15).map(c => `
                 <div class="cast-card" onclick="window.location.hash = '#person/${c.id}'">
                     <img src="${c.profile_path ? `https://image.tmdb.org/t/p/w185${c.profile_path}` : 'https://via.placeholder.com/185x278?text=No+Photo'}" alt="${c.name}">
                     <div class="cast-info">
