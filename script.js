@@ -11,8 +11,7 @@ const Alexandria = {
         activeServer: 0,
         autoNext: true,
         watchlist: [],
-        history: [],
-        collections: JSON.parse(localStorage.getItem('alexandria_collections') || '[]')
+        history: []
     },
 
     servers: [
@@ -391,8 +390,6 @@ const Alexandria = {
         else if (this.state.view === 'player') this.renderPlayer();
         else if (this.state.view === 'details') this.renderDetails();
         else if (this.state.view === 'person') this.renderPerson();
-        else if (this.state.view === 'collections') this.renderCollections();
-        else if (this.state.view === 'shared') this.renderSharedCollection();
         else if (this.state.view === 'auth') this.renderAuth();
     },
 
@@ -876,7 +873,7 @@ const Alexandria = {
 
             this.main.innerHTML = `
                 <section class="details-layout">
-                    <div class="hero-details" style="background-image: linear-gradient(to top, var(--bg-color) 0%, transparent 80%), linear-gradient(to right, var(--bg-color) 0%, rgba(10,10,15,0.7) 40%, transparent 100%), url('${backdrop}')">
+                    <div class="hero-details" style="background-image: linear-gradient(to top, var(--bg-base) 0%, transparent 80%), linear-gradient(to right, var(--bg-base) 0%, rgba(10,10,15,0.7) 40%, transparent 100%), url('${backdrop}')">
                         <div class="details-content-wrapper">
                             <div class="details-poster"><img src="${poster}"></div>
                             <div class="details-info">
@@ -893,9 +890,6 @@ const Alexandria = {
                                     </button>
                                     <button class="icon-btn log-btn ${inWatchlist ? 'active' : ''}" data-id="${id}" data-type="${type}" data-title="${title}" data-poster="${poster}">
                                         ${inWatchlist ? '✅' : '📑'}
-                                    </button>
-                                    <button class="btn-secondary" onclick="Alexandria.showCollectionPicker(${id}, '${type}', '${title.replace(/'/g, "\\'") }', '${poster}')">
-                                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14"></path><path d="M5 12h14"></path></svg> Collection
                                     </button>
                                 </div>
                             </div>
@@ -1162,224 +1156,6 @@ const Alexandria = {
         document.body.appendChild(toast);
         setTimeout(() => toast.classList.add('show'), 10);
         setTimeout(() => { toast.classList.remove('show'); setTimeout(() => toast.remove(), 400); }, 3000);
-    },
-
-    // ---- COLLECTIONS SYSTEM ----
-    saveCollections() {
-        localStorage.setItem('alexandria_collections', JSON.stringify(this.state.collections));
-    },
-
-    createCollection(name) {
-        if (!name || name.trim() === '') return;
-        const exists = this.state.collections.some(c => c.name.toLowerCase() === name.trim().toLowerCase());
-        if (exists) { this.showToast('Collection already exists!'); return; }
-        this.state.collections.push({ name: name.trim(), items: [], created: Date.now() });
-        this.saveCollections();
-        this.showToast(`"${name.trim()}" created!`);
-    },
-
-    deleteCollection(index) {
-        const name = this.state.collections[index]?.name;
-        this.state.collections.splice(index, 1);
-        this.saveCollections();
-        this.showToast(`"${name}" deleted.`);
-        if (this.state.view === 'collections') this.renderCollections();
-    },
-
-    addToCollection(colIndex, item) {
-        const col = this.state.collections[colIndex];
-        if (!col) return;
-        if (col.items.some(i => i.id == item.id)) { this.showToast('Already in this collection!'); return; }
-        col.items.push(item);
-        this.saveCollections();
-        this.showToast(`Added to "${col.name}"`);
-    },
-
-    removeFromCollection(colIndex, itemId) {
-        const col = this.state.collections[colIndex];
-        if (!col) return;
-        col.items = col.items.filter(i => i.id != itemId);
-        this.saveCollections();
-        if (this.state.view === 'collections') this.renderCollections();
-    },
-
-    showCollectionPicker(id, type, title, poster) {
-        const existing = document.querySelector('.collection-modal');
-        if (existing) existing.remove();
-
-        const modal = document.createElement('div');
-        modal.className = 'collection-modal';
-        modal.innerHTML = `
-            <div class="collection-modal-content">
-                <div class="collection-modal-header">
-                    <h3>Add to Collection</h3>
-                    <button class="icon-btn" onclick="this.closest('.collection-modal').remove()">
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
-                    </button>
-                </div>
-                <div class="collection-modal-list">
-                    ${this.state.collections.length === 0 ? '<p class="placeholder-msg">No collections yet. Create one below.</p>' : 
-                    this.state.collections.map((col, i) => `
-                        <button class="collection-pick-btn" onclick="Alexandria.addToCollection(${i}, {id:${id},type:'${type}',title:'${title.replace(/'/g, "\\'")}',poster_path:'${poster.replace('https://image.tmdb.org/t/p/w500','')}'});this.closest('.collection-modal').remove()">
-                            <span>${col.name}</span>
-                            <span class="col-count">${col.items.length} items</span>
-                        </button>
-                    `).join('')}
-                </div>
-                <div class="collection-modal-create">
-                    <input type="text" id="new-collection-name" placeholder="New collection name..." maxlength="40">
-                    <button class="btn-primary" onclick="Alexandria.createCollection(document.getElementById('new-collection-name').value);this.closest('.collection-modal').remove();">
-                        Create
-                    </button>
-                </div>
-            </div>
-        `;
-        document.body.appendChild(modal);
-        setTimeout(() => modal.classList.add('show'), 10);
-        modal.addEventListener('click', (e) => { if (e.target === modal) modal.remove(); });
-    },
-
-    renderCollections() {
-        const cols = this.state.collections;
-        
-        if (cols.length === 0) {
-            this.main.innerHTML = `
-                <section class="collections-view">
-                    <div class="view-header"><h2>My Collections</h2></div>
-                    <div class="collections-empty">
-                        <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="var(--text-secondary)" stroke-width="1"><rect x="2" y="4" width="20" height="16" rx="2"></rect><path d="M2 10h20"></path></svg>
-                        <h3>No collections yet</h3>
-                        <p>Browse movies and shows, then use the "+ Collection" button on any title's details page to start curating.</p>
-                        <div class="collections-create-inline">
-                            <input type="text" id="empty-col-name" placeholder="Or create one now..." maxlength="40">
-                            <button class="btn-primary" onclick="Alexandria.createCollection(document.getElementById('empty-col-name').value);Alexandria.renderCollections();">Create</button>
-                        </div>
-                    </div>
-                </section>`;
-            return;
-        }
-
-        this.main.innerHTML = `
-            <section class="collections-view">
-                <div class="view-header">
-                    <h2>My Collections</h2>
-                    <div class="collections-create-inline">
-                        <input type="text" id="header-col-name" placeholder="New collection..." maxlength="40">
-                        <button class="btn-primary" onclick="Alexandria.createCollection(document.getElementById('header-col-name').value);Alexandria.renderCollections();">Create</button>
-                    </div>
-                </div>
-                ${cols.map((col, ci) => `
-                    <div class="view-section collection-section">
-                        <div class="collection-header">
-                            <h3>${col.name} <span class="col-item-count">(${col.items.length})</span></h3>
-                            <div class="collection-header-actions">
-                                <button class="btn-share-sm" onclick="Alexandria.shareCollection(${ci})">
-                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="18" cy="5" r="3"></circle><circle cx="6" cy="12" r="3"></circle><circle cx="18" cy="19" r="3"></circle><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line></svg> Share
-                                </button>
-                                <button class="btn-danger-sm" onclick="if(confirm('Delete ${col.name}?')) Alexandria.deleteCollection(${ci})">Delete</button>
-                            </div>
-                        </div>
-                        ${col.items.length > 0 ? `
-                        <div class="carousel-container">
-                            <button class="carousel-arrow left" onclick="Alexandria.scrollCarousel(this, -800)">&#10094;</button>
-                            <div class="carousel-wrapper"><div class="carousel-grid" id="col-${ci}-results"></div></div>
-                            <button class="carousel-arrow right" onclick="Alexandria.scrollCarousel(this, 800)">&#10095;</button>
-                        </div>` : '<p class="placeholder-msg">This collection is empty. Add titles from their details page.</p>'}
-                    </div>
-                `).join('')}
-            </section>`;
-
-        cols.forEach((col, ci) => {
-            if (col.items.length > 0) {
-                this.renderResults(col.items, `col-${ci}-results`);
-            }
-        });
-    },
-
-    shareCollection(index) {
-        const col = this.state.collections[index];
-        if (!col) return;
-        if (col.items.length === 0) { this.showToast('Add some titles first!'); return; }
-        
-        // Encode: compact format — name|id:type,id:type,...
-        const payload = col.name + '|' + col.items.map(i => `${i.id}:${i.type || 'movie'}`).join(',');
-        const encoded = btoa(unescape(encodeURIComponent(payload)));
-        const url = `${window.location.origin}${window.location.pathname}#shared/${encoded}`;
-        
-        navigator.clipboard.writeText(url).then(() => {
-            this.showToast('Share link copied to clipboard!');
-        }).catch(() => {
-            // Fallback
-            prompt('Copy this link:', url);
-        });
-    },
-
-    async renderSharedCollection() {
-        const payload = this.state._sharedPayload;
-        if (!payload) { this.main.innerHTML = '<div class="placeholder-msg">Invalid share link.</div>'; return; }
-        
-        this.main.innerHTML = '<div class="placeholder-msg">DECODING SHARED COLLECTION...</div>';
-        
-        try {
-            const decoded = decodeURIComponent(escape(atob(payload)));
-            const [name, itemsStr] = decoded.split('|');
-            const itemRefs = itemsStr.split(',').map(s => { const [id, type] = s.split(':'); return { id, type: type || 'movie' }; });
-            
-            // Fetch metadata for each item from TMDB
-            const items = await Promise.all(itemRefs.map(async ref => {
-                try {
-                    const res = await fetch(`/api/proxy?endpoint=${encodeURIComponent(ref.type + '/' + ref.id)}`);
-                    const data = await res.json();
-                    return { ...data, id: ref.id, media_type: ref.type };
-                } catch { return null; }
-            })).then(results => results.filter(Boolean));
-            
-            this.main.innerHTML = `
-                <section class="collections-view">
-                    <div class="view-header">
-                        <div>
-                            <span class="shared-badge">SHARED COLLECTION</span>
-                            <h2>${name}</h2>
-                        </div>
-                        <button class="btn-primary" onclick="Alexandria.importSharedCollection('${name.replace(/'/g, "\\'") }', '${payload}')">
-                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14"></path><path d="M5 12h14"></path></svg> Save to My Collections
-                        </button>
-                    </div>
-                    <div class="view-section">
-                        <div class="person-credits-grid" id="shared-results"></div>
-                    </div>
-                </section>`;
-            
-            this.renderResults(items, 'shared-results');
-        } catch(e) {
-            console.error('Alexandria: Shared Collection Decode Failed', e);
-            this.main.innerHTML = '<div class="placeholder-msg">This share link is corrupted or invalid.</div>';
-        }
-    },
-
-    async importSharedCollection(name, payload) {
-        try {
-            const decoded = decodeURIComponent(escape(atob(payload)));
-            const [, itemsStr] = decoded.split('|');
-            const itemRefs = itemsStr.split(',').map(s => { const [id, type] = s.split(':'); return { id, type: type || 'movie' }; });
-            
-            const items = await Promise.all(itemRefs.map(async ref => {
-                try {
-                    const res = await fetch(`/api/proxy?endpoint=${encodeURIComponent(ref.type + '/' + ref.id)}`);
-                    const data = await res.json();
-                    return { id: parseInt(ref.id), type: ref.type, title: data.title || data.name, poster_path: data.poster_path };
-                } catch { return null; }
-            })).then(results => results.filter(Boolean));
-            
-            const exists = this.state.collections.some(c => c.name.toLowerCase() === name.toLowerCase());
-            const finalName = exists ? name + ' (Shared)' : name;
-            
-            this.state.collections.push({ name: finalName, items, created: Date.now() });
-            this.saveCollections();
-            this.showToast(`"${finalName}" saved to your collections!`);
-        } catch(e) {
-            this.showToast('Failed to import collection.');
-        }
     }
 };
 
