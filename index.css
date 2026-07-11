@@ -1,8 +1,9 @@
 :root {
-    --bg-base: #000000;
+    --bg-base: #030303;
     --bg-surface: #0a0a0c;
     --bg-panel: rgba(18, 18, 24, 0.45);
     
+    --accent-primary: #8a0303;
     --accent-gold: #d4af37;
     --accent-emerald: #059669;
     --accent-white: #f8fafc;
@@ -67,11 +68,16 @@ h1, h2, h3, h4 {
     gap: 1.5rem;
 }
 
-.archive-title {
-    font-size: 2rem;
-    font-weight: 300;
-    letter-spacing: 0.2em;
-    color: var(--text-primary);
+.loader-logo {
+    height: 64px;
+    object-fit: contain;
+    margin-bottom: 1rem;
+    animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+    0%, 100% { opacity: 0.8; filter: drop-shadow(0 0 10px rgba(138, 3, 3, 0.4)); }
+    50% { opacity: 1; filter: drop-shadow(0 0 25px rgba(138, 3, 3, 0.8)); }
 }
 
 .elegant-spinner {
@@ -118,10 +124,22 @@ h1, h2, h3, h4 {
 }
 
 .header-brand h1 {
-    font-size: 1.25rem;
-    font-weight: 600;
-    letter-spacing: 0.15em;
-    color: var(--text-primary);
+    font-size: 1.5rem;
+    font-weight: 700;
+    letter-spacing: -0.05em;
+    cursor: pointer;
+}
+
+.brand-logo {
+    height: 28px;
+    object-fit: contain;
+    cursor: pointer;
+    filter: drop-shadow(0 0 8px rgba(255,255,255,0.1));
+    transition: filter 0.3s ease;
+}
+
+.brand-logo:hover {
+    filter: drop-shadow(0 0 12px rgba(138, 3, 3, 0.6));
 }
 
 .top-nav-actions {
@@ -180,10 +198,14 @@ h1, h2, h3, h4 {
 }
 
 .sidebar-brand h1 {
-    font-size: 1.5rem;
-    font-weight: 600;
-    letter-spacing: 0.15em;
-    color: var(--text-primary);
+    font-size: 1.8rem;
+    font-weight: 700;
+    letter-spacing: -0.05em;
+    cursor: pointer;
+}
+
+.sidebar-brand .brand-logo {
+    height: 36px;
 }
 
 .sidebar-brand h1 span {
@@ -449,8 +471,24 @@ h1, h2, h3, h4 {
 .movie-card:hover {
     transform: scale(1.05) translateY(-5px);
     z-index: 50;
-    box-shadow: 0 20px 40px rgba(0,0,0,0.9);
+    box-shadow: 0 20px 40px rgba(138, 3, 3, 0.4);
     transition: transform 0.4s cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 0.4s ease, z-index 0s step-start;
+}
+
+.movie-card::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(circle at center, rgba(138, 3, 3, 0) 40%, rgba(138, 3, 3, 0.6) 100%);
+    opacity: 0;
+    transition: opacity 0.4s ease;
+    z-index: 5;
+    pointer-events: none;
+    mix-blend-mode: multiply;
+}
+
+.movie-card:hover::after {
+    opacity: 1;
 }
 
 .poster-wrapper {
