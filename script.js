@@ -262,6 +262,12 @@ const Alexandria = {
         e.preventDefault();
         const email = document.getElementById('auth-email').value;
         const password = document.getElementById('auth-password').value;
+        let avatar = 'python';
+        if (type === 'signup') {
+            const selected = document.querySelector('input[name="avatar"]:checked');
+            if (selected) avatar = selected.value;
+        }
+
         const btn = e.target.querySelector('button');
         btn.textContent = "VERIFYING...";
         btn.disabled = true;
@@ -270,17 +276,25 @@ const Alexandria = {
             const { data, error } = type === 'login' 
                 ? await this.supabase.auth.signInWithPassword({ email, password })
                 : await this.supabase.auth.signUp({ email, password });
+            
             if (error) throw error;
             
-            if (type === 'login' && data.user) {
+            if (type === 'signup' && data.user) {
+                // Create profile with avatar
+                const { error: profileError } = await this.supabase
+                    .from('profiles')
+                    .insert({ id: data.user.id, email: email, avatar_id: avatar });
+                
+                if (profileError) console.error("Profile creation error:", profileError);
+                alert("Security Credentials Created! Please check email for verification.");
+                this.renderAuth(); // Switch to login view
+            } else if (type === 'login' && data.user) {
                 this.state.user = data.user;
                 await this.syncFromCloud();
                 this.setView('home');
-            } else if (type === 'signup') {
-                alert("Check email for verification!");
             }
         } catch (error) {
-            alert("Error: " + error.message);
+            alert("Archive Error: " + error.message);
             btn.textContent = type === 'login' ? "ACCESS ARCHIVE" : "CREATE CREDENTIALS";
             btn.disabled = false;
         }
@@ -297,12 +311,18 @@ const Alexandria = {
             }
             return;
         }
-        const [wRes, hRes] = await Promise.all([
-            this.supabase.from('watchlist').select('*').order('created_at', { ascending: false }),
-            this.supabase.from('history').select('*').order('created_at', { ascending: false }).limit(10)
+        const [wRes, hRes, pRes] = await Promise.all([
+            this.supabase.from('survival_cache').select('*').order('added_at', { ascending: false }),
+            this.supabase.from('history').select('*').order('created_at', { ascending: false }).limit(10),
+            this.supabase.from('profiles').select('avatar_id').eq('id', this.state.user.id).single()
         ]);
-        this.state.watchlist = wRes.data?.map(i => ({ id: String(i.content_id), type: i.type, title: i.title, poster_path: i.poster_path })) || [];
+        this.state.watchlist = wRes.data?.map(i => ({ id: String(i.tmdb_id), type: i.media_type, title: i.title, poster_path: i.poster_path })) || [];
         
+        if (pRes.data?.avatar_id) {
+            this.state.avatar = pRes.data.avatar_id;
+            this.updateAvatarUI();
+        }
+
         const localHistory = JSON.parse(localStorage.getItem('alexandria_history')) || [];
         this.state.history = hRes.data?.map(i => {
             const local = localHistory.find(lh => lh.id == i.content_id);
@@ -311,6 +331,23 @@ const Alexandria = {
                 season: local?.season || 1, episode: local?.episode || 1, isAnime: local?.isAnime || false
             };
         }) || [];
+    },
+
+    updateAvatarUI() {
+        const authBtn = document.getElementById('auth-trigger');
+        if (!authBtn || !this.state.avatar) return;
+        
+        const avatarMap = {
+            'python': '🔫',
+            'katana': '🗡️',
+            'crossbow': '🏹',
+            'lucille': '🏏',
+            'hat': '🤠'
+        };
+        
+        authBtn.innerHTML = `<span style="font-size: 1.2rem; filter: drop-shadow(0 0 5px rgba(138,3,3,0.8));">${avatarMap[this.state.avatar] || '👤'}</span>`;
+        authBtn.style.border = '1px solid var(--accent-primary)';
+        authBtn.style.background = 'rgba(138, 3, 3, 0.1)';
     },
 
     async toggleWatchlist(item) {
@@ -327,12 +364,12 @@ const Alexandria = {
         if (index === -1) {
             this.state.watchlist.unshift(item);
             if (this.state.user) {
-                await this.supabase.from('watchlist').insert({ user_id: this.state.user.id, content_id: itemId, type: item.type, title: item.title, poster_path: item.poster_path });
+                await this.supabase.from('survival_cache').insert({ user_id: this.state.user.id, tmdb_id: itemId, media_type: item.type, title: item.title, poster_path: item.poster_path });
             }
         } else {
             this.state.watchlist.splice(index, 1);
             if (this.state.user) {
-                await this.supabase.from('watchlist').delete().match({ user_id: this.state.user.id, content_id: itemId });
+                await this.supabase.from('survival_cache').delete().match({ user_id: this.state.user.id, tmdb_id: itemId });
             }
         }
         
@@ -438,6 +475,31 @@ const Alexandria = {
                             <div class="input-group">
                                 <label>ACCESS PASSKEY</label>
                                 <input type="password" id="auth-password" required placeholder="CREATE KEY">
+                            </div>
+                            <div class="input-group">
+                                <label>SELECT WEAPON (AVATAR)</label>
+                                <div class="avatar-selector">
+                                    <label class="avatar-option">
+                                        <input type="radio" name="avatar" value="python" checked>
+                                        <span class="avatar-icon" title="The Python">🔫</span>
+                                    </label>
+                                    <label class="avatar-option">
+                                        <input type="radio" name="avatar" value="katana">
+                                        <span class="avatar-icon" title="The Katana">🗡️</span>
+                                    </label>
+                                    <label class="avatar-option">
+                                        <input type="radio" name="avatar" value="crossbow">
+                                        <span class="avatar-icon" title="The Crossbow">🏹</span>
+                                    </label>
+                                    <label class="avatar-option">
+                                        <input type="radio" name="avatar" value="lucille">
+                                        <span class="avatar-icon" title="Lucille">🏏</span>
+                                    </label>
+                                    <label class="avatar-option">
+                                        <input type="radio" name="avatar" value="hat">
+                                        <span class="avatar-icon" title="The Hat">🤠</span>
+                                    </label>
+                                </div>
                             </div>
                             <button type="submit" class="btn-primary full">CREATE CREDENTIALS</button>
                         </form>
