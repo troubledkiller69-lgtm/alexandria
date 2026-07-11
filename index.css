@@ -479,7 +479,8 @@ h1, h2, h3, h4 {
     content: '';
     position: absolute;
     inset: 0;
-    background: radial-gradient(circle at center, rgba(138, 3, 3, 0) 40%, rgba(138, 3, 3, 0.6) 100%);
+    background: radial-gradient(circle at center, rgba(138, 3, 3, 0) 20%, rgba(138, 3, 3, 0.8) 100%);
+    filter: url(#blood-spatter);
     opacity: 0;
     transition: opacity 0.4s ease;
     z-index: 5;
@@ -927,6 +928,48 @@ h1, h2, h3, h4 {
     width: 100%;
     max-width: 400px;
     box-shadow: var(--glass-shadow);
+}
+
+.avatar-selector {
+    display: flex;
+    gap: 0.5rem;
+    justify-content: center;
+    margin-top: 0.5rem;
+    flex-wrap: wrap;
+}
+
+.avatar-option {
+    cursor: pointer;
+    position: relative;
+    display: inline-block;
+}
+
+.avatar-option input {
+    display: none;
+}
+
+.avatar-icon {
+    font-size: 1.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 45px;
+    height: 45px;
+    border-radius: 50%;
+    border: 2px solid rgba(255, 255, 255, 0.1);
+    background: rgba(0, 0, 0, 0.5);
+    transition: all 0.3s ease;
+}
+
+.avatar-option input:checked + .avatar-icon {
+    border-color: var(--accent-primary);
+    background: rgba(138, 3, 3, 0.2);
+    box-shadow: 0 0 15px rgba(138, 3, 3, 0.6);
+    transform: scale(1.1);
+}
+
+.avatar-option:hover .avatar-icon {
+    border-color: rgba(138, 3, 3, 0.5);
 }
 
 .auth-card h2 {
