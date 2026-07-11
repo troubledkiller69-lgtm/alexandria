@@ -1058,83 +1058,25 @@ h1, h2, h3, h4 {
     gap: 1.5rem;
 }
 
-/* Feature 4: Next Episode Widget */
-.next-ep-widget {
-    position: absolute;
-    bottom: 24px;
-    right: 24px;
-    background: rgba(0,0,0,0.85);
-    backdrop-filter: blur(16px);
-    border: 1px solid rgba(255,255,255,0.12);
-    border-radius: 12px;
-    padding: 14px 20px;
-    display: flex;
-    align-items: center;
-    gap: 16px;
-    z-index: 20;
-    animation: slideInRight 0.4s ease;
-}
-@keyframes slideInRight {
-    from { transform: translateX(100px); opacity: 0; }
-    to { transform: translateX(0); opacity: 1; }
-}
-.next-ep-content {
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-}
-.next-ep-label {
-    font-size: 0.65rem;
-    text-transform: uppercase;
-    letter-spacing: 0.1em;
-    color: var(--text-secondary);
-}
-.next-ep-title {
-    font-size: 1rem;
-    font-weight: 600;
-}
-.next-ep-actions {
-    display: flex;
-    gap: 8px;
-}
-.next-ep-btn {
-    background: var(--accent-primary, #6366f1);
-    border: none;
-    color: white;
-    width: 40px;
-    height: 40px;
-    border-radius: 50%;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    transition: transform 0.2s, background 0.2s;
-}
-.next-ep-btn:hover {
-    transform: scale(1.15);
-    background: #818cf8;
-}
-.next-ep-countdown-btn {
-    background: rgba(255,255,255,0.08);
-    border: 1px solid rgba(255,255,255,0.15);
-    color: var(--text-secondary);
-    padding: 8px 14px;
-    border-radius: 8px;
-    cursor: pointer;
-    font-size: 0.8rem;
-    font-weight: 600;
-    letter-spacing: 0.05em;
-    transition: all 0.2s;
-    min-width: 55px;
+
+
+/* Franchise Page */
+.franchise-page-header {
     text-align: center;
+    padding: 2rem 0 3rem;
 }
-.next-ep-countdown-btn:hover {
-    background: rgba(255,255,255,0.14);
+.franchise-page-header h2 {
+    font-size: 2.8rem;
+    font-weight: 800;
+    font-family: var(--font-display);
+    letter-spacing: 0.15em;
+    background: linear-gradient(135deg, #e2e8f0, #94a3b8);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
 }
-.next-ep-countdown-btn.active {
-    background: rgba(99,102,241,0.25);
-    border-color: var(--accent-primary, #6366f1);
-    color: #a5b4fc;
+.franchise-section .view-section h3 {
+    flex-wrap: wrap;
 }
 
 /* Toast */

@@ -9,7 +9,7 @@ const Alexandria = {
         searchQuery: '',
         searchFilter: 'multi',
         activeServer: 0,
-        autoNext: true,
+
         watchlist: [],
         history: []
     },
@@ -250,15 +250,6 @@ const Alexandria = {
             }
         });
 
-        // Keyboard shortcuts
-        document.addEventListener('keydown', (e) => {
-            if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
-            if (e.key === 'n' || e.key === 'N') {
-                if (this.state.view === 'player' && this.state.activeContent.type === 'tv') {
-                    this.playNextEpisode();
-                }
-            }
-        });
     },
 
     setView(view) {
@@ -386,6 +377,7 @@ const Alexandria = {
         else if (this.state.view === 'tv') this.renderFiltered('tv');
         else if (this.state.view === 'anime') this.renderAnime();
         else if (this.state.view === '420') this.render420();
+        else if (this.state.view === 'franchises') this.renderFranchises();
         else if (this.state.view === 'search') this.renderSearch();
         else if (this.state.view === 'player') this.renderPlayer();
         else if (this.state.view === 'details') this.renderDetails();
@@ -672,6 +664,80 @@ const Alexandria = {
             this.main.innerHTML = '<div class="placeholder-msg">ELEVATED SIGNAL LOST. TRY AGAIN.</div>';
         }
     },
+
+    async renderFranchises() {
+        this.main.innerHTML = '<div class="placeholder-msg"><span class="pulse-dot"></span> LOADING FRANCHISE ARCHIVES...</div>';
+
+        // TMDB collection IDs for major franchises
+        const franchises = [
+            { name: 'Marvel Cinematic Universe', collectionId: 131292, accent: '#e23636', icon: '🛡️', subtitle: 'The Infinity Saga & Beyond' },
+            { name: 'Star Wars', collectionId: 10, accent: '#FFE81F', icon: '⚔️', subtitle: 'A Galaxy Far, Far Away' },
+            { name: 'Harry Potter', collectionId: 1241, accent: '#946B2D', icon: '⚡', subtitle: 'The Wizarding World' },
+            { name: 'The Lord of the Rings', collectionId: 119, accent: '#C9A84C', icon: '💍', subtitle: 'One Ring to Rule Them All' },
+            { name: 'DC Extended Universe', collectionId: 166121, accent: '#0078D7', icon: '🦇', subtitle: 'Gods Among Us' },
+            { name: 'The Walking Dead Universe', tvIds: [1402, 62286, 94305, 203580, 219557], accent: '#4a7c3f', icon: '🧟', subtitle: 'Fight the Dead. Fear the Living.', isTv: true },
+            { name: 'Fast & Furious', collectionId: 9485, accent: '#FF6B00', icon: '🏎️', subtitle: 'Family. No Matter What.' },
+            { name: 'Jurassic Park', collectionId: 328, accent: '#2E8B57', icon: '🦖', subtitle: 'Life Finds a Way' },
+            { name: 'The Hunger Games', collectionId: 131635, accent: '#C4151C', icon: '🔥', subtitle: 'May The Odds Be Ever In Your Favor' },
+            { name: 'Pirates of the Caribbean', collectionId: 295, accent: '#8B6914', icon: '🏴‍☠️', subtitle: 'Not All Treasure Is Silver and Gold' }
+        ];
+
+        try {
+            const fetchCollection = async (franchise) => {
+                if (franchise.isTv) {
+                    // Fetch TV shows by individual ID
+                    const results = await Promise.all(franchise.tvIds.map(async id => {
+                        try {
+                            const res = await fetch(`/api/proxy?endpoint=${encodeURIComponent('tv/' + id)}`);
+                            const data = await res.json();
+                            return { ...data, media_type: 'tv' };
+                        } catch { return null; }
+                    }));
+                    return { ...franchise, items: results.filter(Boolean) };
+                }
+                try {
+                    const res = await fetch(`/api/proxy?endpoint=${encodeURIComponent('collection/' + franchise.collectionId)}`);
+                    const data = await res.json();
+                    // Sort by release date (chronological)
+                    const sorted = (data.parts || []).sort((a, b) => new Date(a.release_date || '9999') - new Date(b.release_date || '9999'));
+                    return { ...franchise, items: sorted };
+                } catch { return { ...franchise, items: [] }; }
+            };
+
+            const results = await Promise.all(franchises.map(fetchCollection));
+
+            this.main.innerHTML = `
+                <section class="filtered-view franchise-section">
+                    <div class="franchise-page-header">
+                        <h2>FRANCHISE ARCHIVES</h2>
+                        <p style="color:var(--text-muted);font-family:var(--font-display);letter-spacing:2px">CINEMATIC UNIVERSES & LEGENDARY SAGAS</p>
+                    </div>
+                    ${results.map((f, i) => f.items.length > 0 ? `
+                    <div class="view-section">
+                        <h3 style="display:flex;align-items:center;gap:10px">
+                            <span style="font-size:1.4rem">${f.icon}</span>
+                            <span style="color:${f.accent}">${f.name}</span>
+                            <span style="font-size:0.7rem;color:var(--text-muted);font-weight:300;letter-spacing:0.1em;text-transform:uppercase;margin-left:6px">${f.subtitle}</span>
+                        </h3>
+                        <div class="carousel-container">
+                            <button class="carousel-arrow left" onclick="Alexandria.scrollCarousel(this, -800)">&#10094;</button>
+                            <div class="carousel-wrapper"><div class="carousel-grid" id="franchise-${i}"></div></div>
+                            <button class="carousel-arrow right" onclick="Alexandria.scrollCarousel(this, 800)">&#10095;</button>
+                        </div>
+                    </div>` : '').join('')}
+                </section>`;
+
+            results.forEach((f, i) => {
+                if (f.items.length > 0) {
+                    this.renderResults(f.items, `franchise-${i}`, false, f.isTv ? 'tv' : null);
+                }
+            });
+        } catch (error) {
+            console.error("Alexandria: Franchise Archive Load Failed -", error);
+            this.main.innerHTML = '<div class="placeholder-msg">FRANCHISE ARCHIVE SIGNAL LOST. TRY AGAIN.</div>';
+        }
+    },
+
 
     renderSearch() {
         this.main.innerHTML = `
@@ -1006,21 +1072,7 @@ const Alexandria = {
                     </div>
                     <div class="player-frame-container">
                         <iframe id="video-iframe" src="${embedUrl}" width="100%" height="100%" frameborder="0" scrolling="no" allowfullscreen referrerpolicy="no-referrer" allow="autoplay; fullscreen; encrypted-media; picture-in-picture"></iframe>
-                        ${type === 'tv' ? `
-                        <div class="next-ep-widget" id="next-ep-widget">
-                            <div class="next-ep-content">
-                                <span class="next-ep-label">NEXT EPISODE</span>
-                                <span class="next-ep-title" id="next-ep-title">S${season}:E${episode + 1}</span>
-                            </div>
-                            <div class="next-ep-actions">
-                                <button class="next-ep-btn" onclick="Alexandria.playNextEpisode()">
-                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21"></polygon><rect x="19" y="3" width="3" height="18"></rect></svg>
-                                </button>
-                                <button class="next-ep-countdown-btn" id="auto-next-btn" onclick="Alexandria.toggleAutoNext()">
-                                    AUTO
-                                </button>
-                            </div>
-                        </div>` : ''}
+
                     </div>
                 </div>
                 ${type === 'tv' ? `
@@ -1093,59 +1145,7 @@ const Alexandria = {
         }
     },
 
-    async playNextEpisode() {
-        const { id, type, season, episode } = this.state.activeContent;
-        if (type !== 'tv') return;
-        
-        if (this._autoNextTimer) { clearInterval(this._autoNextTimer); this._autoNextTimer = null; }
 
-        try {
-            const res = await fetch(`/api/proxy?endpoint=${encodeURIComponent('tv/' + id + '/season/' + season)}`);
-            const data = await res.json();
-            const maxEp = data.episodes?.length || 20;
-
-            if (episode < maxEp) {
-                window.location.hash = `#tv/${id}/s/${season}/e/${episode + 1}`;
-            } else {
-                // Try next season
-                const showRes = await fetch(`/api/proxy?endpoint=${encodeURIComponent('tv/' + id)}`);
-                const showData = await showRes.json();
-                const seasons = showData.seasons?.filter(s => s.season_number > 0) || [];
-                const nextSeason = seasons.find(s => s.season_number > season);
-                if (nextSeason) {
-                    window.location.hash = `#tv/${id}/s/${nextSeason.season_number}/e/1`;
-                } else {
-                    // No more seasons — show a toast
-                    this.showToast('You have reached the final episode!');
-                }
-            }
-        } catch(e) {
-            // Fallback: just increment episode
-            window.location.hash = `#tv/${id}/s/${season}/e/${episode + 1}`;
-        }
-    },
-
-    toggleAutoNext() {
-        const btn = document.getElementById('auto-next-btn');
-        if (this._autoNextTimer) {
-            clearInterval(this._autoNextTimer);
-            this._autoNextTimer = null;
-            if (btn) { btn.textContent = 'AUTO'; btn.classList.remove('active'); }
-            return;
-        }
-
-        let countdown = 30;
-        if (btn) { btn.textContent = countdown + 's'; btn.classList.add('active'); }
-        this._autoNextTimer = setInterval(() => {
-            countdown--;
-            if (btn) btn.textContent = countdown + 's';
-            if (countdown <= 0) {
-                clearInterval(this._autoNextTimer);
-                this._autoNextTimer = null;
-                this.playNextEpisode();
-            }
-        }, 1000);
-    },
 
     showToast(message) {
         const existing = document.querySelector('.alexandria-toast');
