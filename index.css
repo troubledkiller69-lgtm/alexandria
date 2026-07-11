@@ -949,16 +949,29 @@ h1, h2, h3, h4 {
 }
 
 .avatar-icon {
-    font-size: 1.5rem;
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 45px;
-    height: 45px;
+    width: 55px;
+    height: 55px;
     border-radius: 50%;
     border: 2px solid rgba(255, 255, 255, 0.1);
     background: rgba(0, 0, 0, 0.5);
     transition: all 0.3s ease;
+    overflow: hidden;
+}
+
+.avatar-icon img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border-radius: 50%;
+    filter: grayscale(60%);
+    transition: filter 0.3s ease;
+}
+
+.avatar-option input:checked + .avatar-icon img {
+    filter: grayscale(0%);
 }
 
 .avatar-option input:checked + .avatar-icon {

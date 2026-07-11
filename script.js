@@ -338,16 +338,23 @@ const Alexandria = {
         if (!authBtn || !this.state.avatar) return;
         
         const avatarMap = {
-            'python': '🔫',
-            'katana': '🗡️',
-            'crossbow': '🏹',
-            'lucille': '🏏',
-            'hat': '🤠'
+            'rick': 'https://image.tmdb.org/t/p/w185/yVrGBtHXFMYYjjybMIRBMNatF1c.jpg',
+            'michonne': 'https://image.tmdb.org/t/p/w185/xNHWHlcJfiibWWMJGJDOPMRaOYl.jpg',
+            'daryl': 'https://image.tmdb.org/t/p/w185/khMla0oVIVIpMIIVLMqBCMqXXaJ.jpg',
+            'negan': 'https://image.tmdb.org/t/p/w185/bVMBBwVoPn35OmS1JpCCz2cOSqz.jpg',
+            'carl': 'https://image.tmdb.org/t/p/w185/7LECqLCy1sHHxE9OcGYSmfeXrmW.jpg'
         };
         
-        authBtn.innerHTML = `<span style="font-size: 1.2rem; filter: drop-shadow(0 0 5px rgba(138,3,3,0.8));">${avatarMap[this.state.avatar] || '👤'}</span>`;
+        const imgUrl = avatarMap[this.state.avatar];
+        if (imgUrl) {
+            authBtn.innerHTML = `<img src="${imgUrl}" alt="${this.state.avatar}" style="width:28px;height:28px;border-radius:50%;object-fit:cover;">`;
+        } else {
+            authBtn.innerHTML = `<span style="font-size: 1.2rem;">👤</span>`;
+        }
         authBtn.style.border = '1px solid var(--accent-primary)';
         authBtn.style.background = 'rgba(138, 3, 3, 0.1)';
+        authBtn.style.borderRadius = '50%';
+        authBtn.style.padding = '2px';
     },
 
     async toggleWatchlist(item) {
@@ -477,27 +484,27 @@ const Alexandria = {
                                 <input type="password" id="auth-password" required placeholder="CREATE KEY">
                             </div>
                             <div class="input-group">
-                                <label>SELECT WEAPON (AVATAR)</label>
+                                <label>CHOOSE YOUR SURVIVOR</label>
                                 <div class="avatar-selector">
                                     <label class="avatar-option">
-                                        <input type="radio" name="avatar" value="python" checked>
-                                        <span class="avatar-icon" title="The Python">🔫</span>
+                                        <input type="radio" name="avatar" value="rick" checked>
+                                        <span class="avatar-icon" title="Rick Grimes"><img src="https://image.tmdb.org/t/p/w185/yVrGBtHXFMYYjjybMIRBMNatF1c.jpg" alt="Rick"></span>
                                     </label>
                                     <label class="avatar-option">
-                                        <input type="radio" name="avatar" value="katana">
-                                        <span class="avatar-icon" title="The Katana">🗡️</span>
+                                        <input type="radio" name="avatar" value="michonne">
+                                        <span class="avatar-icon" title="Michonne"><img src="https://image.tmdb.org/t/p/w185/xNHWHlcJfiibWWMJGJDOPMRaOYl.jpg" alt="Michonne"></span>
                                     </label>
                                     <label class="avatar-option">
-                                        <input type="radio" name="avatar" value="crossbow">
-                                        <span class="avatar-icon" title="The Crossbow">🏹</span>
+                                        <input type="radio" name="avatar" value="daryl">
+                                        <span class="avatar-icon" title="Daryl Dixon"><img src="https://image.tmdb.org/t/p/w185/khMla0oVIVIpMIIVLMqBCMqXXaJ.jpg" alt="Daryl"></span>
                                     </label>
                                     <label class="avatar-option">
-                                        <input type="radio" name="avatar" value="lucille">
-                                        <span class="avatar-icon" title="Lucille">🏏</span>
+                                        <input type="radio" name="avatar" value="negan">
+                                        <span class="avatar-icon" title="Negan"><img src="https://image.tmdb.org/t/p/w185/bVMBBwVoPn35OmS1JpCCz2cOSqz.jpg" alt="Negan"></span>
                                     </label>
                                     <label class="avatar-option">
-                                        <input type="radio" name="avatar" value="hat">
-                                        <span class="avatar-icon" title="The Hat">🤠</span>
+                                        <input type="radio" name="avatar" value="carl">
+                                        <span class="avatar-icon" title="Carl Grimes"><img src="https://image.tmdb.org/t/p/w185/7LECqLCy1sHHxE9OcGYSmfeXrmW.jpg" alt="Carl"></span>
                                     </label>
                                 </div>
                             </div>
