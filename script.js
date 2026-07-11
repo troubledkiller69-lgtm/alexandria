@@ -525,10 +525,10 @@ const Alexandria = {
         if (!container) return;
         
         if (this.state.watchlist.length > 0) {
-            container.innerHTML = `<div class="view-section"><h3>PRIORITY ARCHIVE</h3><div class="carousel-container"><button class="carousel-arrow left" onclick="Alexandria.scrollCarousel(this, -800)">&#10094;</button><div class="carousel-wrapper"><div class="carousel-grid" id="watchlist-results"></div></div><button class="carousel-arrow right" onclick="Alexandria.scrollCarousel(this, 800)">&#10095;</button></div></div>`;
+            container.innerHTML = `<div class="view-section"><h3>SURVIVAL CACHE</h3><div class="carousel-container"><button class="carousel-arrow left" onclick="Alexandria.scrollCarousel(this, -800)">&#10094;</button><div class="carousel-wrapper"><div class="carousel-grid" id="watchlist-results"></div></div><button class="carousel-arrow right" onclick="Alexandria.scrollCarousel(this, 800)">&#10095;</button></div></div>`;
             this.renderResults(this.state.watchlist, 'watchlist-results');
         } else {
-            container.innerHTML = '';
+            container.innerHTML = '<div class="view-section"><h3>SURVIVAL CACHE</h3><div class="placeholder-msg">Your cache is empty. Time to scavenge for new supplies.</div></div>';
         }
     },
 
@@ -745,7 +745,7 @@ const Alexandria = {
                 <div class="search-header-sticky">
                     <div class="search-input-container">
                         <svg class="search-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
-                        <input type="text" id="tmdb-search" placeholder="Search for movies, TV shows..." autocomplete="off">
+                        <input type="text" id="tmdb-search" placeholder="What are you looking for, survivor?" autocomplete="off">
                         <button class="clear-search" id="clear-search-btn" style="display:none" onclick="document.getElementById('tmdb-search').value=''; Alexandria.handleSearchInput();">
                             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
                         </button>
@@ -849,7 +849,7 @@ const Alexandria = {
         if (!container || !results) return;
 
         if (results.length === 0) {
-            container.innerHTML = '<div class="placeholder-msg">NO ARCHIVE RECORDS FOUND.</div>';
+            container.innerHTML = '<div class="placeholder-msg">NO SUPPLIES OR SURVIVORS FOUND.</div>';
             return;
         }
 
