@@ -9,22 +9,89 @@ const Alexandria = {
         searchQuery: '',
         searchFilter: 'multi',
         activeServer: 0,
-
         watchlist: [],
         history: []
     },
 
     servers: [
-        { name: "Moviepire (Primary)", getMovie: id => `https://video.moviepire.co/embed/movie/${id}`, getTv: (id, s, e) => `https://video.moviepire.co/embed/tv/${id}/${s}/${e}` },
-        { name: "VidLink (High Speed)", getMovie: id => `https://vidlink.pro/movie/${id}`, getTv: (id, s, e) => `https://vidlink.pro/tv/${id}/${s}/${e}` },
-        { name: "VidSrc PRO", getMovie: id => `https://vidsrc.pro/embed/movie/${id}`, getTv: (id, s, e) => `https://vidsrc.pro/embed/tv/${id}/${s}/${e}` },
-        { name: "AutoEmbed (Anime/Alt)", getMovie: id => `https://player.autoembed.cc/embed/movie/${id}`, getTv: (id, s, e) => `https://player.autoembed.cc/embed/tv/${id}-${s}-${e}` },
-        { name: "VidCore", getMovie: id => `https://vidcore.org/embed/movie/${id}`, getTv: (id, s, e) => `https://vidcore.org/embed/tv/${id}/${s}/${e}` },
-        { name: "2Embed", getMovie: id => `https://www.2embed.cc/embed/tmdb/movie?id=${id}`, getTv: (id, s, e) => `https://www.2embed.cc/embed/tmdb/tv?id=${id}&s=${s}&e=${e}` },
-        { name: "SuperEmbed", getMovie: id => `https://multiembed.mov/directstream.php?video_id=${id}&tmdb=1`, getTv: (id, s, e) => `https://multiembed.mov/directstream.php?video_id=${id}&tmdb=1&s=${s}&e=${e}` }
+        { name: "Rick", getMovie: id => `https://video.moviepire.co/embed/movie/${id}`, getTv: (id, s, e) => `https://video.moviepire.co/embed/tv/${id}/${s}/${e}` },
+        { name: "Daryl", getMovie: id => `https://vidlink.pro/movie/${id}`, getTv: (id, s, e) => `https://vidlink.pro/tv/${id}/${s}/${e}` },
+        { name: "Michonne", getMovie: id => `https://vidsrc.pro/embed/movie/${id}`, getTv: (id, s, e) => `https://vidsrc.pro/embed/tv/${id}/${s}/${e}` },
+        { name: "Maggie", getMovie: id => `https://player.autoembed.cc/embed/movie/${id}`, getTv: (id, s, e) => `https://player.autoembed.cc/embed/tv/${id}-${s}-${e}` },
+        { name: "Carol", getMovie: id => `https://vidcore.org/embed/movie/${id}`, getTv: (id, s, e) => `https://vidcore.org/embed/tv/${id}/${s}/${e}` },
+        { name: "Glenn", getMovie: id => `https://www.2embed.cc/embed/tmdb/movie?id=${id}`, getTv: (id, s, e) => `https://www.2embed.cc/embed/tmdb/tv?id=${id}&s=${s}&e=${e}` },
+        { name: "Negan", getMovie: id => `https://multiembed.mov/directstream.php?video_id=${id}&tmdb=1`, getTv: (id, s, e) => `https://multiembed.mov/directstream.php?video_id=${id}&tmdb=1&s=${s}&e=${e}` },
+        { name: "Carl", getMovie: id => `https://vidsrc.net/embed/movie/${id}`, getTv: (id, s, e) => `https://vidsrc.net/embed/tv/${id}/${s}/${e}` },
+        { name: "Ezekiel", getMovie: id => `https://vidsrc.in/embed/movie/${id}`, getTv: (id, s, e) => `https://vidsrc.in/embed/tv/${id}/${s}/${e}` }
     ],
 
     supabase: null,
+    _renderToken: 0,
+
+    escapeHtml(value = '') {
+        return String(value).replace(/[&<>'"]/g, character => ({
+            '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;'
+        })[character]);
+    },
+
+    imageUrl(path, size = 'w500') {
+        if (typeof path === 'string' && /^https:\/\/image\.tmdb\.org\/t\/p\/[a-zA-Z0-9]+\/[a-zA-Z0-9._/-]+$/.test(path)) return path;
+        return typeof path === 'string' && /^\/[a-zA-Z0-9._/-]+$/.test(path)
+            ? `https://image.tmdb.org/t/p/${size}${path}`
+            : '';
+    },
+
+    async getJson(endpoint, options = {}) {
+        const response = await fetch(`/api/proxy?endpoint=${encodeURIComponent(endpoint)}`, options);
+        let data;
+        try {
+            data = await response.json();
+        } catch {
+            throw new Error('The archive returned an unreadable response.');
+        }
+        if (!response.ok || data?.success === false || data?.error) {
+            throw new Error(data?.status_message || data?.error || `Archive request failed (${response.status}).`);
+        }
+        return data;
+    },
+
+    async mapWithConcurrency(items, limit, mapper) {
+        const results = new Array(items.length);
+        let nextIndex = 0;
+        const workers = Array.from({ length: Math.min(limit, items.length) }, async () => {
+            while (nextIndex < items.length) {
+                const index = nextIndex++;
+                results[index] = await mapper(items[index], index);
+            }
+        });
+        await Promise.all(workers);
+        return results;
+    },
+
+    writeLocalList(key, value) {
+        try {
+            localStorage.setItem(key, JSON.stringify(value));
+        } catch (error) {
+            console.warn(`Alexandria: Could not save ${key}.`, error);
+            this.showToast('This browser could not save your changes.');
+        }
+    },
+
+    renderError(title, message, retryView = this.state.view) {
+        const safeTitle = this.escapeHtml(title);
+        const safeMessage = this.escapeHtml(message);
+        this.main.innerHTML = `
+            <section class="error-state" role="alert">
+                <div class="error-mark" aria-hidden="true">A</div>
+                <p class="eyebrow">ARCHIVE CONNECTION</p>
+                <h1>${safeTitle}</h1>
+                <p>${safeMessage}</p>
+                <div class="error-actions">
+                    <button class="btn-primary" type="button" data-retry-view="${this.escapeHtml(retryView)}">TRY AGAIN</button>
+                    <a class="btn-secondary" href="#home">RETURN HOME</a>
+                </div>
+            </section>`;
+    },
 
     async init() {
         console.log("Alexandria Protocol: Initializing Handshake...");
@@ -33,18 +100,17 @@ const Alexandria = {
         // Start loading sequence immediately
         const loadingPromise = this.simulateLoading();
 
-        // Run network initialization in the background - DO NOT AWAIT
+        await this.syncFromCloud();
+
+        // Authentication is optional; local watchlists work without Supabase.
         this.initNetwork().catch(e => {
             console.error("Alexandria Protocol: Background Init Failed -", e);
-            this.state.view = 'auth';
         });
 
         // Wait for loading bar to finish
         await loadingPromise;
         
         this.bindEvents();
-        this.render(); // Render immediately once animation is done
-        
         window.addEventListener('hashchange', () => this.handleRouting());
         this.handleRouting();
     },
@@ -56,15 +122,17 @@ const Alexandria = {
         try {
             const configRes = await fetch('/api/config', { signal: controller.signal });
             clearTimeout(timeoutId);
+            if (!configRes.ok) throw new Error(`Configuration unavailable (${configRes.status})`);
             const config = await configRes.json();
             
             if (!config.supabaseUrl || !config.supabaseAnonKey) {
-                console.error("Alexandria Protocol: Security Keys Missing.");
-                this.state.view = 'home';
+                console.info("Alexandria Protocol: Cloud sync is not configured; using local mode.");
+                this.updateSyncIndicator('GUEST');
                 return;
             }
 
-            this.supabase = supabase.createClient(config.supabaseUrl, config.supabaseAnonKey);
+            if (!window.supabase?.createClient) throw new Error('Account service failed to load.');
+            this.supabase = window.supabase.createClient(config.supabaseUrl, config.supabaseAnonKey);
             
             this.supabase.auth.onAuthStateChange(async (event, session) => {
                 console.log("Alexandria Protocol: Auth Event -", event);
@@ -76,8 +144,7 @@ const Alexandria = {
                     await this.syncFromCloud();
                     this.setView('home');
                 } else if (event === 'SIGNED_OUT') {
-                    this.state.watchlist = [];
-                    this.state.history = [];
+                    await this.syncFromCloud();
                     this.setView('home');
                 }
                 this.render();
@@ -95,10 +162,7 @@ const Alexandria = {
             }
         } catch (e) {
             console.error("Alexandria Protocol: Handshake Failure -", e);
-            if (this.state.view === 'auth') this.state.view = 'home';
             this.updateSyncIndicator('OFFLINE');
-        } finally {
-            this.render();
         }
     },
 
@@ -115,6 +179,10 @@ const Alexandria = {
             dot.style.background = '#ef4444';
             dot.style.boxShadow = '0 0 10px #ef4444';
             text.textContent = 'SYNC OFFLINE';
+        } else if (status === 'GUEST') {
+            dot.style.background = '#f59e0b';
+            dot.style.boxShadow = '0 0 10px #f59e0b';
+            text.textContent = 'LOCAL MODE';
         } else {
             dot.style.background = '#f59e0b';
             dot.style.boxShadow = '0 0 10px #f59e0b';
@@ -124,13 +192,11 @@ const Alexandria = {
 
     simulateLoading() {
         return new Promise((resolve) => {
-            const progressFill = document.querySelector('#loading-screen .progress-fill');
             const statusText = document.querySelector('#loading-screen .loader-status');
             let progress = 0;
             const interval = setInterval(() => {
                 progress += Math.random() * 15;
                 if (progress > 100) progress = 100;
-                if (progressFill) progressFill.style.width = `${progress}%`;
                 if (progress > 30 && progress < 60) statusText.textContent = "STABILIZING ARCHIVE...";
                 if (progress > 60 && progress < 90) statusText.textContent = "SYNCING CLOUD DATA...";
                 if (progress >= 100) {
@@ -141,7 +207,7 @@ const Alexandria = {
                         resolve();
                     }, 500);
                 }
-            }, 200);
+            }, window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 30 : 90);
         });
     },
 
@@ -151,34 +217,42 @@ const Alexandria = {
         
         // Deep Link Parsing
         if (path.startsWith('movie/')) {
-            const id = path.split('/')[1];
+            const id = Number.parseInt(path.split('/')[1], 10);
+            if (!Number.isInteger(id) || id < 1) { this.setView('home'); return; }
             this.state.activeContent = { id, type: 'movie', isAnime: false, season: 1, episode: 1 };
             this.setView('player');
         } else if (path.startsWith('tv/')) {
             const parts = path.split('/');
-            const id = parts[1];
+            const id = Number.parseInt(parts[1], 10);
+            if (!Number.isInteger(id) || id < 1) { this.setView('home'); return; }
             const sIndex = parts.indexOf('s');
             const eIndex = parts.indexOf('e');
-            const season = sIndex !== -1 ? parseInt(parts[sIndex+1]) || 1 : 1;
-            const episode = eIndex !== -1 ? parseInt(parts[eIndex+1]) || 1 : 1;
+            const season = Math.max(1, sIndex !== -1 ? parseInt(parts[sIndex+1], 10) || 1 : 1);
+            const episode = Math.max(1, eIndex !== -1 ? parseInt(parts[eIndex+1], 10) || 1 : 1);
             this.state.activeContent = { id, type: 'tv', isAnime: false, season, episode };
             this.setView('player');
         } else if (path.startsWith('search/')) {
-            this.state.searchQuery = decodeURIComponent(path.replace('search/', ''));
+            try {
+                this.state.searchQuery = decodeURIComponent(path.replace('search/', ''));
+            } catch {
+                this.state.searchQuery = '';
+            }
             this.setView('search');
         } else if (path.startsWith('details/')) {
             const parts = path.split('/');
-            this.state.activeContent = { id: parts[2], type: parts[1], isAnime: false, season: 1, episode: 1 };
+            const id = Number.parseInt(parts[2], 10);
+            const type = parts[1];
+            if (!Number.isInteger(id) || id < 1 || !['movie', 'tv'].includes(type)) { this.setView('home'); return; }
+            this.state.activeContent = { id, type, isAnime: false, season: 1, episode: 1 };
             this.setView('details');
         } else if (path.startsWith('person/')) {
-            const id = path.split('/')[1];
+            const id = Number.parseInt(path.split('/')[1], 10);
+            if (!Number.isInteger(id) || id < 1) { this.setView('home'); return; }
             this.state.activeContent = { id, type: 'person' };
             this.setView('person');
-        } else if (path.startsWith('shared/')) {
-            this.state._sharedPayload = path.replace('shared/', '');
-            this.setView('shared');
         } else {
-            this.setView(path);
+            const allowedViews = new Set(['home', 'movies', 'tv', 'anime', '420', 'franchises', 'search', 'login', 'signup']);
+            this.setView(allowedViews.has(path) ? path : 'home');
         }
     },
 
@@ -190,6 +264,7 @@ const Alexandria = {
         const closeBtn = document.getElementById('sidebar-close');
 
         const toggleSidebar = (force) => {
+            const willOpen = typeof force === 'boolean' ? force : !sidebar?.classList.contains('open');
             if (typeof force === 'boolean') {
                 sidebar?.classList.toggle('open', force);
                 overlay?.classList.toggle('active', force);
@@ -197,6 +272,12 @@ const Alexandria = {
                 sidebar?.classList.toggle('open');
                 overlay?.classList.toggle('active');
             }
+            toggleBtn?.setAttribute('aria-expanded', String(willOpen));
+            if (sidebar) sidebar.inert = !willOpen;
+            overlay?.setAttribute('aria-hidden', String(!willOpen));
+            document.body.classList.toggle('sidebar-open', willOpen);
+            if (willOpen) closeBtn?.focus();
+            else if (force === false && document.activeElement === closeBtn) toggleBtn?.focus();
         };
 
         toggleBtn?.addEventListener('click', toggleSidebar);
@@ -208,29 +289,55 @@ const Alexandria = {
             el.addEventListener('click', () => toggleSidebar(false));
         });
 
-        // Logo secret click
-        const logo = document.querySelector('.sidebar-brand h1');
-        logo?.addEventListener('click', () => {
-            this.state.clickCount++;
-            if (this.state.clickCount >= 5) {
-                this.setView('admin');
-                this.state.clickCount = 0;
+        document.querySelectorAll('.brand-button').forEach(button => {
+            button.addEventListener('click', () => { window.location.hash = '#home'; });
+        });
+
+        document.addEventListener('keydown', event => {
+            if (event.key === 'Escape' && sidebar?.classList.contains('open')) toggleSidebar(false);
+            if ((event.key === 'Enter' || event.key === ' ') && event.target.matches('.cast-card, .episode-item, .resume-widget')) {
+                event.preventDefault();
+                event.target.click();
             }
         });
+
+        const backToTop = document.getElementById('back-to-top');
+        window.addEventListener('scroll', () => {
+            const visible = window.scrollY > 500;
+            backToTop?.classList.toggle('visible', visible);
+            backToTop?.setAttribute('aria-hidden', String(!visible));
+            if (backToTop) backToTop.tabIndex = visible ? 0 : -1;
+        }, { passive: true });
+        backToTop?.addEventListener('click', () => window.scrollTo({ top: 0, behavior: 'smooth' }));
+
+        const enhanceContent = () => {
+            this.main?.querySelectorAll('button:not([type])').forEach(button => { button.type = 'button'; });
+            this.main?.querySelectorAll('.carousel-arrow').forEach(button => {
+                button.setAttribute('aria-label', button.classList.contains('left') ? 'Scroll backward' : 'Scroll forward');
+            });
+        };
+        new MutationObserver(enhanceContent).observe(this.main, { childList: true, subtree: true });
+        enhanceContent();
 
         // Global click listener
         document.addEventListener('click', async (e) => {
             const logBtn = e.target.classList.contains('log-btn') ? e.target : e.target.closest('.log-btn');
             const searchTrigger = e.target.id === 'search-trigger' || e.target.closest('#search-trigger');
             const authTrigger = e.target.id === 'auth-trigger' || e.target.closest('#auth-trigger');
+            const retryButton = e.target.closest('[data-retry-view]');
+            const searchRetry = e.target.closest('[data-search-retry]');
 
-            if (logBtn) {
+            if (searchRetry) {
+                this.executeSearch(this.state.searchQuery);
+            } else if (retryButton) {
+                this.setView(retryButton.dataset.retryView || 'home');
+            } else if (logBtn) {
                 e.preventDefault();
                 const item = {
                     id: logBtn.dataset.id,
                     type: logBtn.dataset.type,
                     title: logBtn.dataset.title,
-                    poster_path: logBtn.dataset.poster.replace('https://image.tmdb.org/t/p/w500', '')
+                    poster_path: logBtn.dataset.poster || ''
                 };
                 await this.toggleWatchlist(item);
             } else if (searchTrigger) {
@@ -257,12 +364,18 @@ const Alexandria = {
 
     setView(view) {
         this.state.view = view;
+        this._renderToken += 1;
         if (this._autoNextTimer) { clearInterval(this._autoNextTimer); this._autoNextTimer = null; }
         this.render();
+        window.scrollTo({ top: 0, behavior: 'auto' });
     },
 
     async handleAuth(e, type) {
         e.preventDefault();
+        if (!this.supabase) {
+            this.showToast('Cloud accounts are not configured. Your lists are still saved on this device.');
+            return;
+        }
         const email = document.getElementById('auth-email').value;
         const password = document.getElementById('auth-password').value;
         let avatar = 'python';
@@ -271,7 +384,7 @@ const Alexandria = {
             if (selected) avatar = selected.value;
         }
 
-        const btn = e.target.querySelector('button');
+        const btn = e.currentTarget.querySelector('button[type="submit"]');
         btn.textContent = "VERIFYING...";
         btn.disabled = true;
 
@@ -286,7 +399,7 @@ const Alexandria = {
                 // Create profile with avatar
                 const { error: profileError } = await this.supabase
                     .from('profiles')
-                    .insert({ id: data.user.id, email: email, avatar_id: avatar });
+                    .upsert({ id: data.user.id, email, avatar_id: avatar }, { onConflict: 'id' });
                 
                 if (profileError) console.error("Profile creation error:", profileError);
                 alert("Security Credentials Created! Please check email for verification.");
@@ -326,9 +439,10 @@ const Alexandria = {
             this.updateAvatarUI();
         }
 
-        const localHistory = JSON.parse(localStorage.getItem('alexandria_history')) || [];
+        let localHistory = [];
+        try { localHistory = JSON.parse(localStorage.getItem('alexandria_history')) || []; } catch { /* ignore invalid local data */ }
         this.state.history = hRes.data?.map(i => {
-            const local = localHistory.find(lh => lh.id == i.content_id);
+            const local = localHistory.find(lh => String(lh.id) === String(i.content_id) && lh.type === i.type);
             return {
                 id: String(i.content_id), type: i.type, title: i.title, poster_path: i.poster_path,
                 season: local?.season || 1, episode: local?.episode || 1, isAnime: local?.isAnime || false
@@ -362,13 +476,15 @@ const Alexandria = {
 
     async toggleWatchlist(item) {
         const itemId = String(item.id);
-        const index = this.state.watchlist.findIndex(i => String(i.id) === itemId);
+        const index = this.state.watchlist.findIndex(i => String(i.id) === itemId && i.type === item.type);
         
         // Find all buttons for this item in the DOM and update them immediately
-        document.querySelectorAll(`.log-btn[data-id="${itemId}"]`).forEach(btn => {
+        document.querySelectorAll(`.log-btn[data-id="${itemId}"][data-type="${item.type}"]`).forEach(btn => {
             const isActive = btn.classList.contains('active');
             btn.classList.toggle('active');
-            btn.innerHTML = isActive ? 'ðŸ”–' : 'ðŸ“‘';
+            btn.textContent = isActive ? '+' : '✓';
+            btn.setAttribute('aria-pressed', String(!isActive));
+            btn.setAttribute('aria-label', isActive ? 'Add to watchlist' : 'Remove from watchlist');
         });
 
         if (index === -1) {
@@ -379,30 +495,29 @@ const Alexandria = {
         } else {
             this.state.watchlist.splice(index, 1);
             if (this.state.user) {
-                await this.supabase.from('survival_cache').delete().match({ user_id: this.state.user.id, tmdb_id: itemId });
+                await this.supabase.from('survival_cache').delete().match({ user_id: this.state.user.id, tmdb_id: itemId, media_type: item.type });
             }
         }
         
-        if (!this.state.user) {
-            localStorage.setItem('alexandria_watchlist', JSON.stringify(this.state.watchlist));
-        }
+        this.writeLocalList('alexandria_watchlist', this.state.watchlist);
+        this.showToast(index === -1 ? 'Added to your watchlist.' : 'Removed from your watchlist.');
         
         // If we are in the Home view, we only need to update the Watchlist row, not re-fetch everything
         if (this.state.view === 'home') this.renderWatchlist();
     },
 
     async addToHistory(item) {
-        this.state.history = this.state.history.filter(i => i.id != item.id);
+        this.state.history = this.state.history.filter(i => !(String(i.id) === String(item.id) && i.type === item.type));
         this.state.history.unshift(item);
         if (this.state.history.length > 20) this.state.history.pop();
         
         // Always save to localStorage to preserve season/episode data
-        localStorage.setItem('alexandria_history', JSON.stringify(this.state.history));
+        this.writeLocalList('alexandria_history', this.state.history);
         
         if (this.state.user) {
             try {
                 // Remove existing to prevent duplicates
-                await this.supabase.from('history').delete().match({ user_id: this.state.user.id, content_id: item.id });
+                await this.supabase.from('history').delete().match({ user_id: this.state.user.id, content_id: item.id, type: item.type });
                 // Only insert known columns to prevent schema errors
                 await this.supabase.from('history').insert({ user_id: this.state.user.id, content_id: item.id, type: item.type, title: item.title, poster_path: item.poster_path });
             } catch(e) { console.error('Alexandria: History Sync Error', e); }
@@ -415,7 +530,10 @@ const Alexandria = {
         
         // Update Nav Link Active States
         document.querySelectorAll('.nav-link').forEach(link => {
-            link.classList.toggle('active', link.getAttribute('href') === `#${this.state.view}`);
+            const isActive = link.getAttribute('href') === `#${this.state.view}`;
+            link.classList.toggle('active', isActive);
+            if (isActive) link.setAttribute('aria-current', 'page');
+            else link.removeAttribute('aria-current');
         });
 
         // Main View Routing
@@ -431,6 +549,10 @@ const Alexandria = {
         else if (this.state.view === 'person') this.renderPerson();
         else if (this.state.view === 'auth' || this.state.view === 'login') this.renderAuth();
         else if (this.state.view === 'signup') this.renderSignup();
+        else {
+            this.state.view = 'home';
+            this.renderHome();
+        }
     },
 
     renderAuth() {
@@ -438,9 +560,11 @@ const Alexandria = {
         if (this.main.querySelector('.auth-card') && !this.main.querySelector('[onsubmit*="signup"]')) return;
 
         const card = this.main.querySelector('.auth-card');
+        const token = this._renderToken;
         if (card) card.classList.add('switching');
         
         setTimeout(() => {
+            if (token !== this._renderToken) return;
             this.main.innerHTML = `
                 <section class="auth-view">
                     <div class="auth-card">
@@ -449,12 +573,12 @@ const Alexandria = {
                         <p class="auth-subtitle">SECURITY CLEARANCE REQUIRED</p>
                         <form onsubmit="Alexandria.handleAuth(event, 'login')">
                             <div class="input-group">
-                                <label>SURVIVOR EMAIL</label>
-                                <input type="email" id="auth-email" required placeholder="IDENTIFICATION CODE">
+                                <label for="auth-email">SURVIVOR EMAIL</label>
+                                <input type="email" id="auth-email" required autocomplete="email" placeholder="IDENTIFICATION CODE">
                             </div>
                             <div class="input-group">
-                                <label>ACCESS PASSKEY</label>
-                                <input type="password" id="auth-password" required placeholder="SECURE KEY">
+                                <label for="auth-password">ACCESS PASSKEY</label>
+                                <input type="password" id="auth-password" required autocomplete="current-password" minlength="6" placeholder="SECURE KEY">
                             </div>
                             <button type="submit" class="btn-primary full">ACCESS ARCHIVE</button>
                         </form>
@@ -469,9 +593,11 @@ const Alexandria = {
 
     renderSignup() {
         const card = this.main.querySelector('.auth-card');
+        const token = this._renderToken;
         if (card) card.classList.add('switching');
         
         setTimeout(() => {
+            if (token !== this._renderToken) return;
             this.main.innerHTML = `
                 <section class="auth-view">
                     <div class="auth-card">
@@ -480,12 +606,12 @@ const Alexandria = {
                         <p class="auth-subtitle">ESTABLISH NEW CREDENTIALS</p>
                         <form onsubmit="Alexandria.handleAuth(event, 'signup')">
                             <div class="input-group">
-                                <label>SURVIVOR EMAIL</label>
-                                <input type="email" id="auth-email" required placeholder="ASSIGN EMAIL">
+                                <label for="auth-email">SURVIVOR EMAIL</label>
+                                <input type="email" id="auth-email" required autocomplete="email" placeholder="ASSIGN EMAIL">
                             </div>
                             <div class="input-group">
-                                <label>ACCESS PASSKEY</label>
-                                <input type="password" id="auth-password" required placeholder="CREATE KEY">
+                                <label for="auth-password">ACCESS PASSKEY</label>
+                                <input type="password" id="auth-password" required autocomplete="new-password" minlength="6" placeholder="CREATE KEY">
                             </div>
                             <div class="input-group">
                                 <label>CHOOSE YOUR SURVIVOR</label>
@@ -524,31 +650,27 @@ const Alexandria = {
     },
 
     async renderHome() {
+        const token = this._renderToken;
         this.main.innerHTML = '<div class="placeholder-msg"><span class="pulse-dot"></span> LOADING SECTORS...</div>';
         
         try {
             // Sector 1: Core Content Scans
-            const [mRes, tRes, nRes, aRes, uRes] = await Promise.all([
-                fetch(`/api/proxy?endpoint=${encodeURIComponent('trending/movie/day')}`),
-                fetch(`/api/proxy?endpoint=${encodeURIComponent('trending/tv/day')}`),
-                fetch(`/api/proxy?endpoint=${encodeURIComponent('discover/movie?with_watch_providers=8&watch_region=US')}`),
-                fetch(`/api/proxy?endpoint=${encodeURIComponent('discover/movie?with_genres=28')}`),
-                fetch(`/api/proxy?endpoint=${encodeURIComponent('movie/upcoming')}`)
+            const [mData, tData, nData, aData, uData] = await Promise.all([
+                this.getJson('trending/movie/day'),
+                this.getJson('trending/tv/day'),
+                this.getJson('discover/movie?with_watch_providers=8&watch_region=US'),
+                this.getJson('discover/movie?with_genres=28'),
+                this.getJson('movie/upcoming')
             ]);
             
-            const mData = await mRes.json();
-            const tData = await tRes.json();
-            const nData = await nRes.json();
-            const aData = await aRes.json();
-            const uData = await uRes.json();
-            
-            // Sector 2: Alexandria's Specials â€” VERIFIED TMDB IDs (tested live 2026-05-16)
+            // Sector 2: Alexandria's specials, using verified TMDB IDs.
             const chronicleIds = [1402, 62286, 94305, 194583, 211684, 206586];
             const specialsData = await Promise.all(chronicleIds.map(id => 
-                fetch(`/api/proxy?endpoint=${encodeURIComponent('tv/' + id)}`)
-                .then(r => r.json())
+                this.getJson('tv/' + id)
                 .catch(() => null)
             )).then(results => results.filter(Boolean));
+
+            if (token !== this._renderToken) return;
 
             const featured = mData.results?.[0];
             const last = this.state.history?.[0];
@@ -557,16 +679,15 @@ const Alexandria = {
 
             this.main.innerHTML = `
                 <section class="home-view">
-                    <div class="hero-featured" style="background-image: linear-gradient(0deg, var(--bg-color) 0%, rgba(0,0,0,0.3) 100%), url('https://image.tmdb.org/t/p/original${featured.backdrop_path}')">
+                    <div class="hero-featured" style="--hero-image: url('${this.imageUrl(featured.backdrop_path, 'original')}')">
                         <div class="featured-content">
                             <span class="trending-badge">#1 TRENDING TODAY</span>
-                            <h2>${featured.title}</h2>
-                            <p>${featured.overview}</p>
+                            <h1>${this.escapeHtml(featured.title)}</h1>
+                            <p>${this.escapeHtml(featured.overview || 'No overview is available yet.')}</p>
                             <button class="btn-primary" onclick="Alexandria.playContent(${featured.id}, 'movie')">WATCH NOW</button>
                         </div>
-                        </div>
-                        ${last ? `<div class="resume-widget" onclick="window.location.hash = '${last.type === 'tv' ? `#tv/${last.id}/s/${last.season || 1}/e/${last.episode || 1}` : `#movie/${last.id}`}'">
-                            <div class="resume-content"><span class="resume-label">RESUMING...</span><h4>${last.title}</h4><p>CLICK TO RESUME</p></div>
+                        ${last ? `<div class="resume-widget" role="link" tabindex="0" onclick="window.location.hash = '${last.type === 'tv' ? `#tv/${last.id}/s/${last.season || 1}/e/${last.episode || 1}` : `#movie/${last.id}`}'">
+                            <div class="resume-content"><span class="resume-label">CONTINUE WATCHING</span><h4>${this.escapeHtml(last.title)}</h4><p>Resume playback</p></div>
                         </div>` : ''}
                     </div>
                     <div id="continue-watching-section"></div>
@@ -589,7 +710,7 @@ const Alexandria = {
             this.renderResults(uData.results, 'upcoming-hits');
         } catch (error) {
             console.error("Alexandria Protocol: Home Scout Failed -", error);
-            this.main.innerHTML = '<div class="placeholder-msg">SECTOR SCAN FAILED. CHECK SIGNAL.</div>';
+            if (token === this._renderToken) this.renderError('The archive is out of range', error.message, 'home');
         }
     },
 
@@ -618,20 +739,17 @@ const Alexandria = {
     },
 
     async renderFiltered(type) {
+        const token = this._renderToken;
         this.main.innerHTML = '<div class="placeholder-msg">SCANNING SECTORS...</div>';
         try {
-            const [popRes, topRes, actRes, horRes, sciRes] = await Promise.all([
-                fetch(`/api/proxy?endpoint=${encodeURIComponent(type + '/popular')}`),
-                fetch(`/api/proxy?endpoint=${encodeURIComponent(type + '/top_rated')}`),
-                fetch(`/api/proxy?endpoint=${encodeURIComponent('discover/' + type + '?with_genres=' + (type === 'movie' ? '28' : '10759'))}`),
-                fetch(`/api/proxy?endpoint=${encodeURIComponent('discover/' + type + '?with_genres=27')}`),
-                fetch(`/api/proxy?endpoint=${encodeURIComponent('discover/' + type + '?with_genres=878')}`)
+            const [popData, topData, actData, horData, sciData] = await Promise.all([
+                this.getJson(type + '/popular'),
+                this.getJson(type + '/top_rated'),
+                this.getJson('discover/' + type + '?with_genres=' + (type === 'movie' ? '28' : '10759')),
+                this.getJson('discover/' + type + '?with_genres=27'),
+                this.getJson('discover/' + type + '?with_genres=878')
             ]);
-            const popData = await popRes.json();
-            const topData = await topRes.json();
-            const actData = await actRes.json();
-            const horData = await horRes.json();
-            const sciData = await sciRes.json();
+            if (token !== this._renderToken) return;
 
             this.main.innerHTML = `
                 <section class="filtered-view">
@@ -650,22 +768,21 @@ const Alexandria = {
             this.renderResults(sciData.results, 'sci-results');
         } catch (error) {
             console.error("Alexandria Protocol: Filter Scout Failed -", error);
+            if (token === this._renderToken) this.renderError('This section could not load', error.message, this.state.view);
         }
     },
 
     async renderAnime() {
+        const token = this._renderToken;
         this.main.innerHTML = '<div class="placeholder-msg">SCANNING ANIME FREQUENCIES...</div>';
         try {
-            const [shonenRes, seinenRes, fantasyRes, dramaRes] = await Promise.all([
-                fetch(`/api/proxy?endpoint=${encodeURIComponent('discover/tv?with_genres=16&with_keywords=210024&sort_by=popularity.desc')}`),
-                fetch(`/api/proxy?endpoint=${encodeURIComponent('discover/tv?with_genres=16&with_keywords=210024&vote_average.gte=8')}`),
-                fetch(`/api/proxy?endpoint=${encodeURIComponent('discover/tv?with_genres=16&with_keywords=210024&with_genres=14')}`),
-                fetch(`/api/proxy?endpoint=${encodeURIComponent('discover/tv?with_genres=16&with_keywords=210024&with_genres=18')}`)
+            const [sData, seData, fData, dData] = await Promise.all([
+                this.getJson('discover/tv?with_genres=16&with_keywords=210024&sort_by=popularity.desc'),
+                this.getJson('discover/tv?with_genres=16&with_keywords=210024&vote_average.gte=8'),
+                this.getJson('discover/tv?with_genres=16,14&with_keywords=210024'),
+                this.getJson('discover/tv?with_genres=16,18&with_keywords=210024')
             ]);
-            const sData = await shonenRes.json();
-            const seData = await seinenRes.json();
-            const fData = await fantasyRes.json();
-            const dData = await dramaRes.json();
+            if (token !== this._renderToken) return;
 
             this.main.innerHTML = `
                 <section class="filtered-view">
@@ -682,10 +799,12 @@ const Alexandria = {
             this.renderResults(dData.results, 'anime-drama');
         } catch (error) {
             console.error("Alexandria Protocol: Anime Scout Failed -", error);
+            if (token === this._renderToken) this.renderError('Anime frequencies are unavailable', error.message, 'anime');
         }
     },
 
     async render420() {
+        const token = this._renderToken;
         this.main.innerHTML = '<div class="placeholder-msg"><span class="pulse-dot" style="background:#10b981;box-shadow:0 0 15px #10b981"></span> SCANNING ELEVATED FREQUENCIES...</div>';
         
         // Massive curated catalog. We randomize and pick 15 per category on load to ensure infinite variation and avoid API limits.
@@ -698,21 +817,23 @@ const Alexandria = {
         };
 
         try {
-            // Search all movies in parallel â€” one TMDB search per title
+            // Search a small randomized set while limiting request concurrency.
             const searchMovie = (title) => 
-                fetch(`/api/proxy?endpoint=${encodeURIComponent('search/movie?query=' + encodeURIComponent(title))}`)
-                .then(r => r.json())
+                this.getJson('search/movie?query=' + encodeURIComponent(title))
                 .then(d => d.results?.[0] || null)
                 .catch(() => null);
 
-            // Helper to shuffle and pick 15 random titles per category
-            const getRandomSubset = (arr, num) => arr.sort(() => 0.5 - Math.random()).slice(0, num);
+            const getRandomSubset = (arr, num) => [...arr].sort(() => 0.5 - Math.random()).slice(0, num);
 
             const [classics, modern, trippy, chill, cult] = await Promise.all(
                 Object.values(catalog).map(titles => 
-                    Promise.all(getRandomSubset(titles, 15).map(searchMovie)).then(r => r.filter(Boolean))
+                    this.mapWithConcurrency(getRandomSubset(titles, 6), 2, searchMovie).then(r => r.filter(Boolean))
                 )
             );
+            if (token !== this._renderToken) return;
+            if (![classics, modern, trippy, chill, cult].some(items => items.length)) {
+                throw new Error('No curated titles were returned.');
+            }
 
             this.main.innerHTML = `
                 <section class="filtered-view vip-section">
@@ -734,11 +855,12 @@ const Alexandria = {
             this.renderResults(cult, '420-cult');
         } catch (error) {
             console.error("Alexandria Protocol: 420 Zone Failed -", error);
-            this.main.innerHTML = '<div class="placeholder-msg">ELEVATED SIGNAL LOST. TRY AGAIN.</div>';
+            if (token === this._renderToken) this.renderError('Elevated frequencies are unavailable', error.message, '420');
         }
     },
 
     async renderFranchises() {
+        const token = this._renderToken;
         this.main.innerHTML = '<div class="placeholder-msg"><span class="pulse-dot"></span> LOADING FRANCHISE ARCHIVES...</div>';
 
         const franchises = [
@@ -760,16 +882,14 @@ const Alexandria = {
                     // Fetch TV shows by individual ID
                     const results = await Promise.all(franchise.tvIds.map(async id => {
                         try {
-                            const res = await fetch(`/api/proxy?endpoint=${encodeURIComponent('tv/' + id)}`);
-                            const data = await res.json();
+                            const data = await this.getJson('tv/' + id);
                             return { ...data, media_type: 'tv' };
                         } catch { return null; }
                     }));
                     return { ...franchise, items: results.filter(Boolean) };
                 }
                 try {
-                    const res = await fetch(`/api/proxy?endpoint=${encodeURIComponent('collection/' + franchise.collectionId)}`);
-                    const data = await res.json();
+                    const data = await this.getJson('collection/' + franchise.collectionId);
                     // Sort by release date (chronological)
                     const sorted = (data.parts || []).sort((a, b) => new Date(a.release_date || '9999') - new Date(b.release_date || '9999'));
                     return { ...franchise, items: sorted };
@@ -777,6 +897,10 @@ const Alexandria = {
             };
 
             const results = await Promise.all(franchises.map(fetchCollection));
+            if (token !== this._renderToken) return;
+            if (!results.some(franchise => franchise.items.length)) {
+                throw new Error('No franchise collections were returned.');
+            }
 
             this.main.innerHTML = `
                 <section class="filtered-view franchise-section">
@@ -800,12 +924,12 @@ const Alexandria = {
 
             results.forEach((f, i) => {
                 if (f.items.length > 0) {
-                    this.renderResults(f.items, `franchise-${i}`, false, f.isTv ? 'tv' : null);
+                    this.renderResults(f.items, `franchise-${i}`);
                 }
             });
         } catch (error) {
             console.error("Alexandria: Franchise Archive Load Failed -", error);
-            this.main.innerHTML = '<div class="placeholder-msg">FRANCHISE ARCHIVE SIGNAL LOST. TRY AGAIN.</div>';
+            if (token === this._renderToken) this.renderError('Franchise archives are unavailable', error.message, 'franchises');
         }
     },
 
@@ -816,15 +940,16 @@ const Alexandria = {
                 <div class="search-header-sticky">
                     <div class="search-input-container">
                         <svg class="search-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
-                        <input type="text" id="tmdb-search" placeholder="What are you looking for, survivor?" autocomplete="off">
-                        <button class="clear-search" id="clear-search-btn" style="display:none" onclick="document.getElementById('tmdb-search').value=''; Alexandria.handleSearchInput();">
+                        <label class="sr-only" for="tmdb-search">Search movies and TV shows</label>
+                        <input type="search" id="tmdb-search" placeholder="What are you looking for, survivor?" autocomplete="off">
+                        <button class="clear-search" id="clear-search-btn" type="button" aria-label="Clear search" style="display:none" onclick="document.getElementById('tmdb-search').value=''; Alexandria.handleSearchInput();">
                             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
                         </button>
                     </div>
-                    <div class="search-filters">
-                        <button class="filter-btn ${this.state.searchFilter === 'multi' ? 'active' : ''}" onclick="Alexandria.setSearchFilter('multi')">All</button>
-                        <button class="filter-btn ${this.state.searchFilter === 'movie' ? 'active' : ''}" onclick="Alexandria.setSearchFilter('movie')">Movies</button>
-                        <button class="filter-btn ${this.state.searchFilter === 'tv' ? 'active' : ''}" onclick="Alexandria.setSearchFilter('tv')">TV Shows</button>
+                    <div class="search-filters" aria-label="Search type">
+                        <button class="filter-btn ${this.state.searchFilter === 'multi' ? 'active' : ''}" type="button" aria-pressed="${this.state.searchFilter === 'multi'}" onclick="Alexandria.setSearchFilter('multi')">All</button>
+                        <button class="filter-btn ${this.state.searchFilter === 'movie' ? 'active' : ''}" type="button" aria-pressed="${this.state.searchFilter === 'movie'}" onclick="Alexandria.setSearchFilter('movie')">Movies</button>
+                        <button class="filter-btn ${this.state.searchFilter === 'tv' ? 'active' : ''}" type="button" aria-pressed="${this.state.searchFilter === 'tv'}" onclick="Alexandria.setSearchFilter('tv')">TV Shows</button>
                     </div>
                 </div>
                 <div class="results-grid" id="search-results">
@@ -886,23 +1011,23 @@ const Alexandria = {
     async executeSearch(query) {
         if (!query) return;
         const container = document.getElementById('search-results');
+        if (!container) return;
+        const requestId = (this._searchRequestId || 0) + 1;
+        this._searchRequestId = requestId;
         container.innerHTML = '<div class="search-loading"><div class="elegant-spinner"></div></div>';
         
         try {
             const filter = this.state.searchFilter || 'multi';
             const endpoint = `search/${filter}?query=${encodeURIComponent(query)}`;
-            const res = await fetch(`/api/proxy?endpoint=${encodeURIComponent(endpoint)}`);
-            
-            if (!res.ok) throw new Error("Signal Blocked");
-            
-            const data = await res.json();
+            const data = await this.getJson(endpoint);
+            if (requestId !== this._searchRequestId || !document.body.contains(container)) return;
             const results = data.results || [];
             
             // Filter out people if multi search returns them
             const filteredResults = results.filter(item => item.media_type !== 'person');
             
             if (filteredResults.length === 0) {
-                 container.innerHTML = '<div class="placeholder-msg">NO ARCHIVE RECORDS FOUND FOR "' + query.toUpperCase() + '".</div>';
+                 container.innerHTML = `<div class="placeholder-msg">NO ARCHIVE RECORDS FOUND FOR "${this.escapeHtml(query.toUpperCase())}".</div>`;
                  return;
             }
             
@@ -911,7 +1036,9 @@ const Alexandria = {
             this.renderResults(filteredResults, 'search-results');
         } catch (e) {
             console.error("Alexandria Protocol: Search Scanner Failed -", e);
-            container.innerHTML = '<div class="placeholder-msg">SEARCH SIGNAL INTERRUPTED.</div>';
+            if (requestId === this._searchRequestId && document.body.contains(container)) {
+                container.innerHTML = '<div class="inline-error" role="alert">SEARCH SIGNAL INTERRUPTED. <button type="button" data-search-retry>TRY AGAIN</button></div>';
+            }
         }
     },
 
@@ -925,12 +1052,13 @@ const Alexandria = {
         }
 
         container.innerHTML = results.map(item => {
-            const title = item.title || item.name;
-            const poster = item.poster_path ? `https://image.tmdb.org/t/p/w500${item.poster_path}` : 'https://via.placeholder.com/500x750?text=No+Poster';
+            const title = item.title || item.name || 'Untitled';
+            const safeTitle = this.escapeHtml(title);
+            const poster = this.imageUrl(item.poster_path);
             const type = item.media_type === 'tv' || item.media_type === 'movie'
                 ? item.media_type
                 : (item.name && !item.title ? 'tv' : 'movie');
-            const inWatchlist = this.state.watchlist.some(i => i.id == item.id);
+            const inWatchlist = this.state.watchlist.some(i => String(i.id) === String(item.id) && i.type === type);
             const isAnime = item.isAnime || (item.origin_country && item.origin_country.includes('JP') && item.genre_ids && item.genre_ids.includes(16));
             
             const badgeHtml = isHistoryRow && type === 'tv' && item.season && item.episode
@@ -940,23 +1068,28 @@ const Alexandria = {
             const dataAttributes = isHistoryRow && type === 'tv' 
                 ? `data-season="${item.season}" data-episode="${item.episode}"` 
                 : '';
+            const target = isHistoryRow && type === 'tv' && item.season && item.episode
+                ? `#tv/${Number(item.id)}/s/${Number(item.season)}/e/${Number(item.episode)}`
+                : `#details/${type}/${Number(item.id)}`;
 
             return `
-                <div class="movie-card" data-id="${item.id}" data-type="${type}" data-title="${title}" data-is-anime="${isAnime}" ${dataAttributes}>
+                <article class="movie-card" data-id="${Number(item.id)}" data-type="${type}" data-title="${safeTitle}" data-is-anime="${isAnime}" ${dataAttributes}>
                     <div class="poster-wrapper">
-                        <img src="${poster}">
+                        ${poster ? `<img src="${poster}" alt="${safeTitle} poster" loading="lazy" decoding="async">` : `<div class="poster-placeholder" role="img" aria-label="No poster available"><span>A</span><small>NO POSTER</small></div>`}
                         <div class="card-overlay">
                             ${badgeHtml}
-                            <button class="log-btn ${inWatchlist ? 'active' : ''}" data-id="${item.id}" data-type="${type}" data-title="${title}" data-poster="${poster}">
-                                ${inWatchlist ? '✅' : '📑'}
+                            <a class="card-open" href="${target}" aria-label="View ${safeTitle}">
+                                <svg class="overlay-play" aria-hidden="true" width="48" height="48" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+                            </a>
+                            <button class="log-btn ${inWatchlist ? 'active' : ''}" type="button" aria-label="${inWatchlist ? 'Remove from' : 'Add to'} watchlist" aria-pressed="${inWatchlist}" data-id="${Number(item.id)}" data-type="${type}" data-title="${safeTitle}" data-poster="${this.escapeHtml(item.poster_path || '')}">
+                                ${inWatchlist ? '✓' : '+'}
                             </button>
-                            <svg class="overlay-play" width="48" height="48" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
                         </div>
                     </div>
                     <div class="card-info">
-                        <h3>${title}</h3>
+                        <h3><a class="card-title-link" href="${target}">${safeTitle}</a></h3>
                     </div>
-                </div>`;
+                </article>`;
         }).join('');
     },
 
@@ -977,56 +1110,56 @@ const Alexandria = {
 
     async renderDetails() {
         const { id, type } = this.state.activeContent;
+        const token = this._renderToken;
         this.main.innerHTML = '<div class="placeholder-msg">DECRYPTING ARCHIVE...</div>';
         
         try {
             const endpoint = `${type}/${id}?append_to_response=credits,aggregate_credits,similar,videos`;
-            const res = await fetch(`/api/proxy?endpoint=${encodeURIComponent(endpoint)}`);
-            if (!res.ok) throw new Error("Data Corrupted");
-            const data = await res.json();
+            const data = await this.getJson(endpoint);
+            if (token !== this._renderToken) return;
             
             const title = data.title || data.name;
             const year = (data.release_date || data.first_air_date || '').split('-')[0];
             const runtime = data.runtime ? `${Math.floor(data.runtime/60)}h ${data.runtime%60}m` : (data.episode_run_time?.[0] ? `${data.episode_run_time[0]}m` : '');
             const rating = data.vote_average ? data.vote_average.toFixed(1) : 'NR';
             const genres = (data.genres || []).map(g => g.name).join(' • ');
-            const backdrop = data.backdrop_path ? `https://image.tmdb.org/t/p/original${data.backdrop_path}` : '';
-            const poster = data.poster_path ? `https://image.tmdb.org/t/p/w500${data.poster_path}` : '';
+            const backdrop = this.imageUrl(data.backdrop_path, 'original');
+            const poster = this.imageUrl(data.poster_path);
             
-            const inWatchlist = this.state.watchlist.some(i => i.id == id);
+            const inWatchlist = this.state.watchlist.some(i => String(i.id) === String(id) && i.type === type);
             
-            const trailer = data.videos?.results?.find(v => v.site === 'YouTube' && v.type === 'Trailer');
+            const trailer = data.videos?.results?.find(v => v.site === 'YouTube' && v.type === 'Trailer' && /^[\w-]{6,20}$/.test(v.key));
             
             const castData = data.credits?.cast?.length ? data.credits.cast : (data.aggregate_credits?.cast || []);
             const castHtml = castData.slice(0, 15).map(c => `
-                <div class="cast-card" onclick="window.location.hash = '#person/${c.id}'">
-                    <img src="${c.profile_path ? `https://image.tmdb.org/t/p/w185${c.profile_path}` : 'https://via.placeholder.com/185x278?text=No+Photo'}" alt="${c.name}">
+                <article class="cast-card" role="link" tabindex="0" onclick="window.location.hash = '#person/${Number(c.id)}'" aria-label="View ${this.escapeHtml(c.name)}">
+                    ${this.imageUrl(c.profile_path, 'w185') ? `<img src="${this.imageUrl(c.profile_path, 'w185')}" alt="${this.escapeHtml(c.name)}" loading="lazy" decoding="async">` : '<div class="cast-placeholder" aria-hidden="true">A</div>'}
                     <div class="cast-info">
-                        <div class="cast-name">${c.name}</div>
-                        <div class="cast-role">${c.character}</div>
+                        <div class="cast-name">${this.escapeHtml(c.name)}</div>
+                        <div class="cast-role">${this.escapeHtml(c.character || c.roles?.[0]?.character || 'Cast')}</div>
                     </div>
-                </div>
+                </article>
             `).join('') || '<div class="placeholder-msg">NO CAST DATA</div>';
 
             this.main.innerHTML = `
                 <section class="details-layout">
-                    <div class="hero-details" style="background-image: linear-gradient(to top, var(--bg-base) 0%, transparent 80%), linear-gradient(to right, var(--bg-base) 0%, rgba(10,10,15,0.7) 40%, transparent 100%), url('${backdrop}')">
+                    <div class="hero-details" style="--details-image: url('${backdrop}')">
                         <div class="details-content-wrapper">
-                            <div class="details-poster"><img src="${poster}"></div>
+                            <div class="details-poster">${poster ? `<img src="${poster}" alt="${this.escapeHtml(title)} poster">` : '<div class="poster-placeholder detail-placeholder"><span>A</span><small>NO POSTER</small></div>'}</div>
                             <div class="details-info">
-                                <h1>${title} <span class="year-span">(${year})</span></h1>
+                                <h1>${this.escapeHtml(title)} ${year ? `<span class="year-span">(${this.escapeHtml(year)})</span>` : ''}</h1>
                                 <div class="details-meta">
                                     <span class="rating">⭐ ${rating}</span>
-                                    ${runtime ? `<span>${runtime}</span>` : ''}
-                                    <span>${genres}</span>
+                                    ${runtime ? `<span>${this.escapeHtml(runtime)}</span>` : ''}
+                                    ${genres ? `<span>${this.escapeHtml(genres)}</span>` : ''}
                                 </div>
-                                <p class="details-overview">${data.overview}</p>
+                                <p class="details-overview">${this.escapeHtml(data.overview || 'No overview is available yet.')}</p>
                                 <div class="details-actions">
                                     <button class="btn-primary play-btn" onclick="Alexandria.playContent(${id}, '${type}')">
                                         <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg> WATCH NOW
                                     </button>
-                                    <button class="icon-btn log-btn ${inWatchlist ? 'active' : ''}" data-id="${id}" data-type="${type}" data-title="${title}" data-poster="${poster}">
-                                        ${inWatchlist ? '✅' : '📑'}
+                                    <button class="icon-btn log-btn ${inWatchlist ? 'active' : ''}" type="button" aria-label="${inWatchlist ? 'Remove from' : 'Add to'} watchlist" aria-pressed="${inWatchlist}" data-id="${Number(id)}" data-type="${type}" data-title="${this.escapeHtml(title)}" data-poster="${this.escapeHtml(data.poster_path || '')}">
+                                        ${inWatchlist ? '✓' : '+'}
                                     </button>
                                 </div>
                             </div>
@@ -1046,7 +1179,7 @@ const Alexandria = {
                     <div class="view-section details-trailer-section">
                         <h3>OFFICIAL TRAILER</h3>
                         <div class="trailer-container">
-                            <iframe src="https://www.youtube.com/embed/${trailer.key}?controls=1&modestbranding=1&rel=0" frameborder="0" allowfullscreen allow="autoplay; encrypted-media"></iframe>
+                            <iframe src="https://www.youtube-nocookie.com/embed/${trailer.key}?controls=1&modestbranding=1&rel=0" title="${this.escapeHtml(title)} official trailer" loading="lazy" allow="autoplay; encrypted-media; picture-in-picture; fullscreen" referrerpolicy="strict-origin-when-cross-origin"></iframe>
                         </div>
                     </div>` : ''}
 
@@ -1067,34 +1200,34 @@ const Alexandria = {
             }
         } catch(e) {
             console.error("Alexandria Protocol: Details Render Failed", e);
-            this.main.innerHTML = '<div class="placeholder-msg">DATA CORRUPTED.</div>';
+            if (token === this._renderToken) this.renderError('This title could not be decrypted', e.message, 'details');
         }
     },
 
     async renderPerson() {
         const { id } = this.state.activeContent;
+        const token = this._renderToken;
         this.main.innerHTML = '<div class="placeholder-msg">LOCATING DOSSIER...</div>';
         
         try {
             const endpoint = `person/${id}?append_to_response=combined_credits`;
-            const res = await fetch(`/api/proxy?endpoint=${encodeURIComponent(endpoint)}`);
-            if (!res.ok) throw new Error("Dossier Blocked");
-            const data = await res.json();
+            const data = await this.getJson(endpoint);
+            if (token !== this._renderToken) return;
             
-            const photo = data.profile_path ? `https://image.tmdb.org/t/p/h632${data.profile_path}` : 'https://via.placeholder.com/400x600?text=No+Photo';
+            const photo = this.imageUrl(data.profile_path, 'h632');
             
             this.main.innerHTML = `
                 <section class="person-layout">
                     <div class="person-header">
-                        <img src="${photo}" alt="${data.name}" class="person-photo">
+                        ${photo ? `<img src="${photo}" alt="${this.escapeHtml(data.name)}" class="person-photo">` : '<div class="person-photo person-placeholder" aria-hidden="true">A</div>'}
                         <div class="person-info">
-                            <h1>${data.name}</h1>
+                            <h1>${this.escapeHtml(data.name)}</h1>
                             <div class="person-meta">
-                                <span>${data.known_for_department}</span>
-                                <span>${data.birthday ? `Born: ${data.birthday}` : ''}</span>
-                                <span>${data.place_of_birth || ''}</span>
+                                <span>${this.escapeHtml(data.known_for_department || '')}</span>
+                                <span>${data.birthday ? `Born: ${this.escapeHtml(data.birthday)}` : ''}</span>
+                                <span>${this.escapeHtml(data.place_of_birth || '')}</span>
                             </div>
-                            <div class="person-bio">${data.biography ? data.biography.replace(/\n\n/g, '<br><br>') : 'No biography available.'}</div>
+                            <div class="person-bio">${this.escapeHtml(data.biography || 'No biography available.').replace(/\n\n/g, '<br><br>')}</div>
                         </div>
                     </div>
                     
@@ -1108,41 +1241,31 @@ const Alexandria = {
             if (data.combined_credits?.cast?.length) {
                 const sorted = data.combined_credits.cast.sort((a,b) => b.popularity - a.popularity).slice(0, 40);
                 // Temporarily disable the "Continue Watching" tracking styling by using a standard render
-                const tempGrid = document.createElement('div');
                 this.renderResults(sorted, 'person-credits');
             }
         } catch(e) {
             console.error("Alexandria Protocol: Person Render Failed", e);
-            this.main.innerHTML = '<div class="placeholder-msg">DOSSIER CORRUPTED.</div>';
+            if (token === this._renderToken) this.renderError('This dossier is unavailable', e.message, 'person');
         }
     },
 
     async renderPlayer() {
         const { id, type, season, episode, isAnime } = this.state.activeContent;
         const server = this.servers[this.state.activeServer];
-        
-        // Record History async
-        try {
-            const res = await fetch(`/api/proxy?endpoint=${encodeURIComponent(type + '/' + id)}`);
-            const data = await res.json();
-            const title = type === 'movie' ? data.title : data.name;
-            const poster = data.poster_path ? `https://image.tmdb.org/t/p/w500${data.poster_path}` : '';
-            this.addToHistory({ id, type, title, poster_path: data.poster_path, season, episode, isAnime });
-        } catch(e) { console.error("Alexandria: History Metadata Fetch Failed", e); }
-        
+
         let embedUrl = type === 'movie' ? server.getMovie(id) : server.getTv(id, season, episode);
 
         this.main.innerHTML = `
             <section class="player-layout">
                 <div class="player-main">
                     <div class="server-controls">
-                        <span class="server-label">SERVER <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"></polyline></svg></span>
-                        <select class="server-select-dropdown" onchange="Alexandria.handleServerChange(this.value)">
+                        <label class="server-label" for="server-selector">SERVER <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"></polyline></svg></label>
+                        <select id="server-selector" class="server-select-dropdown" onchange="Alexandria.handleServerChange(this.value)">
                             ${this.servers.map((s, i) => `<option value="${i}" ${i === this.state.activeServer ? 'selected' : ''}>${s.name}</option>`).join('')}
                         </select>
                     </div>
                     <div class="player-frame-container">
-                        <iframe id="video-iframe" src="${embedUrl}" width="100%" height="100%" frameborder="0" scrolling="no" allowfullscreen referrerpolicy="no-referrer" allow="autoplay; fullscreen; encrypted-media; picture-in-picture"></iframe>
+                        <iframe id="video-iframe" title="Alexandria video player" src="${embedUrl}" width="100%" height="100%" scrolling="no" referrerpolicy="no-referrer" allow="autoplay; fullscreen; encrypted-media; picture-in-picture"></iframe>
 
                     </div>
                 </div>
@@ -1150,6 +1273,7 @@ const Alexandria = {
                     <div class="episode-sidebar">
                         <div class="sidebar-top">
                             <h3 id="sidebar-title">DATA LINK</h3>
+                            <label class="sr-only" for="season-selector">Season</label>
                             <select id="season-selector" class="season-select" onchange="Alexandria.handleSeasonChange(this.value)"></select>
                         </div>
                         <div class="episode-list" id="sidebar-episodes">
@@ -1157,6 +1281,11 @@ const Alexandria = {
                         </div>
                     </div>` : ''}
             </section>`;
+
+        this.getJson(type + '/' + id).then(data => {
+            const title = type === 'movie' ? data.title : data.name;
+            if (title) this.addToHistory({ id, type, title, poster_path: data.poster_path, season, episode, isAnime });
+        }).catch(e => console.error("Alexandria: History Metadata Fetch Failed", e));
         
         if (type === 'tv') {
             await this.initSeasonSelector(id, season);
@@ -1166,8 +1295,7 @@ const Alexandria = {
 
     async initSeasonSelector(id, activeSeason) {
         try {
-            const res = await fetch(`/api/proxy?endpoint=${encodeURIComponent('tv/' + id)}`);
-            const data = await res.json();
+            const data = await this.getJson('tv/' + id);
             const selector = document.getElementById('season-selector');
             if (!selector) return;
 
@@ -1179,17 +1307,21 @@ const Alexandria = {
             document.getElementById('sidebar-title').textContent = data.name.toUpperCase();
         } catch (e) {
             console.error("Alexandria Protocol: Season Init Failed -", e);
+            const title = document.getElementById('sidebar-title');
+            if (title) title.textContent = 'EPISODE DATA UNAVAILABLE';
         }
     },
 
     handleSeasonChange(newSeason) {
-        this.state.activeContent.season = parseInt(newSeason);
-        this.state.activeContent.episode = 1;
-        this.renderPlayer();
+        const season = Number.parseInt(newSeason, 10);
+        if (!Number.isInteger(season) || season < 1) return;
+        window.location.hash = `#tv/${this.state.activeContent.id}/s/${season}/e/1`;
     },
 
     handleServerChange(newServerIndex) {
-        this.state.activeServer = parseInt(newServerIndex);
+        const serverIndex = Number.parseInt(newServerIndex, 10);
+        if (!Number.isInteger(serverIndex) || !this.servers[serverIndex]) return;
+        this.state.activeServer = serverIndex;
         const { id, type, season, episode } = this.state.activeContent;
         const server = this.servers[this.state.activeServer];
         const embedUrl = type === 'movie' ? server.getMovie(id) : server.getTv(id, season, episode);
@@ -1200,19 +1332,20 @@ const Alexandria = {
 
     async loadEpisodes(id, season) {
         try {
-            const res = await fetch(`/api/proxy?endpoint=${encodeURIComponent('tv/' + id + '/season/' + season)}`);
-            const data = await res.json();
+            const data = await this.getJson('tv/' + id + '/season/' + season);
             const container = document.getElementById('sidebar-episodes');
             if (!container) return;
             
             container.innerHTML = data.episodes.map(ep => `
-                <div class="episode-item ${this.state.activeContent.episode == ep.episode_number ? 'active' : ''}" 
+                <div class="episode-item ${this.state.activeContent.episode == ep.episode_number ? 'active' : ''}" role="link" tabindex="0"
                      onclick="window.location.hash = '#tv/${id}/s/${season}/e/${ep.episode_number}'">
                     <span class="ep-num">EP ${ep.episode_number}</span>
-                    <span class="ep-name">${ep.name}</span>
+                    <span class="ep-name">${this.escapeHtml(ep.name || 'Untitled episode')}</span>
                 </div>`).join('');
         } catch (e) {
             console.error("Alexandria Protocol: Episode Load Failed -", e);
+            const container = document.getElementById('sidebar-episodes');
+            if (container) container.innerHTML = '<div class="placeholder-msg">EPISODES COULD NOT BE LOADED.</div>';
         }
     },
 
