@@ -18,7 +18,10 @@ const Alexandria = {
         { name: "Moviepire (Primary)", getMovie: id => `https://video.moviepire.co/embed/movie/${id}`, getTv: (id, s, e) => `https://video.moviepire.co/embed/tv/${id}/${s}/${e}` },
         { name: "VidLink (High Speed)", getMovie: id => `https://vidlink.pro/movie/${id}`, getTv: (id, s, e) => `https://vidlink.pro/tv/${id}/${s}/${e}` },
         { name: "VidSrc PRO", getMovie: id => `https://vidsrc.pro/embed/movie/${id}`, getTv: (id, s, e) => `https://vidsrc.pro/embed/tv/${id}/${s}/${e}` },
-        { name: "AutoEmbed (Anime/Alt)", getMovie: id => `https://player.autoembed.cc/embed/movie/${id}`, getTv: (id, s, e) => `https://player.autoembed.cc/embed/tv/${id}-${s}-${e}` }
+        { name: "AutoEmbed (Anime/Alt)", getMovie: id => `https://player.autoembed.cc/embed/movie/${id}`, getTv: (id, s, e) => `https://player.autoembed.cc/embed/tv/${id}-${s}-${e}` },
+        { name: "VidCore", getMovie: id => `https://vidcore.org/embed/movie/${id}`, getTv: (id, s, e) => `https://vidcore.org/embed/tv/${id}/${s}/${e}` },
+        { name: "2Embed", getMovie: id => `https://www.2embed.cc/embed/tmdb/movie?id=${id}`, getTv: (id, s, e) => `https://www.2embed.cc/embed/tmdb/tv?id=${id}&s=${s}&e=${e}` },
+        { name: "SuperEmbed", getMovie: id => `https://multiembed.mov/directstream.php?video_id=${id}&tmdb=1`, getTv: (id, s, e) => `https://multiembed.mov/directstream.php?video_id=${id}&tmdb=1&s=${s}&e=${e}` }
     ],
 
     supabase: null,
@@ -231,9 +234,9 @@ const Alexandria = {
                 };
                 await this.toggleWatchlist(item);
             } else if (searchTrigger) {
-                this.setView('search');
+                window.location.hash = '#search';
             } else if (authTrigger) {
-                this.setView('auth');
+                window.location.hash = '#login';
             } else {
                 const card = e.target.classList.contains('movie-card') ? e.target : e.target.closest('.movie-card');
                 if (card) {
@@ -287,7 +290,7 @@ const Alexandria = {
                 
                 if (profileError) console.error("Profile creation error:", profileError);
                 alert("Security Credentials Created! Please check email for verification.");
-                this.renderAuth(); // Switch to login view
+                window.location.hash = '#login';
             } else if (type === 'login' && data.user) {
                 this.state.user = data.user;
                 await this.syncFromCloud();
@@ -426,7 +429,8 @@ const Alexandria = {
         else if (this.state.view === 'player') this.renderPlayer();
         else if (this.state.view === 'details') this.renderDetails();
         else if (this.state.view === 'person') this.renderPerson();
-        else if (this.state.view === 'auth') this.renderAuth();
+        else if (this.state.view === 'auth' || this.state.view === 'login') this.renderAuth();
+        else if (this.state.view === 'signup') this.renderSignup();
     },
 
     renderAuth() {
@@ -455,8 +459,8 @@ const Alexandria = {
                             <button type="submit" class="btn-primary full">ACCESS ARCHIVE</button>
                         </form>
                         <div class="auth-footer">
-                            <p>NEW TO THE SAFE ZONE? <a href="#" onclick="Alexandria.renderSignup(); return false;">REQUEST ACCESS</a></p>
-                            <p style="margin-top: 1rem;"><a href="#" onclick="Alexandria.setView('home'); return false;" style="color: var(--text-secondary); border-color: transparent;">RETURN TO ARCHIVE</a></p>
+                            <p>NEW TO THE SAFE ZONE? <a href="#signup">REQUEST ACCESS</a></p>
+                            <p style="margin-top: 1rem;"><a href="#home" style="color: var(--text-secondary); border-color: transparent;">RETURN TO ARCHIVE</a></p>
                         </div>
                     </div>
                 </section>`;
@@ -511,8 +515,8 @@ const Alexandria = {
                             <button type="submit" class="btn-primary full">CREATE CREDENTIALS</button>
                         </form>
                         <div class="auth-footer">
-                            <p>ALREADY A SURVIVOR? <a href="#" onclick="Alexandria.renderAuth(); return false;">LOG IN</a></p>
-                            <p style="margin-top: 1rem;"><a href="#" onclick="Alexandria.setView('home'); return false;" style="color: var(--text-secondary); border-color: transparent;">RETURN TO ARCHIVE</a></p>
+                            <p>ALREADY A SURVIVOR? <a href="#login">LOG IN</a></p>
+                            <p style="margin-top: 1rem;"><a href="#home" style="color: var(--text-secondary); border-color: transparent;">RETURN TO ARCHIVE</a></p>
                         </div>
                     </div>
                 </section>`;
@@ -737,18 +741,17 @@ const Alexandria = {
     async renderFranchises() {
         this.main.innerHTML = '<div class="placeholder-msg"><span class="pulse-dot"></span> LOADING FRANCHISE ARCHIVES...</div>';
 
-        // TMDB collection IDs for major franchises
         const franchises = [
-            { name: 'Marvel Cinematic Universe', collectionId: 131292, accent: '#e23636', icon: '🛡️', subtitle: 'The Infinity Saga & Beyond' },
-            { name: 'Star Wars', collectionId: 10, accent: '#FFE81F', icon: '⚔️', subtitle: 'A Galaxy Far, Far Away' },
-            { name: 'Harry Potter', collectionId: 1241, accent: '#946B2D', icon: '⚡', subtitle: 'The Wizarding World' },
-            { name: 'The Lord of the Rings', collectionId: 119, accent: '#C9A84C', icon: '💍', subtitle: 'One Ring to Rule Them All' },
-            { name: 'DC Extended Universe', collectionId: 166121, accent: '#0078D7', icon: '🦇', subtitle: 'Gods Among Us' },
-            { name: 'The Walking Dead Universe', tvIds: [1402, 62286, 94305, 203580, 219557], accent: '#4a7c3f', icon: '🧟', subtitle: 'Fight the Dead. Fear the Living.', isTv: true },
-            { name: 'Fast & Furious', collectionId: 9485, accent: '#FF6B00', icon: '🏎️', subtitle: 'Family. No Matter What.' },
-            { name: 'Jurassic Park', collectionId: 328, accent: '#2E8B57', icon: '🦖', subtitle: 'Life Finds a Way' },
-            { name: 'The Hunger Games', collectionId: 131635, accent: '#C4151C', icon: '🔥', subtitle: 'May The Odds Be Ever In Your Favor' },
-            { name: 'Pirates of the Caribbean', collectionId: 295, accent: '#8B6914', icon: '🏴‍☠️', subtitle: 'Not All Treasure Is Silver and Gold' }
+            { name: 'Marvel Cinematic Universe', collectionId: 86066, accent: '#e23636', subtitle: 'The Infinity Saga & Beyond' },
+            { name: 'Star Wars', collectionId: 10, accent: '#FFE81F', subtitle: 'A Galaxy Far, Far Away' },
+            { name: 'Harry Potter', collectionId: 1241, accent: '#946B2D', subtitle: 'The Wizarding World' },
+            { name: 'The Lord of the Rings', collectionId: 119, accent: '#C9A84C', subtitle: 'One Ring to Rule Them All' },
+            { name: 'DC Extended Universe', collectionId: 166121, accent: '#0078D7', subtitle: 'Gods Among Us' },
+            { name: 'The Walking Dead Universe', tvIds: [1402, 62286, 94305, 194583, 211684, 206586], accent: '#4a7c3f', subtitle: 'Fight the Dead. Fear the Living.', isTv: true },
+            { name: 'Fast & Furious', collectionId: 9485, accent: '#FF6B00', subtitle: 'Family. No Matter What.' },
+            { name: 'Jurassic Park', collectionId: 328, accent: '#2E8B57', subtitle: 'Life Finds a Way' },
+            { name: 'The Hunger Games', collectionId: 131635, accent: '#C4151C', subtitle: 'May The Odds Be Ever In Your Favor' },
+            { name: 'Pirates of the Caribbean', collectionId: 295, accent: '#8B6914', subtitle: 'Not All Treasure Is Silver and Gold' }
         ];
 
         try {
@@ -784,7 +787,6 @@ const Alexandria = {
                     ${results.map((f, i) => f.items.length > 0 ? `
                     <div class="view-section">
                         <h3 style="display:flex;align-items:center;gap:10px">
-                            <span style="font-size:1.4rem">${f.icon}</span>
                             <span style="color:${f.accent}">${f.name}</span>
                             <span style="font-size:0.7rem;color:var(--text-muted);font-weight:300;letter-spacing:0.1em;text-transform:uppercase;margin-left:6px">${f.subtitle}</span>
                         </h3>
