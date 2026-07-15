@@ -16,13 +16,19 @@ const Alexandria = {
     servers: [
         { name: "Rick", getMovie: id => `https://video.moviepire.co/embed/movie/${id}`, getTv: (id, s, e) => `https://video.moviepire.co/embed/tv/${id}/${s}/${e}` },
         { name: "Daryl", getMovie: id => `https://vidlink.pro/movie/${id}`, getTv: (id, s, e) => `https://vidlink.pro/tv/${id}/${s}/${e}` },
-        { name: "Michonne", getMovie: id => `https://vidsrc.pro/embed/movie/${id}`, getTv: (id, s, e) => `https://vidsrc.pro/embed/tv/${id}/${s}/${e}` },
-        { name: "Maggie", getMovie: id => `https://player.autoembed.cc/embed/movie/${id}`, getTv: (id, s, e) => `https://player.autoembed.cc/embed/tv/${id}-${s}-${e}` },
-        { name: "Carol", getMovie: id => `https://vidcore.org/embed/movie/${id}`, getTv: (id, s, e) => `https://vidcore.org/embed/tv/${id}/${s}/${e}` },
         { name: "Glenn", getMovie: id => `https://www.2embed.cc/embed/tmdb/movie?id=${id}`, getTv: (id, s, e) => `https://www.2embed.cc/embed/tmdb/tv?id=${id}&s=${s}&e=${e}` },
-        { name: "Negan", getMovie: id => `https://multiembed.mov/directstream.php?video_id=${id}&tmdb=1`, getTv: (id, s, e) => `https://multiembed.mov/directstream.php?video_id=${id}&tmdb=1&s=${s}&e=${e}` },
         { name: "Carl", getMovie: id => `https://vidsrc.net/embed/movie/${id}`, getTv: (id, s, e) => `https://vidsrc.net/embed/tv/${id}/${s}/${e}` },
-        { name: "Ezekiel", getMovie: id => `https://vidsrc.in/embed/movie/${id}`, getTv: (id, s, e) => `https://vidsrc.in/embed/tv/${id}/${s}/${e}` }
+        { name: "Ezekiel", getMovie: id => `https://vidsrc.in/embed/movie/${id}`, getTv: (id, s, e) => `https://vidsrc.in/embed/tv/${id}/${s}/${e}` },
+        { name: "Shane", getMovie: id => `https://vidsrc.pm/embed/movie/${id}`, getTv: (id, s, e) => `https://vidsrc.pm/embed/tv/${id}/${s}/${e}` },
+        { name: "Lori", getMovie: id => `https://vidsrc.me/embed/movie?tmdb=${id}`, getTv: (id, s, e) => `https://vidsrc.me/embed/tv?tmdb=${id}&season=${s}&episode=${e}` },
+        { name: "Hershel", getMovie: id => `https://autoembed.to/movie/tmdb/${id}`, getTv: (id, s, e) => `https://autoembed.to/tv/tmdb/${id}-${s}-${e}` },
+        { name: "Beth", getMovie: id => `https://2embed.org/embed/movie?tmdb=${id}`, getTv: (id, s, e) => `https://2embed.org/embed/tv?tmdb=${id}&s=${s}&e=${e}` },
+        { name: "Tyreese", getMovie: id => `https://embed.smashystream.com/playere.php?tmdb=${id}`, getTv: (id, s, e) => `https://embed.smashystream.com/playere.php?tmdb=${id}&season=${s}&episode=${e}` },
+        { name: "Sasha", getMovie: id => `https://multiembed.mov/?video_id=${id}&tmdb=1`, getTv: (id, s, e) => `https://multiembed.mov/?video_id=${id}&tmdb=1&s=${s}&e=${e}` },
+        { name: "Abraham", getMovie: id => `https://vidsrc.rip/embed/movie/${id}`, getTv: (id, s, e) => `https://vidsrc.rip/embed/tv/${id}/${s}/${e}` },
+        { name: "Rosita", getMovie: id => `https://vidsrc.io/embed/movie/${id}`, getTv: (id, s, e) => `https://vidsrc.io/embed/tv/${id}/${s}/${e}` },
+        { name: "Eugene", getMovie: id => `https://vidsrc.dev/embed/movie/${id}`, getTv: (id, s, e) => `https://vidsrc.dev/embed/tv/${id}/${s}/${e}` },
+        { name: "Tara", getMovie: id => `https://vidsrc.uk/embed/movie/${id}`, getTv: (id, s, e) => `https://vidsrc.uk/embed/tv/${id}/${s}/${e}` }
     ],
 
     supabase: null,
