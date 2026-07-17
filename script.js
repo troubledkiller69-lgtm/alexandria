@@ -14,7 +14,7 @@ const Alexandria = {
     },
 
     servers: [
-        { name: "Rick", getMovie: id => `https://video.moviepire.co/embed/movie/${id}`, getTv: (id, s, e) => `https://video.moviepire.co/embed/tv/${id}/${s}/${e}` },
+        { name: "Alexandria", getMovie: id => `https://embedmaster.link/9gis39azyhxlvq5t/movie/${id}`, getTv: (id, s, e) => `https://embedmaster.link/9gis39azyhxlvq5t/tv/${id}/${s}/${e}` },
         { name: "Daryl", getMovie: id => `https://vidlink.pro/movie/${id}`, getTv: (id, s, e) => `https://vidlink.pro/tv/${id}/${s}/${e}` },
         { name: "Glenn", getMovie: id => `https://www.2embed.cc/embed/tmdb/movie?id=${id}`, getTv: (id, s, e) => `https://www.2embed.cc/embed/tmdb/tv?id=${id}&s=${s}&e=${e}` },
         { name: "Carl", getMovie: id => `https://vidsrc.net/embed/movie/${id}`, getTv: (id, s, e) => `https://vidsrc.net/embed/tv/${id}/${s}/${e}` },
