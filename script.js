@@ -14,21 +14,7 @@ const Alexandria = {
     },
 
     servers: [
-        { name: "Alexandria", getMovie: id => `https://embedmaster.link/9gis39azyhxlvq5t/movie/${id}`, getTv: (id, s, e) => `https://embedmaster.link/9gis39azyhxlvq5t/tv/${id}/${s}/${e}` },
-        { name: "Daryl", getMovie: id => `https://vidlink.pro/movie/${id}`, getTv: (id, s, e) => `https://vidlink.pro/tv/${id}/${s}/${e}` },
-        { name: "Glenn", getMovie: id => `https://www.2embed.cc/embed/tmdb/movie?id=${id}`, getTv: (id, s, e) => `https://www.2embed.cc/embed/tmdb/tv?id=${id}&s=${s}&e=${e}` },
-        { name: "Carl", getMovie: id => `https://vidsrc.net/embed/movie/${id}`, getTv: (id, s, e) => `https://vidsrc.net/embed/tv/${id}/${s}/${e}` },
-        { name: "Ezekiel", getMovie: id => `https://vidsrc.in/embed/movie/${id}`, getTv: (id, s, e) => `https://vidsrc.in/embed/tv/${id}/${s}/${e}` },
-        { name: "Shane", getMovie: id => `https://vidsrc.pm/embed/movie/${id}`, getTv: (id, s, e) => `https://vidsrc.pm/embed/tv/${id}/${s}/${e}` },
-        { name: "Lori", getMovie: id => `https://vidsrc.me/embed/movie?tmdb=${id}`, getTv: (id, s, e) => `https://vidsrc.me/embed/tv?tmdb=${id}&season=${s}&episode=${e}` },
-        { name: "Hershel", getMovie: id => `https://autoembed.to/movie/tmdb/${id}`, getTv: (id, s, e) => `https://autoembed.to/tv/tmdb/${id}-${s}-${e}` },
-        { name: "Beth", getMovie: id => `https://2embed.org/embed/movie?tmdb=${id}`, getTv: (id, s, e) => `https://2embed.org/embed/tv?tmdb=${id}&s=${s}&e=${e}` },
-        { name: "Tyreese", getMovie: id => `https://embed.smashystream.com/playere.php?tmdb=${id}`, getTv: (id, s, e) => `https://embed.smashystream.com/playere.php?tmdb=${id}&season=${s}&episode=${e}` },
-        { name: "Sasha", getMovie: id => `https://multiembed.mov/?video_id=${id}&tmdb=1`, getTv: (id, s, e) => `https://multiembed.mov/?video_id=${id}&tmdb=1&s=${s}&e=${e}` },
-        { name: "Abraham", getMovie: id => `https://vidsrc.rip/embed/movie/${id}`, getTv: (id, s, e) => `https://vidsrc.rip/embed/tv/${id}/${s}/${e}` },
-        { name: "Rosita", getMovie: id => `https://vidsrc.io/embed/movie/${id}`, getTv: (id, s, e) => `https://vidsrc.io/embed/tv/${id}/${s}/${e}` },
-        { name: "Eugene", getMovie: id => `https://vidsrc.dev/embed/movie/${id}`, getTv: (id, s, e) => `https://vidsrc.dev/embed/tv/${id}/${s}/${e}` },
-        { name: "Tara", getMovie: id => `https://vidsrc.uk/embed/movie/${id}`, getTv: (id, s, e) => `https://vidsrc.uk/embed/tv/${id}/${s}/${e}` }
+        { name: "Alexandria", getMovie: id => `https://embedmaster.link/9gis39azyhxlvq5t/movie/${id}`, getTv: (id, s, e) => `https://embedmaster.link/9gis39azyhxlvq5t/tv/${id}/${s}/${e}` }
     ],
 
     supabase: null,
@@ -546,7 +532,6 @@ const Alexandria = {
         else if (this.state.view === 'movies') this.renderFiltered('movie');
         else if (this.state.view === 'tv') this.renderFiltered('tv');
         else if (this.state.view === 'anime') this.renderAnime();
-        else if (this.state.view === '420') this.render420();
         else if (this.state.view === 'franchises') this.renderFranchises();
         else if (this.state.view === 'search') this.renderSearch();
         else if (this.state.view === 'player') this.renderPlayer();
@@ -807,72 +792,17 @@ const Alexandria = {
         }
     },
 
-    async render420() {
-        const token = this._renderToken;
-        this.main.innerHTML = '<div class="placeholder-msg"><span class="pulse-dot" style="background:#10b981;box-shadow:0 0 15px #10b981"></span> SCANNING ELEVATED FREQUENCIES...</div>';
-        
-        // Massive curated catalog. We randomize and pick 15 per category on load to ensure infinite variation and avoid API limits.
-        const catalog = {
-            'classics':  ['Half Baked', 'Up in Smoke', "Cheech and Chong's Next Movie", 'Friday', 'Dazed and Confused', 'Fast Times at Ridgemont High', 'How High', 'The Big Lebowski', 'Fear and Loathing in Las Vegas', 'Easy Rider', 'Next Friday', 'Friday After Next', 'Nice Dreams', 'Things Are Tough All Over', 'Still Smokin', 'The Breakfast Club', 'Caddyshack', 'Animal House', 'Reefer Madness', 'Bongwater', 'Detroit Rock City', 'PCU', 'Kids', 'The Wash', 'How High 2', 'Soul Plane', "Don't Be a Menace to South Central While Drinking Your Juice in the Hood", 'Half Baked: Totally High', 'Rolling Papers', 'Super High Me'],
-            'modern':    ['Pineapple Express', 'Harold & Kumar Go to White Castle', "Grandma's Boy", 'Super Troopers', 'Mac & Devin Go to High School', 'Smiley Face', 'Ted', 'Your Highness', 'Jay and Silent Bob Strike Back', 'This Is the End', 'Harold & Kumar Escape from Guantanamo Bay', 'A Very Harold & Kumar 3D Christmas', 'Knocked Up', 'Neighbors', 'Sausage Party', '21 Jump Street', '22 Jump Street', 'Ted 2', 'Popstar: Never Stop Never Stopping', 'Blockers', 'Project X', 'Good Boys', 'The Night Before', 'Neighbors 2: Sorority Rising', 'Mike and Dave Need Wedding Dates', "We're the Millers", 'Role Models', 'Hot Tub Time Machine', 'The Interview', 'Game Over, Man!'],
-            'trippy':    ['Enter the Void', 'Waking Life', 'A Scanner Darkly', 'Pink Floyd: The Wall', 'Yellow Submarine', 'Heavy Metal', 'The Holy Mountain', 'Fantastic Planet', 'Paprika', 'Altered States', 'Midsommar', 'Annihilation', 'Eraserhead', 'El Topo', 'Naked Lunch', '2001: A Space Odyssey', 'Koyaanisqatsi', 'Samsara', 'Spider-Man: Into the Spider-Verse', 'The Matrix', 'Inception', 'Blade Runner 2049', 'Donnie Darko', 'Mulholland Drive', 'Requiem for a Dream', 'The Neon Demon', 'Climax', 'Mandy', 'Color Out of Space', 'Suspiria'],
-            'chill':     ['Clerks', 'Mallrats', 'Slacker', 'Empire Records', 'The Beach Bum', 'Everybody Wants Some!!', 'Mid90s', 'Inherent Vice', 'Adventureland', 'The Sandlot', 'Stand by Me', 'Almost Famous', 'High Fidelity', "Ferris Bueller's Day Off", "Wayne's World 2", 'Clerks II', 'Chasing Amy', 'Super 8', 'Boyhood', 'Lady Bird', 'Eighth Grade', 'Booksmart', 'Juno', 'Little Miss Sunshine', 'The Perks of Being a Wallflower', 'Submarine', 'Ghost World', 'Lost in Translation', 'Her', 'Garden State'],
-            'cult':      ['Superbad', 'Step Brothers', 'Tenacious D in The Pick of Destiny', 'Tropic Thunder', "Dude, Where's My Car?", "Bill & Ted's Excellent Adventure", 'Bio-Dome', 'Clueless', "Wayne's World", 'Napoleon Dynamite', 'Office Space', 'The Room', 'Rocky Horror Picture Show', 'Scott Pilgrim vs. the World', 'Shaun of the Dead', 'Hot Fuzz', 'Idiocracy', 'Spaceballs', 'Galaxy Quest', 'Army of Darkness', 'Evil Dead II', 'Monty Python and the Holy Grail', 'The Princess Bride', 'Labyrinth', 'The Dark Crystal', 'Willy Wonka & the Chocolate Factory', 'Ghostbusters', 'Back to the Future', 'Beetlejuice', 'Edward Scissorhands']
-        };
-
-        try {
-            // Search a small randomized set while limiting request concurrency.
-            const searchMovie = (title) => 
-                this.getJson('search/movie?query=' + encodeURIComponent(title))
-                .then(d => d.results?.[0] || null)
-                .catch(() => null);
-
-            const getRandomSubset = (arr, num) => [...arr].sort(() => 0.5 - Math.random()).slice(0, num);
-
-            const [classics, modern, trippy, chill, cult] = await Promise.all(
-                Object.values(catalog).map(titles => 
-                    this.mapWithConcurrency(getRandomSubset(titles, 6), 2, searchMovie).then(r => r.filter(Boolean))
-                )
-            );
-            if (token !== this._renderToken) return;
-            if (![classics, modern, trippy, chill, cult].some(items => items.length)) {
-                throw new Error('No curated titles were returned.');
-            }
-
-            this.main.innerHTML = `
-                <section class="filtered-view vip-section">
-                    <div class="vip-420-header">
-                        <h2>420 ZONE</h2>
-                        <p style="color:var(--text-muted);font-family:var(--font-display);letter-spacing:2px">ELEVATED FREQUENCIES</p>
-                    </div>
-                    <div class="view-section"><h3 style="color:var(--accent-emerald)">Stoner Classics</h3><div class="carousel-container"><button class="carousel-arrow left" onclick="Alexandria.scrollCarousel(this, -800)">&#10094;</button><div class="carousel-wrapper"><div class="carousel-grid" id="420-classics"></div></div><button class="carousel-arrow right" onclick="Alexandria.scrollCarousel(this, 800)">&#10095;</button></div></div>
-                    <div class="view-section"><h3 style="color:var(--accent-emerald)">Modern Hits</h3><div class="carousel-container"><button class="carousel-arrow left" onclick="Alexandria.scrollCarousel(this, -800)">&#10094;</button><div class="carousel-wrapper"><div class="carousel-grid" id="420-modern"></div></div><button class="carousel-arrow right" onclick="Alexandria.scrollCarousel(this, 800)">&#10095;</button></div></div>
-                    <div class="view-section"><h3 style="color:var(--accent-emerald)">Trippy & Surreal</h3><div class="carousel-container"><button class="carousel-arrow left" onclick="Alexandria.scrollCarousel(this, -800)">&#10094;</button><div class="carousel-wrapper"><div class="carousel-grid" id="420-trippy"></div></div><button class="carousel-arrow right" onclick="Alexandria.scrollCarousel(this, 800)">&#10095;</button></div></div>
-                    <div class="view-section"><h3 style="color:var(--accent-emerald)">Chill Vibes</h3><div class="carousel-container"><button class="carousel-arrow left" onclick="Alexandria.scrollCarousel(this, -800)">&#10094;</button><div class="carousel-wrapper"><div class="carousel-grid" id="420-chill"></div></div><button class="carousel-arrow right" onclick="Alexandria.scrollCarousel(this, 800)">&#10095;</button></div></div>
-                    <div class="view-section"><h3 style="color:var(--accent-emerald)">Cult Favorites</h3><div class="carousel-container"><button class="carousel-arrow left" onclick="Alexandria.scrollCarousel(this, -800)">&#10094;</button><div class="carousel-wrapper"><div class="carousel-grid" id="420-cult"></div></div><button class="carousel-arrow right" onclick="Alexandria.scrollCarousel(this, 800)">&#10095;</button></div></div>
-                </section>`;
-            
-            this.renderResults(classics, '420-classics');
-            this.renderResults(modern, '420-modern');
-            this.renderResults(trippy, '420-trippy');
-            this.renderResults(chill, '420-chill');
-            this.renderResults(cult, '420-cult');
-        } catch (error) {
-            console.error("Alexandria Protocol: 420 Zone Failed -", error);
-            if (token === this._renderToken) this.renderError('Elevated frequencies are unavailable', error.message, '420');
-        }
-    },
 
     async renderFranchises() {
         const token = this._renderToken;
         this.main.innerHTML = '<div class="placeholder-msg"><span class="pulse-dot"></span> LOADING FRANCHISE ARCHIVES...</div>';
 
         const franchises = [
-            { name: 'Marvel Cinematic Universe', collectionId: 86066, accent: '#e23636', subtitle: 'The Infinity Saga & Beyond' },
+            { name: 'Marvel Cinematic Universe', collectionId: 86311, accent: '#e23636', subtitle: 'The Infinity Saga & Beyond' },
             { name: 'Star Wars', collectionId: 10, accent: '#FFE81F', subtitle: 'A Galaxy Far, Far Away' },
             { name: 'Harry Potter', collectionId: 1241, accent: '#946B2D', subtitle: 'The Wizarding World' },
             { name: 'The Lord of the Rings', collectionId: 119, accent: '#C9A84C', subtitle: 'One Ring to Rule Them All' },
-            { name: 'DC Extended Universe', collectionId: 166121, accent: '#0078D7', subtitle: 'Gods Among Us' },
+            { name: 'The Dark Knight Trilogy', collectionId: 114, accent: '#0078D7', subtitle: 'Gods Among Us' },
             { name: 'The Walking Dead Universe', tvIds: [1402, 62286, 94305, 194583, 211684, 206586], accent: '#4a7c3f', subtitle: 'Fight the Dead. Fear the Living.', isTv: true },
             { name: 'Fast & Furious', collectionId: 9485, accent: '#FF6B00', subtitle: 'Family. No Matter What.' },
             { name: 'Jurassic Park', collectionId: 328, accent: '#2E8B57', subtitle: 'Life Finds a Way' },
