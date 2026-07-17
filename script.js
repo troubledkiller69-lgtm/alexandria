@@ -895,10 +895,45 @@ const Alexandria = {
                     </div>
                 </div>
                 <div class="results-grid" id="search-results">
-                    <div class="search-empty-state">
-                        <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="var(--text-secondary)" stroke-width="1"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
-                        <h3>Find your next favorite</h3>
-                        <p>Search by title to explore the archive.</p>
+                    <div class="search-empty-state" id="search-empty-state">
+                        <div class="discover-panel">
+                            <div class="filter-group">
+                                <label for="discover-genre">GENRE</label>
+                                <select id="discover-genre" onchange="Alexandria.executeDiscover()">
+                                    <option value="">All Genres</option>
+                                    <option value="28">Action</option>
+                                    <option value="12">Adventure</option>
+                                    <option value="16">Animation</option>
+                                    <option value="35">Comedy</option>
+                                    <option value="80">Crime</option>
+                                    <option value="99">Documentary</option>
+                                    <option value="18">Drama</option>
+                                    <option value="10751">Family</option>
+                                    <option value="14">Fantasy</option>
+                                    <option value="36">History</option>
+                                    <option value="27">Horror</option>
+                                    <option value="10402">Music</option>
+                                    <option value="9648">Mystery</option>
+                                    <option value="10749">Romance</option>
+                                    <option value="878">Sci-Fi</option>
+                                    <option value="53">Thriller</option>
+                                    <option value="10759">Action & Adventure (TV)</option>
+                                    <option value="10765">Sci-Fi & Fantasy (TV)</option>
+                                </select>
+                            </div>
+                            <div class="filter-group">
+                                <label for="discover-sort">SORT BY</label>
+                                <select id="discover-sort" onchange="Alexandria.executeDiscover()">
+                                    <option value="popularity.desc">Most Popular</option>
+                                    <option value="vote_average.desc">Highest Rated</option>
+                                    <option value="primary_release_date.desc">Newest Releases</option>
+                                </select>
+                            </div>
+                            <div class="filter-group">
+                                <label for="discover-year">YEAR (OPTIONAL)</label>
+                                <input type="number" id="discover-year" placeholder="e.g. 2023" min="1900" max="2030" onchange="Alexandria.executeDiscover()">
+                            </div>
+                        </div>
                     </div>
                 </div>
             </section>
@@ -912,8 +947,9 @@ const Alexandria = {
             document.getElementById('clear-search-btn').style.display = 'block';
             this.executeSearch(this.state.searchQuery);
         } else {
-            // Focus input if empty
+            // Focus input if empty and run discover
             setTimeout(() => searchInput.focus(), 100);
+            setTimeout(() => this.executeDiscover(), 150);
         }
     },
 
@@ -921,33 +957,66 @@ const Alexandria = {
         const queryField = document.getElementById('tmdb-search');
         const clearBtn = document.getElementById('clear-search-btn');
         const query = queryField.value;
+        const emptyState = document.getElementById('search-empty-state');
         
         clearBtn.style.display = query.trim() ? 'block' : 'none';
+        if (emptyState) emptyState.style.display = query.trim() ? 'none' : 'block';
         
         if (this.state.searchTimeout) clearTimeout(this.state.searchTimeout);
         
         if (!query.trim()) {
             this.state.searchQuery = '';
-            document.getElementById('search-results').innerHTML = `
-                <div class="search-empty-state">
-                    <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="var(--text-secondary)" stroke-width="1"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
-                    <h3>Find your next favorite</h3>
-                    <p>Search by title to explore the archive.</p>
-                </div>`;
-            history.replaceState(null, null, '#search');
-            return;
+            document.getElementById('search-results').innerHTML = '';
+            this.executeDiscover();
+        } else {
+            this.state.searchQuery = query;
+            this.state.searchTimeout = setTimeout(() => {
+                this.executeSearch(query);
+            }, 500);
         }
-
-        this.state.searchTimeout = setTimeout(() => {
-            this.state.searchQuery = query.trim();
-            history.replaceState(null, null, `#search/${encodeURIComponent(query.trim())}`);
-            this.executeSearch(query.trim());
-        }, 500); // 500ms debounce
     },
 
     setSearchFilter(filter) {
         this.state.searchFilter = filter;
         this.renderSearch();
+    },
+
+    async executeDiscover() {
+        const container = document.getElementById('search-results');
+        if (!container) return;
+        const requestId = (this._searchRequestId || 0) + 1;
+        this._searchRequestId = requestId;
+        
+        const genre = document.getElementById('discover-genre')?.value;
+        const sort = document.getElementById('discover-sort')?.value || 'popularity.desc';
+        const year = document.getElementById('discover-year')?.value;
+        const type = this.state.searchFilter === 'tv' ? 'tv' : 'movie'; // discover endpoint doesn't support 'multi', default to movie
+
+        container.innerHTML = '<div class="search-loading"><div class="elegant-spinner"></div></div>';
+        
+        try {
+            let endpoint = `discover/${type}?sort_by=${sort}`;
+            if (genre) endpoint += `&with_genres=${genre}`;
+            if (year) {
+                if (type === 'movie') endpoint += `&primary_release_year=${year}`;
+                else endpoint += `&first_air_date_year=${year}`;
+            }
+            if (sort === 'vote_average.desc') endpoint += `&vote_count.gte=200`; // Ensure we don't get 10/10 with 1 vote
+            
+            const data = await this.getJson(endpoint);
+            if (requestId !== this._searchRequestId || !document.body.contains(container)) return;
+            
+            const results = data.results || [];
+            results.forEach(r => r.media_type = type); // Force media_type for renderResults
+            
+            container.innerHTML = '';
+            this.renderResults(results, 'search-results');
+        } catch (e) {
+            console.error("Alexandria Protocol: Discover Failed -", e);
+            if (requestId === this._searchRequestId && document.body.contains(container)) {
+                container.innerHTML = '<div class="placeholder-msg">DISCOVER SIGNAL INTERRUPTED.</div>';
+            }
+        }
     },
 
     async executeSearch(query) {
@@ -1040,6 +1109,14 @@ const Alexandria = {
     scrollCarousel(btn, amount) {
         const wrapper = btn.parentElement.querySelector('.carousel-wrapper');
         if (wrapper) wrapper.scrollBy({left: amount, behavior: 'smooth'});
+    },
+
+    toggleBio() {
+        const bio = document.getElementById('person-bio');
+        const btn = document.getElementById('bio-toggle');
+        if (!bio || !btn) return;
+        bio.classList.toggle('person-bio-collapsed');
+        btn.textContent = bio.classList.contains('person-bio-collapsed') ? 'Read More' : 'Read Less';
     },
 
     playContent(id, type, isAnime = false) {
@@ -1152,12 +1229,60 @@ const Alexandria = {
         this.main.innerHTML = '<div class="placeholder-msg">LOCATING DOSSIER...</div>';
         
         try {
-            const endpoint = `person/${id}?append_to_response=combined_credits`;
+            const endpoint = `person/${id}?append_to_response=combined_credits,external_ids`;
             const data = await this.getJson(endpoint);
             if (token !== this._renderToken) return;
             
             const photo = this.imageUrl(data.profile_path, 'h632');
-            
+
+            // Calculate age
+            let ageStr = '';
+            if (data.birthday) {
+                const birth = new Date(data.birthday);
+                const end = data.deathday ? new Date(data.deathday) : new Date();
+                let age = end.getFullYear() - birth.getFullYear();
+                const m = end.getMonth() - birth.getMonth();
+                if (m < 0 || (m === 0 && end.getDate() < birth.getDate())) age--;
+                ageStr = data.deathday ? `Died: ${this.escapeHtml(data.deathday)} (age ${age})` : `Age: ${age}`;
+            }
+
+            // Build bio with expand/collapse for long bios
+            const rawBio = data.biography || '';
+            const bioHtml = this.escapeHtml(rawBio).replace(/\n\n/g, '<br><br>').replace(/\n/g, '<br>');
+            const longBio = rawBio.length > 600;
+            const bioSection = longBio
+                ? `<div class="person-bio person-bio-collapsed" id="person-bio">${bioHtml}</div>
+                   <button class="bio-toggle" id="bio-toggle" onclick="Alexandria.toggleBio()">Read More</button>`
+                : `<div class="person-bio">${bioHtml || 'No biography available.'}</div>`;
+
+            // Categorize credits
+            const castCredits = (data.combined_credits?.cast || [])
+                .filter(c => c.poster_path)
+                .sort((a, b) => b.popularity - a.popularity);
+            const crewCredits = (data.combined_credits?.crew || [])
+                .filter(c => c.poster_path && ['Director', 'Executive Producer', 'Producer', 'Writer', 'Screenplay', 'Creator'].includes(c.job))
+                .sort((a, b) => b.popularity - a.popularity);
+            // Deduplicate crew by id+job
+            const seenCrew = new Set();
+            const uniqueCrew = crewCredits.filter(c => {
+                const key = `${c.id}-${c.job}`;
+                if (seenCrew.has(key)) return false;
+                seenCrew.add(key);
+                return true;
+            });
+
+            // Known For = top 10 most popular across cast + crew, deduplicated
+            const seenKnown = new Set();
+            const knownFor = [...castCredits, ...uniqueCrew]
+                .sort((a, b) => b.popularity - a.popularity)
+                .filter(c => { if (seenKnown.has(c.id)) return false; seenKnown.add(c.id); return true; })
+                .slice(0, 12);
+
+            // Acting credits chronologically (newest first)
+            const actingCredits = castCredits
+                .sort((a, b) => new Date(b.release_date || b.first_air_date || '0') - new Date(a.release_date || a.first_air_date || '0'))
+                .slice(0, 50);
+
             this.main.innerHTML = `
                 <section class="person-layout">
                     <div class="person-header">
@@ -1166,25 +1291,41 @@ const Alexandria = {
                             <h1>${this.escapeHtml(data.name)}</h1>
                             <div class="person-meta">
                                 <span>${this.escapeHtml(data.known_for_department || '')}</span>
-                                <span>${data.birthday ? `Born: ${this.escapeHtml(data.birthday)}` : ''}</span>
-                                <span>${this.escapeHtml(data.place_of_birth || '')}</span>
+                                ${data.birthday ? `<span>Born: ${this.escapeHtml(data.birthday)}</span>` : ''}
+                                ${ageStr ? `<span>${ageStr}</span>` : ''}
+                                ${data.place_of_birth ? `<span>${this.escapeHtml(data.place_of_birth)}</span>` : ''}
                             </div>
-                            <div class="person-bio">${this.escapeHtml(data.biography || 'No biography available.').replace(/\n\n/g, '<br><br>')}</div>
+                            ${bioSection}
                         </div>
                     </div>
                     
+                    ${knownFor.length ? `
                     <div class="view-section">
                         <h3>KNOWN FOR</h3>
-                        <div class="person-credits-grid" id="person-credits"></div>
-                    </div>
+                        <div class="carousel-container">
+                            <button class="carousel-arrow left" onclick="Alexandria.scrollCarousel(this, -800)">&#10094;</button>
+                            <div class="carousel-wrapper"><div class="carousel-grid" id="person-known-for"></div></div>
+                            <button class="carousel-arrow right" onclick="Alexandria.scrollCarousel(this, 800)">&#10095;</button>
+                        </div>
+                    </div>` : ''}
+
+                    ${actingCredits.length ? `
+                    <div class="view-section person-credits-section">
+                        <h3>ACTING (${actingCredits.length})</h3>
+                        <div class="person-credits-grid" id="person-acting"></div>
+                    </div>` : ''}
+
+                    ${uniqueCrew.length ? `
+                    <div class="view-section person-credits-section">
+                        <h3>DIRECTING & PRODUCING (${uniqueCrew.length})</h3>
+                        <div class="person-credits-grid" id="person-crew"></div>
+                    </div>` : ''}
                 </section>
             `;
             
-            if (data.combined_credits?.cast?.length) {
-                const sorted = data.combined_credits.cast.sort((a,b) => b.popularity - a.popularity).slice(0, 40);
-                // Temporarily disable the "Continue Watching" tracking styling by using a standard render
-                this.renderResults(sorted, 'person-credits');
-            }
+            if (knownFor.length) this.renderResults(knownFor, 'person-known-for');
+            if (actingCredits.length) this.renderResults(actingCredits, 'person-acting');
+            if (uniqueCrew.length) this.renderResults(uniqueCrew, 'person-crew');
         } catch(e) {
             console.error("Alexandria Protocol: Person Render Failed", e);
             if (token === this._renderToken) this.renderError('This dossier is unavailable', e.message, 'person');
