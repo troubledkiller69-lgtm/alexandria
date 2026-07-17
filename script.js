@@ -797,11 +797,11 @@ const Alexandria = {
         this.main.innerHTML = '<div class="placeholder-msg"><span class="pulse-dot"></span> LOADING FRANCHISE ARCHIVES...</div>';
 
         const franchises = [
-            { name: 'Marvel Cinematic Universe', collectionId: 86311, accent: '#e23636', subtitle: 'The Infinity Saga & Beyond' },
+            { name: 'Marvel Cinematic Universe', movieIds: [1726, 1724, 10138, 10195, 1771, 24428, 68721, 76338, 100402, 118340, 99861, 102899, 271110, 284052, 283995, 315635, 284053, 284054, 299536, 363088, 299537, 299534, 429617, 497698, 566525, 524434, 634649, 453395, 616037, 505642, 640146, 447365, 609681, 533535], accent: '#e23636', subtitle: 'The Infinity Saga & Beyond' },
             { name: 'Star Wars', collectionId: 10, accent: '#FFE81F', subtitle: 'A Galaxy Far, Far Away' },
             { name: 'Harry Potter', collectionId: 1241, accent: '#946B2D', subtitle: 'The Wizarding World' },
             { name: 'The Lord of the Rings', collectionId: 119, accent: '#C9A84C', subtitle: 'One Ring to Rule Them All' },
-            { name: 'The Dark Knight Trilogy', collectionId: 114, accent: '#0078D7', subtitle: 'Gods Among Us' },
+            { name: 'DC Extended Universe', movieIds: [49521, 209112, 297761, 297762, 141052, 297802, 287947, 460465, 464052, 791373, 436969, 436270, 594767, 298618, 565770, 572802], accent: '#0078D7', subtitle: 'Gods Among Us' },
             { name: 'The Walking Dead Universe', tvIds: [1402, 62286, 94305, 194583, 211684, 206586], accent: '#4a7c3f', subtitle: 'Fight the Dead. Fear the Living.', isTv: true },
             { name: 'Fast & Furious', collectionId: 9485, accent: '#FF6B00', subtitle: 'Family. No Matter What.' },
             { name: 'Jurassic Park', collectionId: 328, accent: '#2E8B57', subtitle: 'Life Finds a Way' },
@@ -811,15 +811,24 @@ const Alexandria = {
 
         try {
             const fetchCollection = async (franchise) => {
-                if (franchise.isTv) {
-                    // Fetch TV shows by individual ID
-                    const results = await Promise.all(franchise.tvIds.map(async id => {
+                if (franchise.tvIds || franchise.isTv) {
+                    const results = await Promise.all((franchise.tvIds || []).map(async id => {
                         try {
                             const data = await this.getJson('tv/' + id);
                             return { ...data, media_type: 'tv' };
                         } catch { return null; }
                     }));
                     return { ...franchise, items: results.filter(Boolean) };
+                }
+                if (franchise.movieIds) {
+                    const results = await Promise.all(franchise.movieIds.map(async id => {
+                        try {
+                            const data = await this.getJson('movie/' + id);
+                            return { ...data, media_type: 'movie' };
+                        } catch { return null; }
+                    }));
+                    const sorted = results.filter(Boolean).sort((a, b) => new Date(a.release_date || '9999') - new Date(b.release_date || '9999'));
+                    return { ...franchise, items: sorted };
                 }
                 try {
                     const data = await this.getJson('collection/' + franchise.collectionId);
