@@ -1,6 +1,6 @@
 const Alexandria = {
     state: {
-        view: 'home', // home, movies, tv, anime, search, player, auth
+        view: 'home', // home, movies, tv, anime, search, player
         user: null,
         clickCount: 0,
         searchTimeout: null,
@@ -257,7 +257,7 @@ const Alexandria = {
             this.state.activeContent = { id, type: 'person' };
             this.setView('person');
         } else {
-            const allowedViews = new Set(['home', 'movies', 'tv', 'anime', '420', 'franchises', 'search', 'login', 'signup']);
+            const allowedViews = new Set(['home', 'movies', 'tv', 'anime', '420', 'franchises', 'search']);
             this.setView(allowedViews.has(path) ? path : 'home');
         }
     },
@@ -348,8 +348,7 @@ const Alexandria = {
                 await this.toggleWatchlist(item);
             } else if (searchTrigger) {
                 window.location.hash = '#search';
-            } else if (authTrigger) {
-                window.location.hash = '#login';
+            }
             } else {
                 const card = e.target.classList.contains('movie-card') ? e.target : e.target.closest('.movie-card');
                 if (card) {
@@ -553,8 +552,7 @@ const Alexandria = {
         else if (this.state.view === 'player') this.renderPlayer();
         else if (this.state.view === 'details') this.renderDetails();
         else if (this.state.view === 'person') this.renderPerson();
-        else if (this.state.view === 'auth' || this.state.view === 'login') this.renderAuth();
-        else if (this.state.view === 'signup') this.renderSignup();
+        
         else {
             this.state.view = 'home';
             this.renderHome();
