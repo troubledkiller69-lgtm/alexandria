@@ -334,7 +334,6 @@ const Alexandria = {
                 await this.toggleWatchlist(item);
             } else if (searchTrigger) {
                 window.location.hash = '#search';
-            }
             } else {
                 const card = e.target.classList.contains('movie-card') ? e.target : e.target.closest('.movie-card');
                 if (card) {
