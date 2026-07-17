@@ -1232,6 +1232,7 @@ h1, h2, h3, h4 {
     display: flex;
     gap: 4rem;
     margin-bottom: 4rem;
+    align-items: flex-start;
 }
 .person-photo {
     width: 300px;
@@ -1488,4 +1489,79 @@ h1, h2, h3, h4 {
 @media (prefers-reduced-motion: reduce) {
     html { scroll-behavior: auto; }
     *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; }
+}
+/* Discover Hub Filters */
+.discover-panel {
+    background: var(--glass-bg);
+    border: var(--glass-border);
+    border-radius: 12px;
+    padding: 1.5rem;
+    margin-bottom: 2rem;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1.5rem;
+    align-items: center;
+}
+.filter-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+.filter-group label {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    font-family: var(--font-display);
+    letter-spacing: 1px;
+}
+.filter-group select, .filter-group input {
+    background: rgba(0,0,0,0.5);
+    border: 1px solid rgba(255,255,255,0.1);
+    color: white;
+    padding: 0.75rem;
+    border-radius: 8px;
+    font-family: var(--font-body);
+    outline: none;
+    transition: all 0.2s ease;
+}
+.filter-group select:focus, .filter-group input:focus {
+    border-color: var(--accent-primary);
+}
+.year-range {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+.person-credits-section {
+    margin-top: 3rem;
+}
+/* Person Bio Expand/Collapse */
+.person-bio-collapsed {
+    max-height: 200px;
+    overflow: hidden;
+    -webkit-mask-image: linear-gradient(to bottom, black 60%, transparent 100%);
+    mask-image: linear-gradient(to bottom, black 60%, transparent 100%);
+}
+.bio-toggle {
+    background: none;
+    border: 1px solid rgba(255,255,255,0.15);
+    color: var(--accent-primary);
+    padding: 0.5rem 1.25rem;
+    border-radius: 6px;
+    cursor: pointer;
+    font-family: var(--font-display);
+    font-size: 0.85rem;
+    letter-spacing: 1px;
+    margin-top: 0.75rem;
+    transition: all 0.2s ease;
+}
+.bio-toggle:hover {
+    border-color: var(--accent-primary);
+    background: rgba(138, 3, 3, 0.15);
+}
+/* Fix person photo stretching */
+.person-photo {
+    flex-shrink: 0;
+    object-fit: cover;
+    aspect-ratio: 2 / 3;
+    max-height: 450px;
 }
