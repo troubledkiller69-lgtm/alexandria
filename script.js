@@ -124,6 +124,44 @@ const Alexandria = {
         return data;
     },
 
+    async fetchImdbRating(imdbId) {
+        if (!imdbId || !/^tt\d{5,12}$/.test(imdbId)) return null;
+        const cacheKey = `omdb:${imdbId}`;
+        const now = Date.now();
+        if (this._apiCache.has(cacheKey)) {
+            const hit = this._apiCache.get(cacheKey);
+            if (now - hit.at < this._CACHE_TTL_MS) return hit.data;
+        }
+
+        try {
+            const response = await fetch(`/api/omdb?i=${encodeURIComponent(imdbId)}`);
+            if (response.status === 503) return null;
+            const data = await response.json().catch(() => null);
+            if (!response.ok || !data || data.Response === 'False') return null;
+            const rating = data.imdbRating && data.imdbRating !== 'N/A' ? data.imdbRating : null;
+            const result = rating
+                ? { id: imdbId, rating, votes: data.imdbVotes && data.imdbVotes !== 'N/A' ? data.imdbVotes : null }
+                : null;
+            this._apiCache.set(cacheKey, { data: result, at: now });
+            return result;
+        } catch {
+            return null;
+        }
+    },
+
+    ratingsHtml(tmdbScore, imdb) {
+        const tmdb = tmdbScore
+            ? `<span class="rating-badge rating-tmdb" title="TMDB score"><span class="rating-badge-label">TMDB</span><span class="rating-badge-score">${tmdbScore}</span></span>`
+            : '';
+        const imdbBadge = imdb?.rating
+            ? `<a class="rating-badge rating-imdb" href="https://www.imdb.com/title/${this.escapeHtml(imdb.id)}/" target="_blank" rel="noopener noreferrer" title="Open on IMDb${imdb.votes ? ` · ${imdb.votes} votes` : ''}"><span class="rating-badge-label">IMDb</span><span class="rating-badge-score">${this.escapeHtml(imdb.rating)}</span></a>`
+            : (imdb?.id
+                ? `<a class="rating-badge rating-imdb rating-imdb--link" href="https://www.imdb.com/title/${this.escapeHtml(imdb.id)}/" target="_blank" rel="noopener noreferrer" title="Open on IMDb"><span class="rating-badge-label">IMDb</span><span class="rating-badge-score">↗</span></a>`
+                : '');
+        if (!tmdb && !imdbBadge) return '<span class="rating-badge rating-muted">NR</span>';
+        return `<div class="details-ratings">${imdbBadge}${tmdb}</div>`;
+    },
+
     async mapWithConcurrency(items, limit, mapper) {
         const results = new Array(items.length);
         let nextIndex = 0;
@@ -1205,14 +1243,17 @@ const Alexandria = {
         this.main.innerHTML = '<div class="placeholder-msg">DECRYPTING ARCHIVE...</div>';
         
         try {
-            const endpoint = `${type}/${id}?append_to_response=credits,aggregate_credits,similar,videos,watch/providers`;
+            const endpoint = `${type}/${id}?append_to_response=credits,aggregate_credits,similar,videos,watch/providers,external_ids`;
             const data = await this.getJson(endpoint);
             if (token !== this._renderToken) return;
             
             const title = data.title || data.name;
             const year = (data.release_date || data.first_air_date || '').split('-')[0];
             const runtime = data.runtime ? `${Math.floor(data.runtime/60)}h ${data.runtime%60}m` : (data.episode_run_time?.[0] ? `${data.episode_run_time[0]}m` : '');
-            const rating = data.vote_average ? data.vote_average.toFixed(1) : 'NR';
+            const tmdbScore = data.vote_average ? data.vote_average.toFixed(1) : null;
+            const imdbId = data.external_ids?.imdb_id || data.imdb_id || null;
+            const imdb = imdbId ? await this.fetchImdbRating(imdbId) : null;
+            if (token !== this._renderToken) return;
             const genres = (data.genres || []).map(g => g.name).join(' • ');
             const backdrop = this.imageUrl(data.backdrop_path, 'original');
             const poster = this.imageUrl(data.poster_path);
@@ -1262,7 +1303,7 @@ const Alexandria = {
                             <div class="details-info">
                                 <h1>${this.escapeHtml(title)} ${year ? `<span class="year-span">(${this.escapeHtml(year)})</span>` : ''}</h1>
                                 <div class="details-meta">
-                                    <span class="rating">⭐ ${rating}</span>
+                                    ${this.ratingsHtml(tmdbScore, imdb || (imdbId ? { id: imdbId } : null))}
                                     ${runtime ? `<span>${this.escapeHtml(runtime)}</span>` : ''}
                                     ${genres ? `<span>${this.escapeHtml(genres)}</span>` : ''}
                                 </div>

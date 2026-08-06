@@ -1333,10 +1333,83 @@ h1, h2, h3, h4 {
 }
 .details-meta {
     display: flex;
+    flex-wrap: wrap;
+    align-items: center;
     gap: 1.5rem;
     color: var(--text-secondary);
     font-size: 1rem;
     margin-bottom: 2rem;
+}
+
+.details-ratings {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.55rem;
+}
+
+.rating-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.28rem 0.55rem 0.28rem 0.4rem;
+    border-radius: 6px;
+    text-decoration: none;
+    line-height: 1;
+    border: 1px solid transparent;
+}
+
+.rating-badge-label {
+    font-family: var(--font-display);
+    font-size: 0.68rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    padding: 0.2rem 0.35rem;
+    border-radius: 3px;
+}
+
+.rating-badge-score {
+    font-family: var(--font-display);
+    font-size: 1.05rem;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    color: #fff;
+}
+
+.rating-imdb {
+    background: rgba(245, 197, 24, 0.12);
+    border-color: rgba(245, 197, 24, 0.35);
+    transition: background 0.2s ease, border-color 0.2s ease;
+}
+
+.rating-imdb .rating-badge-label {
+    background: #f5c518;
+    color: #0a0a0c;
+}
+
+.rating-imdb:hover {
+    background: rgba(245, 197, 24, 0.2);
+    border-color: rgba(245, 197, 24, 0.55);
+}
+
+.rating-tmdb {
+    background: rgba(1, 180, 228, 0.1);
+    border-color: rgba(1, 180, 228, 0.3);
+}
+
+.rating-tmdb .rating-badge-label {
+    background: #01b4e4;
+    color: #03161d;
+}
+
+.rating-muted {
+    color: var(--text-muted);
+    border-color: rgba(255, 255, 255, 0.12);
+    background: rgba(255, 255, 255, 0.04);
+    padding: 0.35rem 0.65rem;
+    font-family: var(--font-display);
+    font-weight: 600;
+    letter-spacing: 0.08em;
 }
 .details-overview {
     font-size: 1.1rem;
