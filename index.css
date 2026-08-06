@@ -1690,7 +1690,7 @@ h1, h2, h3, h4 {
 }
 
 .party-role.is-host {
-    color: var(--accent-gold);
+    color: var(--accent-primary);
 }
 
 .party-role.is-synced {
