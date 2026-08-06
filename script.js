@@ -59,6 +59,8 @@ const Alexandria = {
     _resumeIgnoreUntil: 0,
     _lastProgressWrite: 0,
     _PROGRESS_WRITE_MS: 5000,
+    // Guests always land a beat behind (network + seek settle). Lead play timestamps so they match the host.
+    _PARTY_SYNC_LEAD_SEC: 0.85,
     _currentSeasonEpisodes: [],
     _movieGenres: [
         ['', 'All Genres'], ['28', 'Action'], ['12', 'Adventure'], ['16', 'Animation'], ['35', 'Comedy'],
@@ -2261,8 +2263,8 @@ const Alexandria = {
             }, 800);
         };
 
-        const seekTo = Math.floor(t);
-        const shouldSeek = seekTo >= 1 && (force || !last || Math.abs((last.time || 0) - t) >= 2);
+        const seekTo = Math.max(0, Math.floor(t));
+        const shouldSeek = seekTo >= 1 && (force || !last || Math.abs((last.time || 0) - t) >= 1.25);
 
         const run = (cmd) => {
             if (shouldSeek) {
@@ -2270,7 +2272,7 @@ const Alexandria = {
                 setTimeout(() => {
                     this.postToEmbed(frame, cmd);
                     finish();
-                }, 250);
+                }, 120);
             } else {
                 this.postToEmbed(frame, cmd);
                 finish();
@@ -2337,9 +2339,14 @@ const Alexandria = {
 
     sendPlayerSync(action, time, opts = {}) {
         if (!this.partyChannel || !this.isHost) return;
-        const t = this.normalizePlayerTime(typeof time === 'number' ? time : this.getHostPlaybackTime());
+        let t = this.normalizePlayerTime(typeof time === 'number' ? time : this.getHostPlaybackTime());
         const force = !!opts.force;
         const now = Date.now();
+
+        // Play/sync: aim guests slightly ahead so the ~1s lag feels matched.
+        if (action === 'play' || (action === 'sync' && !opts.paused)) {
+            t += this._PARTY_SYNC_LEAD_SEC;
+        }
 
         // Debounce duplicate host broadcasts (player echoes + presence noise).
         if (!force && this._lastSentPartySync) {
@@ -2351,7 +2358,9 @@ const Alexandria = {
 
         this._lastSentPartySync = { action, time: t, at: now };
         this._partyLastAction = action;
-        this.notePartyTime(t);
+        // Store the real host time (without lead) for the local clock.
+        const raw = this.normalizePlayerTime(typeof time === 'number' ? time : this.getHostPlaybackTime());
+        this.notePartyTime(raw);
         if (action === 'play') this._partyLastTimeAt = Date.now();
 
         this.partyChannel.send({
