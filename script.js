@@ -1155,7 +1155,7 @@ const Alexandria = {
                         <div class="card-overlay">
                             ${badgeHtml}
                             <a class="card-open" href="${target}" aria-label="View ${safeTitle}">
-                                <svg class="overlay-play" aria-hidden="true" width="48" height="48" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+                                <svg class="overlay-play" aria-hidden="true" width="40" height="40" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
                             </a>
                             <button class="log-btn ${inWatchlist ? 'active' : ''}" type="button" aria-label="${inWatchlist ? 'Remove from' : 'Add to'} watchlist" aria-pressed="${inWatchlist}" data-id="${Number(item.id)}" data-type="${type}" data-title="${safeTitle}" data-poster="${this.escapeHtml(item.poster_path || '')}">
                                 ${inWatchlist ? '✓' : '+'}
