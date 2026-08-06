@@ -1828,11 +1828,11 @@ const Alexandria = {
                     <div id="party-host-controls" class="party-transport" style="display: ${this.isHost ? 'flex' : 'none'};">
                         <button type="button" class="party-ctrl party-ctrl--accent" onclick="Alexandria.partyHostCommand('play')">Play</button>
                         <button type="button" class="party-ctrl" onclick="Alexandria.partyHostCommand('pause')">Pause</button>
-                        <span id="party-sync-clock" class="party-ep-now" title="Position sent to room">0:00</span>
+                        <button type="button" id="party-sync-clock" class="party-clock" title="Click to set the time shown on the player" onclick="Alexandria.partyEditSyncClock()">0:00</button>
                     </div>
                     <div id="party-guest-controls" class="party-transport" style="display: ${this.isHost ? 'none' : 'flex'};">
                         <button type="button" class="party-ctrl party-ctrl--accent" onclick="Alexandria.partyGuestSync()">Sync</button>
-                        <span id="party-sync-clock" class="party-ep-now" title="Last host position">0:00</span>
+                        <span id="party-sync-clock-guest" class="party-ep-now" title="Last host position">0:00</span>
                     </div>
 
                     ${type === 'tv' ? `
@@ -2068,25 +2068,74 @@ const Alexandria = {
 
     partyHostCommand(action) {
         if (!this.isHost) return;
-        this.resolveHostTime().then((time) => {
+        // Collect the best player timestamp BEFORE pausing (pause often stops time events).
+        this.collectHostTime(action === 'pause' ? 1000 : 700).then((time) => {
             const frame = document.getElementById('embedmaster_iframe');
-            // Ignore echo events from our own play/pause for a bit.
             this._suppressHostBroadcastUntil = Date.now() + 1500;
+
+            const safeTime = typeof time === 'number' ? time : 0;
+            // Never seek the room to ~0 while the host is clearly mid-watch.
+            const canSeekRoom = safeTime >= 5;
 
             if (action === 'play') {
                 this.postToEmbed(frame, 'play');
                 this._partyLastAction = 'play';
                 this._partyLastTimeAt = Date.now();
-                this.sendPlayerSync('play', time, { force: true });
+                this.sendPlayerSync('play', canSeekRoom ? safeTime : this.getHostPlaybackTime(), {
+                    force: true,
+                    noSeek: !canSeekRoom
+                });
             } else if (action === 'pause') {
                 this.postToEmbed(frame, 'pause');
                 this._partyLastAction = 'pause';
-                this.notePartyTime(time);
-                this.sendPlayerSync('pause', time, { force: true });
+                if (canSeekRoom) this.notePartyTime(safeTime);
+                this.sendPlayerSync('pause', canSeekRoom ? safeTime : 0, {
+                    force: true,
+                    noSeek: !canSeekRoom
+                });
             }
-            const stamp = this.formatTime(Math.floor(time || 0));
+
+            const stamp = this.formatTime(Math.floor(canSeekRoom ? safeTime : this.getHostPlaybackTime()));
             this.showToast(`${action === 'play' ? 'Play' : 'Pause'} @ ${stamp}`);
+            if (!canSeekRoom) {
+                this.showToast('Sync time looks wrong — click the clock and type what the player shows (e.g. 16:57)');
+            }
+            this.tickPartyClock();
         });
+    },
+
+    partyEditSyncClock() {
+        if (!this.isHost) return;
+        const current = this.formatTime(Math.floor(this.getHostPlaybackTime() || 0));
+        let raw = '';
+        try {
+            raw = prompt('Enter the time showing on the player (e.g. 16:57 or 1:05:30):', current) || '';
+        } catch {
+            return;
+        }
+        const seconds = this.parseTimestampInput(raw);
+        if (seconds == null) {
+            this.showToast('Could not read that time');
+            return;
+        }
+        this.notePartyTime(seconds, { force: true });
+        this._partyLastAction = this._partyLastAction === 'pause' ? 'pause' : 'play';
+        this.tickPartyClock();
+        this.showToast(`Sync position set to ${this.formatTime(Math.floor(seconds))}`);
+    },
+
+    parseTimestampInput(value) {
+        if (value == null) return null;
+        const text = String(value).trim();
+        if (!text) return null;
+        if (/^\d+(\.\d+)?$/.test(text)) {
+            const n = Number(text);
+            return Number.isFinite(n) && n >= 0 ? n : null;
+        }
+        const parts = text.split(':').map(p => Number(p));
+        if (parts.length < 2 || parts.length > 3 || parts.some(p => !Number.isFinite(p) || p < 0)) return null;
+        if (parts.length === 2) return parts[0] * 60 + parts[1];
+        return parts[0] * 3600 + parts[1] * 60 + parts[2];
     },
 
     partyGuestSync() {
@@ -2148,70 +2197,98 @@ const Alexandria = {
     },
 
     tickPartyClock() {
-        const el = document.getElementById('party-sync-clock');
-        if (!el) return;
+        const hostEl = document.getElementById('party-sync-clock');
+        const guestEl = document.getElementById('party-sync-clock-guest');
         const t = this.isHost
             ? this.getHostPlaybackTime()
             : (this._pendingPartySync?.time || 0);
-        el.textContent = this.formatTime(Math.floor(t || 0));
+        const label = this.formatTime(Math.floor(t || 0));
+        if (hostEl) hostEl.textContent = label;
+        if (guestEl) guestEl.textContent = label;
+    },
+
+    harvestEmbedTimes(data, depth = 0, out = []) {
+        if (depth > 6 || data == null) return out;
+        if (typeof data === 'number' && Number.isFinite(data)) {
+            const n = this.normalizePlayerTime(data);
+            if (n >= 1 && n < 43200) out.push(n);
+            return out;
+        }
+        if (typeof data === 'string') {
+            const asNum = Number(data);
+            if (Number.isFinite(asNum)) return this.harvestEmbedTimes(asNum, depth + 1, out);
+            try { return this.harvestEmbedTimes(JSON.parse(data), depth + 1, out); } catch { return out; }
+        }
+        if (typeof data !== 'object') return out;
+
+        for (const [key, value] of Object.entries(data)) {
+            if (/time|current|position|seconds|^sec$|answer/i.test(key)) {
+                this.harvestEmbedTimes(value, depth + 1, out);
+            } else if (value && typeof value === 'object') {
+                this.harvestEmbedTimes(value, depth + 1, out);
+            }
+        }
+        return out;
+    },
+
+    ingestEmbedTimePayload(data) {
+        const times = this.harvestEmbedTimes(data);
+        if (!times.length) return null;
+        const best = Math.max(...times);
+        if (best >= 1) {
+            this.notePartyTime(best);
+            if (this._partyLastAction !== 'pause') this._partyLastAction = 'play';
+            return best;
+        }
+        return null;
     },
 
     // PlayerJS time REQUEST only — never send EmbedMaster command "time"
     // (that can be treated like seek/set and zero the clock).
     requestPlayerTime(frame) {
         if (!frame?.contentWindow) return;
-        frame.contentWindow.postMessage({ api: 'time' }, '*');
+        const win = frame.contentWindow;
+        win.postMessage({ api: 'time' }, '*');
+        // Some builds answer getTime / currentTime.
+        win.postMessage({ api: 'getTime' }, '*');
+        win.postMessage({ source: 'embedmaster_player_command', command: 'getTime' }, '*');
     },
 
-    queryEmbedTime(timeoutMs = 700) {
+    collectHostTime(ms = 900) {
         return new Promise((resolve) => {
             const frame = document.getElementById('embedmaster_iframe');
-            if (!frame?.contentWindow) {
-                resolve(null);
-                return;
-            }
-
-            let done = false;
-            const finish = (t) => {
-                if (done) return;
-                done = true;
-                window.removeEventListener('message', onMsg);
-                clearTimeout(timer);
-                if (typeof t === 'number' && t >= 1) {
-                    this.notePartyTime(t);
-                    resolve(t);
-                } else {
-                    // Do not notePartyTime(0) — that resets the wall clock.
-                    resolve(null);
-                }
-            };
+            let best = this.getHostPlaybackTime();
 
             const onMsg = (event) => {
                 const originOk = this.isTrustedEmbedOrigin(event.origin);
                 const em = event.data?.source === 'embedmaster_player';
                 const pjs = event.data?.answer !== undefined;
                 if (!originOk && !em && !pjs) return;
-
-                const parsed = this.parseEmbedPlayerEvent(event.data);
-                if (!parsed || typeof parsed.time !== 'number') return;
-                const t = this.normalizePlayerTime(parsed.time);
-                if (t < 1) return;
-                if (parsed.event === 'time' || parsed.event === 'timeupdate' || parsed.event === 'seek' || pjs) {
-                    finish(t);
-                }
+                const got = this.ingestEmbedTimePayload(event.data);
+                if (typeof got === 'number' && got > best) best = got;
             };
 
             window.addEventListener('message', onMsg);
-            const timer = setTimeout(() => finish(null), timeoutMs);
+            const iv = setInterval(() => this.requestPlayerTime(frame), 120);
             this.requestPlayerTime(frame);
+
+            setTimeout(() => {
+                clearInterval(iv);
+                window.removeEventListener('message', onMsg);
+                if (best >= 1) this.notePartyTime(best);
+                resolve(best);
+            }, ms);
         });
+    },
+
+    queryEmbedTime(timeoutMs = 700) {
+        return this.collectHostTime(timeoutMs).then((t) => (t >= 1 ? t : null));
     },
 
     async resolveHostTime() {
         const estimated = this.getHostPlaybackTime();
-        const polled = await this.queryEmbedTime(700);
-        // Prefer a real player sample when it's actually ahead; otherwise keep the clock.
-        if (typeof polled === 'number' && polled >= 1) {
+        const polled = await this.collectHostTime(800);
+        if (typeof polled === 'number' && polled >= 5) {
             if (polled >= estimated - 2) return polled;
         }
         return estimated >= 1 ? estimated : (polled || 0);
@@ -2244,6 +2321,7 @@ const Alexandria = {
         this._pendingPartySync = { action, time: t };
 
         const force = !!opts.force;
+        const noSeek = !!opts.noSeek;
         const now = Date.now();
         const last = this._lastAppliedPartySync;
         // Skip spam that re-triggers EmbedMaster buffering / loading loops.
@@ -2264,7 +2342,10 @@ const Alexandria = {
         };
 
         const seekTo = Math.max(0, Math.floor(t));
-        const shouldSeek = seekTo >= 1 && (force || !last || Math.abs((last.time || 0) - t) >= 1.25);
+        // Never seek to ~0 on a bad stamp — that yeets guests back to the intro.
+        const shouldSeek = !noSeek
+            && seekTo >= 5
+            && (force || !last || Math.abs((last.time || 0) - t) >= 1.25);
 
         const run = (cmd) => {
             if (shouldSeek) {
@@ -2341,10 +2422,11 @@ const Alexandria = {
         if (!this.partyChannel || !this.isHost) return;
         let t = this.normalizePlayerTime(typeof time === 'number' ? time : this.getHostPlaybackTime());
         const force = !!opts.force;
+        const noSeek = !!opts.noSeek;
         const now = Date.now();
 
         // Play/sync: aim guests slightly ahead so the ~1s lag feels matched.
-        if (action === 'play' || (action === 'sync' && !opts.paused)) {
+        if (!noSeek && (action === 'play' || (action === 'sync' && !opts.paused))) {
             t += this._PARTY_SYNC_LEAD_SEC;
         }
 
@@ -2360,7 +2442,7 @@ const Alexandria = {
         this._partyLastAction = action;
         // Store the real host time (without lead) for the local clock.
         const raw = this.normalizePlayerTime(typeof time === 'number' ? time : this.getHostPlaybackTime());
-        this.notePartyTime(raw);
+        if (raw >= 1) this.notePartyTime(raw);
         if (action === 'play') this._partyLastTimeAt = Date.now();
 
         this.partyChannel.send({
@@ -2371,6 +2453,7 @@ const Alexandria = {
                 time: t,
                 paused: action === 'pause',
                 force,
+                noSeek,
                 at: Date.now()
             }
         });
@@ -2471,13 +2554,13 @@ const Alexandria = {
             })
             .on('broadcast', { event: 'player_sync' }, (payload) => {
                 if (this.isHost || this._applyingRemoteSync) return;
-                const { action, time, paused, force } = payload.payload || {};
+                const { action, time, paused, force, noSeek } = payload.payload || {};
                 if (typeof paused === 'boolean') this._partyRemotePaused = paused;
                 if (action === 'pause') this._partyRemotePaused = true;
                 if (action === 'play') this._partyRemotePaused = false;
                 this._pendingPartySync = { action, time: typeof time === 'number' ? time : 0 };
                 this.tickPartyClock();
-                this.applyRemotePlayerAction(action, time, { force: !!force });
+                this.applyRemotePlayerAction(action, time, { force: !!force, noSeek: !!noSeek });
             })
             .on('broadcast', { event: 'sync_request' }, async (payload) => {
                 if (!this.isHost) return;
@@ -2531,14 +2614,18 @@ const Alexandria = {
     handleEmbedMasterMessage(event) {
         if (this.state.view !== 'party' || !this.partyChannel) return;
 
-        const parsed = this.parseEmbedPlayerEvent(event.data);
-        if (!parsed) return;
-
-        // Prefer trusted origins, but keep PlayerJS {event, answer} replies and EmbedMaster envelopes.
         const originOk = this.isTrustedEmbedOrigin(event.origin);
         const looksLikeEmbedMaster = event.data?.source === 'embedmaster_player';
         const looksLikePlayerJsReply = event.data?.answer !== undefined;
         if (!originOk && !looksLikeEmbedMaster && !looksLikePlayerJsReply) return;
+
+        // Always harvest timestamps from any player traffic — don’t depend on one event shape.
+        if (this.isHost) {
+            this.ingestEmbedTimePayload(event.data);
+        }
+
+        const parsed = this.parseEmbedPlayerEvent(event.data);
+        if (!parsed) return;
 
         const { event: ev, time } = parsed;
 
@@ -2564,14 +2651,10 @@ const Alexandria = {
         }
 
         if (this._applyingRemoteSync) return;
-        if (Date.now() < (this._suppressHostBroadcastUntil || 0)) {
-            if (typeof time === 'number' && time >= 1) this.notePartyTime(time);
-            return;
-        }
+        if (Date.now() < (this._suppressHostBroadcastUntil || 0)) return;
 
         if (typeof time === 'number' && time >= 1) {
             this.notePartyTime(time);
-            // Time is advancing → treat as playing for wall-clock estimates.
             if (ev === 'time' || ev === 'timeupdate' || ev === 'play') {
                 if (this._partyLastAction !== 'pause') this._partyLastAction = 'play';
             }
@@ -2580,15 +2663,13 @@ const Alexandria = {
         if (ev === 'play' || ev === 'pause') {
             if (ev === 'pause') this._partyLastAction = 'pause';
             if (ev === 'play') this._partyLastAction = 'play';
-            const stamp = (typeof time === 'number' && time >= 1)
-                ? this.normalizePlayerTime(time)
-                : this.getHostPlaybackTime();
-            this.sendPlayerSync(ev, stamp);
+            const stamp = this.getHostPlaybackTime();
+            this.sendPlayerSync(ev, stamp, { noSeek: stamp < 5 });
         } else if (ev === 'seek') {
-            const stamp = (typeof time === 'number' && time >= 1)
+            const stamp = (typeof time === 'number' && time >= 5)
                 ? this.normalizePlayerTime(time)
                 : this.getHostPlaybackTime();
-            if (stamp >= 1) this.sendPlayerSync('seek', stamp);
+            if (stamp >= 5) this.sendPlayerSync('seek', stamp);
         }
     },
 
