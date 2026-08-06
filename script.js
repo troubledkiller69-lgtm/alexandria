@@ -533,6 +533,7 @@ const Alexandria = {
         }
         this.isHost = false;
         this.notifiedHost = false;
+        this._partyGuestHinted = false;
         this._partyLastAction = null;
         this._partyLastTime = 0;
         this._applyingRemoteSync = false;
@@ -1785,9 +1786,10 @@ const Alexandria = {
         const roomId = this.state.partyRoomId;
         const sameRoom = this.partyChannel && this.state.partyRoomId === roomId;
 
-        // Watch Party sync needs EmbedMaster postMessage API.
-        const apiIndex = this.servers.findIndex(s => s.supportsApi);
-        if (apiIndex !== -1) this.state.activeServer = apiIndex;
+        // Watch Party needs the documented public EmbedMaster player (postMessage API).
+        // Custom account player paths often don't emit parent events, which breaks sync.
+        const publicIdx = this.servers.findIndex(s => s.name === 'EmbedMaster Public');
+        this.state.activeServer = publicIdx !== -1 ? publicIdx : Math.max(0, this.servers.findIndex(s => s.supportsApi));
         const server = this.servers[this.state.activeServer];
         const embedUrl = type === 'movie' ? server.getMovie(id) : server.getTv(id, season, episode);
 
@@ -1817,11 +1819,11 @@ const Alexandria = {
                     <div id="party-host-controls" style="display: ${this.isHost ? 'flex' : 'none'}; gap: 8px; margin-top: 10px; flex-wrap: wrap; align-items: center;">
                         <button type="button" class="btn-primary" onclick="Alexandria.partyHostCommand('play')">Play for everyone</button>
                         <button type="button" class="btn-secondary" onclick="Alexandria.partyHostCommand('pause')">Pause for everyone</button>
-                        <span style="color:#666; font-size:0.8em;">Use these if in-player controls don’t sync</span>
+                        <span style="color:#f6c; font-size:0.85em;">Host: use these buttons — in-player pause often won’t sync by itself</span>
                     </div>
                     <div id="party-guest-controls" style="display: ${this.isHost ? 'none' : 'flex'}; gap: 8px; margin-top: 10px; flex-wrap: wrap; align-items: center;">
                         <button type="button" class="btn-primary" onclick="Alexandria.partyGuestSync()">Sync with host</button>
-                        <span style="color:#888; font-size:0.8em;">Stuck on Play Now? Click it in the player first, then hit Sync</span>
+                        <span style="color:#888; font-size:0.8em;">Click Play Now in the player, then Sync with host</span>
                     </div>
                     ${type === 'tv' ? `
                     <div class="party-episode-bar" style="margin-top: 12px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
@@ -2060,74 +2062,121 @@ const Alexandria = {
             if (time > 0) this.postToEmbed(frame, 'seek', time);
             this.postToEmbed(frame, 'play');
             this.sendPlayerSync('play', time);
+            this.appendChatMessage('System', 'Host pressed Play for everyone');
         } else if (action === 'pause') {
             if (time > 0) this.postToEmbed(frame, 'seek', time);
             this.postToEmbed(frame, 'pause');
             this.sendPlayerSync('pause', time);
+            this.appendChatMessage('System', 'Host pressed Pause for everyone');
         }
     },
 
     partyGuestSync() {
         if (this.isHost) return;
-        const frame = document.getElementById('embedmaster_iframe');
-        // Nudge the player in case they're past ads but not playing yet.
-        this.postToEmbed(frame, 'play');
         this._partyGuestUnlocked = true;
         this.updatePartyRoleUI();
+
+        const frame = document.getElementById('embedmaster_iframe');
+        this.postToEmbed(frame, 'play');
+
+        // Ask host to push current state (don't rely on missed broadcasts).
+        if (this.partyChannel) {
+            const fromUid = sessionStorage.getItem('alexandria_party_uid');
+            this.partyChannel.send({
+                type: 'broadcast',
+                event: 'sync_request',
+                payload: { fromUid }
+            });
+        }
+
         const pending = this._pendingPartySync;
         if (pending) {
             this.applyRemotePlayerAction(pending.action, pending.time);
-            this.showToast('Synced with host');
+            this.showToast('Syncing with host…');
         } else {
-            this.showToast('Unlocked — waiting for host playback');
+            this.showToast('Asked host for sync — wait a sec');
         }
     },
 
     postToEmbed(frame, command, value) {
         if (!frame?.contentWindow) return;
-        const payload = { source: 'embedmaster_player_command', command };
-        if (value !== undefined) payload.value = value;
-        // EmbedMaster docs use '*' — a fixed origin silently fails if the player path differs.
-        frame.contentWindow.postMessage(payload, '*');
+        const win = frame.contentWindow;
+        // Primary: EmbedMaster documented command shape.
+        const em = { source: 'embedmaster_player_command', command };
+        if (value !== undefined) em.value = value;
+        win.postMessage(em, '*');
+        // Fallbacks some PlayerJS builds listen for.
+        const alt = { method: command };
+        if (value !== undefined) alt.value = value;
+        win.postMessage(alt, '*');
+        try {
+            win.postMessage(JSON.stringify({ event: 'command', method: command, value }), '*');
+        } catch { /* ignore */ }
     },
 
     applyRemotePlayerAction(action, time) {
         const frame = document.getElementById('embedmaster_iframe');
         if (!frame?.contentWindow) return;
 
-        // EmbedMaster "Play Now" / ads need a real click — queue until guest unlocks.
-        if (!this.isHost && !this._partyGuestUnlocked) {
-            this._pendingPartySync = { action, time: typeof time === 'number' ? time : 0 };
-            return;
-        }
+        // Always attempt — Play Now may no-op until clicked, but locking forever broke sync.
+        this._partyGuestUnlocked = true;
+        this._pendingPartySync = { action, time: typeof time === 'number' ? time : 0 };
 
         this._applyingRemoteSync = true;
         const t = typeof time === 'number' ? time : 0;
 
+        const finish = () => { this._applyingRemoteSync = false; };
+
         if (action === 'play') {
             if (t > 0) this.postToEmbed(frame, 'seek', t);
-            setTimeout(() => {
-                this.postToEmbed(frame, 'play');
-                this._applyingRemoteSync = false;
-            }, 60);
+            setTimeout(() => { this.postToEmbed(frame, 'play'); finish(); }, 80);
         } else if (action === 'pause') {
             if (t > 0) this.postToEmbed(frame, 'seek', t);
-            setTimeout(() => {
-                this.postToEmbed(frame, 'pause');
-                this._applyingRemoteSync = false;
-            }, 60);
+            setTimeout(() => { this.postToEmbed(frame, 'pause'); finish(); }, 80);
         } else if (action === 'seek' && t > 0) {
             this.postToEmbed(frame, 'seek', t);
-            this._applyingRemoteSync = false;
+            finish();
         } else if (action === 'sync') {
             if (t > 0) this.postToEmbed(frame, 'seek', t);
             setTimeout(() => {
                 this.postToEmbed(frame, this._partyRemotePaused ? 'pause' : 'play');
-                this._applyingRemoteSync = false;
-            }, 60);
+                finish();
+            }, 80);
         } else {
-            this._applyingRemoteSync = false;
+            finish();
         }
+    },
+
+    parseEmbedPlayerEvent(raw) {
+        let data = raw;
+        if (typeof data === 'string') {
+            try { data = JSON.parse(data); } catch { return null; }
+        }
+        if (!data || typeof data !== 'object') return null;
+
+        let eventName = data.event || data.method || null;
+        if (!eventName && data.source === 'embedmaster_player') return null;
+        // Accept EmbedMaster envelope, or loose PlayerJS-like payloads.
+        const trustedSource = data.source === 'embedmaster_player' || data.source === 'embedmaster_player_command';
+        if (!trustedSource && !eventName) return null;
+        if (!eventName) return null;
+
+        eventName = String(eventName).toLowerCase();
+        if (eventName === 'userplay') eventName = 'play';
+        if (eventName === 'userpause') eventName = 'pause';
+        if (eventName === 'userseek') eventName = 'seek';
+        if (eventName === 'start') eventName = 'play';
+
+        let time;
+        const info = data.info;
+        if (typeof info === 'number') time = info;
+        else if (typeof info?.time === 'number') time = info.time;
+        else if (typeof data.time === 'number') time = data.time;
+        else if (typeof data.data === 'number') time = data.data;
+        else if (typeof data.data?.time === 'number') time = data.data.time;
+        else if (typeof data.value === 'number') time = data.value;
+
+        return { event: eventName, time };
     },
 
     sendPlayerSync(action, time) {
@@ -2137,7 +2186,12 @@ const Alexandria = {
         this.partyChannel.send({
             type: 'broadcast',
             event: 'player_sync',
-            payload: { action, time: typeof time === 'number' ? time : 0 }
+            payload: {
+                action,
+                time: typeof time === 'number' ? time : 0,
+                paused: action === 'pause',
+                at: Date.now()
+            }
         });
     },
 
@@ -2212,9 +2266,12 @@ const Alexandria = {
 
                 if (this.isHost && !this.notifiedHost) {
                     this.notifiedHost = true;
-                    this.appendChatMessage('System', 'You are the Host. Friends will follow your playback.');
+                    this.appendChatMessage('System', 'You are the Host. Use “Play/Pause for everyone” so friends stay in sync.');
                 } else if (!this.isHost && wasHost) {
                     this.appendChatMessage('System', 'Host left — a new host was elected.');
+                } else if (!this.isHost && !this._partyGuestHinted) {
+                    this._partyGuestHinted = true;
+                    this.appendChatMessage('System', 'Click Play Now on the video, then hit Sync with host.');
                 }
 
                 if (this.isHost) {
@@ -2236,6 +2293,14 @@ const Alexandria = {
                 if (action === 'play') this._partyRemotePaused = false;
                 this._pendingPartySync = { action, time: typeof time === 'number' ? time : 0 };
                 this.applyRemotePlayerAction(action, time);
+            })
+            .on('broadcast', { event: 'sync_request' }, (payload) => {
+                if (!this.isHost) return;
+                const fromUid = payload.payload?.fromUid;
+                if (fromUid && fromUid === uid) return;
+                this.broadcastPartyContent();
+                const action = this._partyLastAction || 'play';
+                this.sendPlayerSync(action, this._partyLastTime || 0);
             })
             .on('broadcast', { event: 'content_sync' }, (payload) => {
                 if (this.isHost) return;
@@ -2268,15 +2333,22 @@ const Alexandria = {
     },
 
     handleEmbedMasterMessage(event) {
-        if (!this.isTrustedEmbedOrigin(event.origin)) return;
-        const data = event.data;
-        if (!data || data.source !== 'embedmaster_player' || !this.partyChannel) return;
-        if (this.state.view !== 'party') return;
+        if (this.state.view !== 'party' || !this.partyChannel) return;
 
-        // Guests: Play Now / first playback unlocks the player, then flush queued host sync.
+        const parsed = this.parseEmbedPlayerEvent(event.data);
+        if (!parsed) return;
+
+        // Prefer trusted origins, but don't drop valid EmbedMaster envelopes from odd origins.
+        const originOk = this.isTrustedEmbedOrigin(event.origin);
+        const looksLikeEmbedMaster = event.data?.source === 'embedmaster_player';
+        if (!originOk && !looksLikeEmbedMaster) return;
+
+        const { event: ev, time } = parsed;
+
+        // Guests: unlock + flush queued host sync when the player actually starts talking.
         if (!this.isHost) {
             if (this._applyingRemoteSync) return;
-            if (data.event === 'ready' || data.event === 'play' || data.event === 'time' || data.event === 'timeupdate') {
+            if (ev === 'ready' || ev === 'play' || ev === 'time' || ev === 'timeupdate' || ev === 'click') {
                 const wasLocked = !this._partyGuestUnlocked;
                 this._partyGuestUnlocked = true;
                 if (wasLocked) {
@@ -2285,7 +2357,6 @@ const Alexandria = {
                 }
                 if (this._pendingPartySync) {
                     const pending = this._pendingPartySync;
-                    // Slight delay so Play Now click finishes settling.
                     clearTimeout(this._partyGuestFlushTimer);
                     this._partyGuestFlushTimer = setTimeout(() => {
                         this.applyRemotePlayerAction(pending.action, pending.time);
@@ -2297,14 +2368,12 @@ const Alexandria = {
 
         if (this._applyingRemoteSync) return;
 
-        if (typeof data.info?.time === 'number') {
-            this._partyLastTime = data.info.time;
-        }
+        if (typeof time === 'number') this._partyLastTime = time;
 
-        if (data.event === 'play' || data.event === 'pause' || data.event === 'seek') {
-            this.sendPlayerSync(data.event, data.info?.time || 0);
-        } else if (data.event === 'time' || data.event === 'timeupdate') {
-            if (typeof data.info?.time === 'number') this._partyLastTime = data.info.time;
+        if (ev === 'play' || ev === 'pause' || ev === 'seek') {
+            this.sendPlayerSync(ev, typeof time === 'number' ? time : (this._partyLastTime || 0));
+        } else if (ev === 'time' || ev === 'timeupdate') {
+            if (typeof time === 'number') this._partyLastTime = time;
         }
     },
 
