@@ -1815,24 +1815,17 @@ const Alexandria = {
                         <h2 class="party-title">${this.escapeHtml(roomId)}</h2>
                         <span id="party-role-badge" class="${roleClass}">${roleLabel}</span>
                         <span id="party-users-count" class="party-users">1 here</span>
+                        <button type="button" id="party-sync-clock" class="party-clock" title="Click to set sync time (e.g. 16:57)" onclick="Alexandria.partyEditSyncClock()" style="display: ${this.isHost ? 'inline-flex' : 'none'};">0:00</button>
+                        <button type="button" id="party-guest-sync" class="party-sync-link" onclick="Alexandria.partyGuestSync()" style="display: ${this.isHost ? 'none' : 'inline-flex'};">Sync</button>
+                        <span id="party-sync-clock-guest" class="party-clock party-clock--static" style="display: ${this.isHost ? 'none' : 'inline-flex'};">0:00</span>
                         <button type="button" class="btn-secondary party-invite" onclick="Alexandria.copyPartyLink()">Invite</button>
                     </header>
 
                     <div class="party-screen">
                         <iframe id="embedmaster_iframe" title="Watch Party" src="${embedUrl}" allow="autoplay *; fullscreen *; picture-in-picture *; encrypted-media *" allowfullscreen referrerpolicy="no-referrer"></iframe>
                         <div id="party-spectate-veil" class="party-hint" style="display: ${this.isHost ? 'none' : 'block'};">
-                            Hit <strong>Play Now</strong>, then Sync
+                            Hit <strong>Play Now</strong> in the player, then Sync if needed
                         </div>
-                    </div>
-
-                    <div id="party-host-controls" class="party-transport" style="display: ${this.isHost ? 'flex' : 'none'};">
-                        <button type="button" class="party-ctrl party-ctrl--accent" onclick="Alexandria.partyHostCommand('play')">Play</button>
-                        <button type="button" class="party-ctrl" onclick="Alexandria.partyHostCommand('pause')">Pause</button>
-                        <button type="button" id="party-sync-clock" class="party-clock" title="Click to set the time shown on the player" onclick="Alexandria.partyEditSyncClock()">0:00</button>
-                    </div>
-                    <div id="party-guest-controls" class="party-transport" style="display: ${this.isHost ? 'none' : 'flex'};">
-                        <button type="button" class="party-ctrl party-ctrl--accent" onclick="Alexandria.partyGuestSync()">Sync</button>
-                        <span id="party-sync-clock-guest" class="party-clock party-clock--static" title="Last host position">0:00</span>
                     </div>
 
                     ${type === 'tv' ? `
@@ -2559,12 +2552,12 @@ const Alexandria = {
 
                 if (this.isHost && !this.notifiedHost) {
                     this.notifiedHost = true;
-                    this.appendChatMessage('System', 'You’re the host — Play / Pause under the video.');
+                    this.appendChatMessage('System', 'You’re the host — use the player controls. Friends follow you.');
                 } else if (!this.isHost && wasHost) {
                     this.appendChatMessage('System', 'Host left — new host elected.');
                 } else if (!this.isHost && !this._partyGuestHinted) {
                     this._partyGuestHinted = true;
-                    this.appendChatMessage('System', 'Hit Play Now, then Sync.');
+                    this.appendChatMessage('System', 'Hit Play Now in the player, then Sync if you’re off.');
                 }
 
                 if (this.isHost) {
@@ -2691,13 +2684,21 @@ const Alexandria = {
         if (ev === 'play' || ev === 'pause') {
             if (ev === 'pause') this._partyLastAction = 'pause';
             if (ev === 'play') this._partyLastAction = 'play';
-            const stamp = this.getHostPlaybackTime();
-            this.sendPlayerSync(ev, stamp, { noSeek: stamp < 5 });
-        } else if (ev === 'seek') {
+
+            // Prefer the player's reported time; fall back to our running clock.
+            const fromEvent = (typeof time === 'number' && time >= 5) ? this.normalizePlayerTime(time) : null;
+            const stamp = fromEvent ?? this.getHostPlaybackTime();
+            this.sendPlayerSync(ev, stamp, {
+                force: true,
+                noSeek: stamp < 5
+            });
+            this.tickPartyClock();
+        } else if (ev === 'seek' || ev === 'userseek') {
             const stamp = (typeof time === 'number' && time >= 5)
                 ? this.normalizePlayerTime(time)
                 : this.getHostPlaybackTime();
-            if (stamp >= 5) this.sendPlayerSync('seek', stamp);
+            if (stamp >= 5) this.sendPlayerSync('seek', stamp, { force: true });
+            this.tickPartyClock();
         }
     },
 
