@@ -543,6 +543,14 @@ const Alexandria = {
             clearTimeout(this._partyApplyLockTimer);
             this._partyApplyLockTimer = null;
         }
+        if (this._partyFrameLoadTimer) {
+            clearTimeout(this._partyFrameLoadTimer);
+            this._partyFrameLoadTimer = null;
+        }
+        if (this._partyReadyResyncTimer) {
+            clearTimeout(this._partyReadyResyncTimer);
+            this._partyReadyResyncTimer = null;
+        }
         if (this.partyChannel && this.supabase) {
             this.supabase.removeChannel(this.partyChannel);
             this.partyChannel = null;
@@ -1596,6 +1604,15 @@ const Alexandria = {
 
     applyServer(serverIndex, { resetTried = true } = {}) {
         if (!Number.isInteger(serverIndex) || !this.servers[serverIndex]) return;
+
+        // Watch Party play/pause sync needs EmbedMaster postMessage API.
+        if (this.state.view === 'party' && !this.servers[serverIndex].supportsApi) {
+            this.showToast('That mirror can’t sync in Watch Party. Use Alexandria or EmbedMaster.');
+            const selector = document.getElementById('party-server-selector') || document.getElementById('server-selector');
+            if (selector) selector.value = String(this.state.activeServer);
+            return;
+        }
+
         this.state.activeServer = serverIndex;
         try {
             localStorage.setItem('alexandria_activeServer', String(serverIndex));
@@ -1610,6 +1627,8 @@ const Alexandria = {
 
         const selector = document.getElementById('server-selector');
         if (selector) selector.value = String(serverIndex);
+        const partySelector = document.getElementById('party-server-selector');
+        if (partySelector) partySelector.value = String(serverIndex);
 
         const iframe = document.getElementById('video-iframe') || document.getElementById('embedmaster_iframe');
         if (iframe) iframe.src = embedUrl;
@@ -1617,9 +1636,74 @@ const Alexandria = {
         if (this.state.view === 'player') {
             this.prepareResumeSeek();
             this.armFailoverWatch(server);
+        } else if (this.state.view === 'party') {
+            this.onPartyServerSwitched(server);
         } else {
             this.setServerStatus(`Using ${server.name}`);
         }
+    },
+
+    handlePartyServerChange(newServerIndex) {
+        if (!this.isHost) return;
+        const serverIndex = Number.parseInt(newServerIndex, 10);
+        this.applyServer(serverIndex, { resetTried: true });
+    },
+
+    onPartyServerSwitched(server) {
+        const frame = document.getElementById('embedmaster_iframe');
+        this._suppressHostBroadcastUntil = Date.now() + 2500;
+        this._partyTimeStallCount = 0;
+        if (!this.isHost) this._partyGuestUnlocked = false;
+        this.bindPartyFrame(frame);
+        this.scheduleEmbedTheme(frame);
+        this.updatePartyRoleUI();
+        if (this.isHost && this.partyChannel) {
+            this.broadcastPartyContent();
+            this.appendChatMessage('System', `Host switched server to ${server?.name || 'another mirror'}. Re-syncing…`);
+        } else {
+            this.appendChatMessage('System', 'Player reloading — hit Play Now if sync stalls.');
+        }
+    },
+
+    bindPartyFrame(frame) {
+        if (!frame || frame.dataset.partyBound === '1') return;
+        frame.dataset.partyBound = '1';
+        frame.addEventListener('load', () => this.onPartyFrameLoad());
+    },
+
+    onPartyFrameLoad() {
+        if (this.state.view !== 'party') return;
+        const frame = document.getElementById('embedmaster_iframe');
+        this.scheduleEmbedTheme(frame);
+
+        if (!this.isHost) {
+            this._partyGuestUnlocked = false;
+            this.updatePartyRoleUI();
+            return;
+        }
+
+        // New mirror finished loading — push current play/pause + time to guests.
+        clearTimeout(this._partyFrameLoadTimer);
+        this._partyFrameLoadTimer = setTimeout(async () => {
+            if (this.state.view !== 'party' || !this.isHost || !this.partyChannel) return;
+            this._suppressHostBroadcastUntil = 0;
+            const time = await this.resolveHostTime();
+            const action = this.isPartyPaused() ? 'pause' : (this._partyLastAction === 'pause' ? 'pause' : 'play');
+            this.sendPlayerSync(action, time, { force: true, noSeek: time < 5 });
+            this.tickPartyClock();
+        }, 1100);
+    },
+
+    resyncPartyAfterPlayerReady() {
+        if (this.state.view !== 'party' || !this.isHost || !this.partyChannel) return;
+        clearTimeout(this._partyReadyResyncTimer);
+        this._partyReadyResyncTimer = setTimeout(() => {
+            if (this.state.view !== 'party' || !this.isHost) return;
+            this._suppressHostBroadcastUntil = 0;
+            const action = this.isPartyPaused() ? 'pause' : (this._partyLastAction === 'pause' ? 'pause' : 'play');
+            const time = this.getHostPlaybackTime();
+            this.sendPlayerSync(action, time, { force: true, noSeek: time < 5 });
+        }, 450);
     },
 
     formatTime(seconds) {
@@ -1841,12 +1925,19 @@ const Alexandria = {
         const roomId = this.state.partyRoomId;
         const sameRoom = this.partyChannel && this.state.partyRoomId === roomId;
 
-        // Prefer branded Alexandria player (custom colors) for parties when available.
-        const alexIdx = this.servers.findIndex(s => s.name === 'Alexandria' && s.supportsApi);
-        const publicIdx = this.servers.findIndex(s => s.name === 'EmbedMaster Public');
-        this.state.activeServer = alexIdx !== -1 ? alexIdx : (publicIdx !== -1 ? publicIdx : Math.max(0, this.servers.findIndex(s => s.supportsApi)));
+        // Prefer an API-capable EmbedMaster mirror so play/pause can sync.
+        if (!this.servers[this.state.activeServer]?.supportsApi) {
+            const alexIdx = this.servers.findIndex(s => s.name === 'Alexandria' && s.supportsApi);
+            const publicIdx = this.servers.findIndex(s => s.name === 'EmbedMaster Public');
+            this.state.activeServer = alexIdx !== -1 ? alexIdx : (publicIdx !== -1 ? publicIdx : Math.max(0, this.servers.findIndex(s => s.supportsApi)));
+        }
         const server = this.servers[this.state.activeServer];
         const embedUrl = type === 'movie' ? server.getMovie(id) : server.getTv(id, season, episode);
+        const apiServerOptions = this.servers
+            .map((s, i) => ({ ...s, index: i }))
+            .filter(s => s.supportsApi)
+            .map(s => `<option value="${s.index}" ${s.index === this.state.activeServer ? 'selected' : ''}>${this.escapeHtml(s.name)}</option>`)
+            .join('');
 
         // Creator is host immediately — don't wait for presence (fixes play/pause never broadcasting).
         const isCreator = sessionStorage.getItem('alexandria_party_creator_' + roomId) === '1';
@@ -1862,6 +1953,11 @@ const Alexandria = {
                         <h2 class="party-title">${this.escapeHtml(roomId)}</h2>
                         <span id="party-role-badge" class="${roleClass}">${roleLabel}</span>
                         <span id="party-users-count" class="party-users">1 here</span>
+                        <label class="party-server-label">Server
+                            <select id="party-server-selector" ${this.isHost ? '' : 'disabled'} onchange="Alexandria.handlePartyServerChange(this.value)">
+                                ${apiServerOptions}
+                            </select>
+                        </label>
                         <button type="button" id="party-sync-clock" class="party-clock" title="Click to set sync time (e.g. 16:57)" onclick="Alexandria.partyEditSyncClock()" style="display: ${this.isHost ? 'inline-flex' : 'none'};">0:00</button>
                         <button type="button" id="party-guest-sync" class="party-sync-link" onclick="Alexandria.partyGuestSync()" style="display: ${this.isHost ? 'none' : 'inline-flex'};">Sync</button>
                         <span id="party-sync-clock-guest" class="party-clock party-clock--static" style="display: ${this.isHost ? 'none' : 'inline-flex'};">0:00</span>
@@ -1924,6 +2020,7 @@ const Alexandria = {
         }
 
         const partyFrame = document.getElementById('embedmaster_iframe');
+        this.bindPartyFrame(partyFrame);
         this.scheduleEmbedTheme(partyFrame);
 
         if (sameRoom) {
@@ -2020,19 +2117,31 @@ const Alexandria = {
                 id,
                 season: season || 1,
                 episode: episode || 1,
+                serverIndex: this.state.activeServer,
                 time: this._partyLastTime || 0,
-                paused: this._partyLastAction === 'pause'
+                paused: this.isPartyPaused()
             }
         });
     },
 
     applyPartyContent(payload) {
         if (!payload || this.isHost) return;
-        const { type, id, season, episode, time, paused } = payload;
+        const { type, id, season, episode, time, paused, serverIndex } = payload;
         if (!type || !id) return;
 
+        const serverChanged = Number.isInteger(serverIndex)
+            && this.servers[serverIndex]?.supportsApi
+            && Number(serverIndex) !== Number(this.state.activeServer);
+
+        if (serverChanged) {
+            this.state.activeServer = serverIndex;
+            const partySelector = document.getElementById('party-server-selector');
+            if (partySelector) partySelector.value = String(serverIndex);
+        }
+
         const prev = this.state.activeContent;
-        const changed = prev.type !== type || String(prev.id) !== String(id)
+        const changed = serverChanged
+            || prev.type !== type || String(prev.id) !== String(id)
             || Number(prev.season) !== Number(season || 1)
             || Number(prev.episode) !== Number(episode || 1);
 
@@ -2052,6 +2161,8 @@ const Alexandria = {
                 frame.src = type === 'movie'
                     ? server.getMovie(id)
                     : server.getTv(id, season || 1, episode || 1);
+                this.bindPartyFrame(frame);
+                this.scheduleEmbedTheme(frame);
             }
             const hash = type === 'tv'
                 ? `#party/${this.state.partyRoomId}/${type}/${id}/s/${season || 1}/e/${episode || 1}`
@@ -2065,12 +2176,15 @@ const Alexandria = {
                 if (sel) sel.value = String(season || 1);
                 this.loadPartyEpisodes(id, season || 1, episode || 1);
             }
-            this.appendChatMessage('System', `Host switched to ${type === 'tv' ? `S${season || 1}E${episode || 1}` : 'a new title'}`);
+            this.appendChatMessage('System', serverChanged
+                ? 'Host switched server — hit Play Now if sync stalls.'
+                : `Host switched to ${type === 'tv' ? `S${season || 1}E${episode || 1}` : 'a new title'}`);
             this.updatePartyRoleUI();
         }
 
         const nextAction = paused ? 'pause' : 'play';
-        this._pendingPartySync = { action: nextAction, time: typeof time === 'number' ? time : 0 };
+        this._partyRemotePaused = !!paused;
+        this._pendingPartySync = { action: nextAction, time: typeof time === 'number' ? time : 0, paused: !!paused, at: Date.now() };
         if (this._partyGuestUnlocked) {
             setTimeout(() => this.applyRemotePlayerAction(nextAction, time || 0), 800);
         }
@@ -2103,6 +2217,11 @@ const Alexandria = {
                 : 'Hit <strong>Play Now</strong> in the player, then Sync if needed';
         }
         if (seasonSel) seasonSel.disabled = !this.isHost;
+        const partyServerSel = document.getElementById('party-server-selector');
+        if (partyServerSel) {
+            partyServerSel.disabled = !this.isHost;
+            partyServerSel.value = String(this.state.activeServer);
+        }
         if (hostClock) hostClock.style.display = this.isHost ? 'inline-flex' : 'none';
         if (guestSync) guestSync.style.display = this.isHost ? 'none' : 'inline-flex';
         if (guestClock) guestClock.style.display = this.isHost ? 'none' : 'inline-flex';
@@ -2795,6 +2914,7 @@ const Alexandria = {
 
         if (ev === 'ready' || ev === 'init' || ev === 'start') {
             this.themeEmbedPlayer(document.getElementById('embedmaster_iframe'));
+            if (this.isHost) this.resyncPartyAfterPlayerReady();
         }
 
         // Guests: unlock + flush queued host sync when the player actually starts talking.
