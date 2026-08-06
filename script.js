@@ -1480,6 +1480,7 @@ const Alexandria = {
         this.bindSoloPlayerEvents();
         this.prepareResumeSeek();
         this.armFailoverWatch(server);
+        this.scheduleEmbedTheme(document.getElementById('video-iframe'));
 
         try {
             const data = await this.getJson(type + '/' + id);
@@ -1713,6 +1714,7 @@ const Alexandria = {
             this.markServerHealthy();
 
             if (data.event === 'ready') {
+                this.themeEmbedPlayer(document.getElementById('video-iframe'));
                 this.tryResumeSeek();
             } else if (!this._resumeSeekDone && this._pendingResumeTime > 0 && (data.event === 'play' || data.event === 'time')) {
                 this.tryResumeSeek();
@@ -1792,10 +1794,10 @@ const Alexandria = {
         const roomId = this.state.partyRoomId;
         const sameRoom = this.partyChannel && this.state.partyRoomId === roomId;
 
-        // Watch Party needs the documented public EmbedMaster player (postMessage API).
-        // Custom account player paths often don't emit parent events, which breaks sync.
+        // Prefer branded Alexandria player (custom colors) for parties when available.
+        const alexIdx = this.servers.findIndex(s => s.name === 'Alexandria' && s.supportsApi);
         const publicIdx = this.servers.findIndex(s => s.name === 'EmbedMaster Public');
-        this.state.activeServer = publicIdx !== -1 ? publicIdx : Math.max(0, this.servers.findIndex(s => s.supportsApi));
+        this.state.activeServer = alexIdx !== -1 ? alexIdx : (publicIdx !== -1 ? publicIdx : Math.max(0, this.servers.findIndex(s => s.supportsApi)));
         const server = this.servers[this.state.activeServer];
         const embedUrl = type === 'movie' ? server.getMovie(id) : server.getTv(id, season, episode);
 
@@ -1880,6 +1882,9 @@ const Alexandria = {
         if (type === 'tv') {
             this.initPartyEpisodeUI(id, season, episode);
         }
+
+        const partyFrame = document.getElementById('embedmaster_iframe');
+        this.scheduleEmbedTheme(partyFrame);
 
         if (sameRoom) {
             this.updatePartyRoleUI();
@@ -2292,6 +2297,27 @@ const Alexandria = {
         return estimated >= 1 ? estimated : (polled || 0);
     },
 
+    // Try to recolor EmbedMaster/PlayerJS UI (play button etc.) to Alexandria red.
+    themeEmbedPlayer(frame) {
+        if (!frame?.contentWindow) return;
+        const win = frame.contentWindow;
+        const red = '#8a0303';
+        for (const key of ['color1', 'color2', 'color3']) {
+            win.postMessage({ api: key, set: red }, '*');
+            win.postMessage({ source: 'embedmaster_player_command', command: key, value: red }, '*');
+        }
+    },
+
+    scheduleEmbedTheme(frame) {
+        if (!frame) return;
+        const paint = () => this.themeEmbedPlayer(frame);
+        paint();
+        setTimeout(paint, 400);
+        setTimeout(paint, 1200);
+        setTimeout(paint, 2500);
+        frame.addEventListener('load', paint, { once: true });
+    },
+
     postToEmbed(frame, command, value) {
         if (!frame?.contentWindow) return;
         if (command === 'time' && value === undefined) {
@@ -2626,6 +2652,10 @@ const Alexandria = {
         if (!parsed) return;
 
         const { event: ev, time } = parsed;
+
+        if (ev === 'ready' || ev === 'init' || ev === 'start') {
+            this.themeEmbedPlayer(document.getElementById('embedmaster_iframe'));
+        }
 
         // Guests: unlock + flush queued host sync when the player actually starts talking.
         if (!this.isHost) {
