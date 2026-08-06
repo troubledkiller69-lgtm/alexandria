@@ -1803,36 +1803,29 @@ const Alexandria = {
         const isCreator = sessionStorage.getItem('alexandria_party_creator_' + roomId) === '1';
         this.isHost = isCreator || this.isHost;
 
-        const roleLabel = this.isHost ? 'Command' : 'On the wall';
-        const roleClass = this.isHost ? 'party-role is-command' : 'party-role is-wall';
+        const roleLabel = this.isHost ? 'Host' : 'Guest';
+        const roleClass = this.isHost ? 'party-role is-host' : 'party-role';
 
         this.main.innerHTML = `
             <section class="party-layout">
                 <div class="party-stage">
                     <header class="party-topbar">
-                        <div class="party-id-block">
-                            <span class="party-kicker">Alexandria · Watch Post</span>
-                            <h2 class="party-title">Channel <span>${this.escapeHtml(roomId)}</span></h2>
-                        </div>
-                        <div class="party-meta">
-                            <span id="party-role-badge" class="${roleClass}">${roleLabel}</span>
-                            <span id="party-users-count" class="party-users">1 on the wall</span>
-                        </div>
-                        <button type="button" class="party-invite" onclick="Alexandria.copyPartyLink()">Copy Signal</button>
+                        <h2 class="party-title">${this.escapeHtml(roomId)}</h2>
+                        <span id="party-role-badge" class="${roleClass}">${roleLabel}</span>
+                        <span id="party-users-count" class="party-users">1 here</span>
+                        <button type="button" class="btn-secondary party-invite" onclick="Alexandria.copyPartyLink()">Invite</button>
                     </header>
 
                     <div class="party-screen">
-                        <span class="party-frame-mark party-frame-mark--tl" aria-hidden="true"></span>
-                        <span class="party-frame-mark party-frame-mark--br" aria-hidden="true"></span>
                         <iframe id="embedmaster_iframe" title="Watch Party" src="${embedUrl}" allow="autoplay *; fullscreen *; picture-in-picture *; encrypted-media *" allowfullscreen referrerpolicy="no-referrer"></iframe>
                         <div id="party-spectate-veil" class="party-hint" style="display: ${this.isHost ? 'none' : 'block'};">
-                            Hit <strong>Play Now</strong> in the player, then Sync
+                            Hit <strong>Play Now</strong>, then Sync
                         </div>
                     </div>
 
                     <div id="party-host-controls" class="party-transport" style="display: ${this.isHost ? 'flex' : 'none'};">
                         <button type="button" class="party-ctrl party-ctrl--accent" onclick="Alexandria.partyHostCommand('play')">Play</button>
-                        <button type="button" class="party-ctrl" onclick="Alexandria.partyHostCommand('pause')">Hold</button>
+                        <button type="button" class="party-ctrl" onclick="Alexandria.partyHostCommand('pause')">Pause</button>
                         <button type="button" id="party-sync-clock" class="party-clock" title="Click to set the time shown on the player" onclick="Alexandria.partyEditSyncClock()">0:00</button>
                     </div>
                     <div id="party-guest-controls" class="party-transport" style="display: ${this.isHost ? 'none' : 'flex'};">
@@ -1854,16 +1847,13 @@ const Alexandria = {
                 </div>
 
                 <aside class="party-rail">
-                    <div class="party-rail-head">
-                        <span>Comms</span>
-                        <span class="party-rail-live">Live</span>
-                    </div>
+                    <div class="party-rail-head">Chat</div>
                     <div class="party-chat-messages" id="party-chat-messages">
-                        <div class="party-chat-msg system">Gate open. Keep it quiet on the line.</div>
+                        <div class="party-chat-msg system">You’re in.</div>
                     </div>
                     <div class="party-chat-compose">
-                        <input type="text" id="party-chat-input" placeholder="Transmit…" maxlength="280" onkeypress="if(event.key === 'Enter') Alexandria.sendPartyChatMessage()">
-                        <button type="button" class="party-send" onclick="Alexandria.sendPartyChatMessage()">Send</button>
+                        <input type="text" id="party-chat-input" placeholder="Message…" maxlength="280" onkeypress="if(event.key === 'Enter') Alexandria.sendPartyChatMessage()">
+                        <button type="button" class="btn-primary" onclick="Alexandria.sendPartyChatMessage()">Send</button>
                     </div>
                 </aside>
             </section>`;
@@ -2051,21 +2041,20 @@ const Alexandria = {
         if (badge) {
             badge.className = 'party-role';
             if (this.isHost) {
-                badge.textContent = 'Command';
-                badge.classList.add('is-command');
+                badge.textContent = 'Host';
+                badge.classList.add('is-host');
             } else if (this._partyGuestUnlocked) {
-                badge.textContent = 'Locked on';
-                badge.classList.add('is-locked');
+                badge.textContent = 'Synced';
+                badge.classList.add('is-synced');
             } else {
-                badge.textContent = 'On the wall';
-                badge.classList.add('is-wall');
+                badge.textContent = 'Guest';
             }
         }
         if (veil) {
             veil.style.display = this.isHost ? 'none' : 'block';
             veil.innerHTML = this._partyGuestUnlocked
-                ? 'Following command'
-                : 'Hit <strong>Play Now</strong> in the player, then Sync';
+                ? 'Following host'
+                : 'Hit <strong>Play Now</strong>, then Sync';
         }
         if (seasonSel) seasonSel.disabled = !this.isHost;
         if (hostControls) hostControls.style.display = this.isHost ? 'flex' : 'none';
@@ -2505,7 +2494,7 @@ const Alexandria = {
                 const users = Object.keys(state);
                 const countEl = document.getElementById('party-users-count');
                 if (countEl) {
-                    countEl.textContent = `${users.length} on the wall`;
+                    countEl.textContent = `${users.length} here`;
                 }
 
                 if (users.length === 0) return;
@@ -2544,9 +2533,9 @@ const Alexandria = {
 
                 if (this.isHost && !this.notifiedHost) {
                     this.notifiedHost = true;
-                    this.appendChatMessage('System', 'You’re on command — Play / Hold under the screen.');
+                    this.appendChatMessage('System', 'You’re the host — Play / Pause under the video.');
                 } else if (!this.isHost && wasHost) {
-                    this.appendChatMessage('System', 'Command dropped — new lead on the wall.');
+                    this.appendChatMessage('System', 'Host left — new host elected.');
                 } else if (!this.isHost && !this._partyGuestHinted) {
                     this._partyGuestHinted = true;
                     this.appendChatMessage('System', 'Hit Play Now, then Sync.');
