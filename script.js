@@ -1797,54 +1797,59 @@ const Alexandria = {
         const isCreator = sessionStorage.getItem('alexandria_party_creator_' + roomId) === '1';
         this.isHost = isCreator || this.isHost;
 
-        const roleLabel = this.isHost
-            ? 'HOST · you control playback'
-            : 'FOLLOWING HOST · click Play Now on the video to unlock';
+        const roleLabel = this.isHost ? 'Host' : 'Following';
+        const roleClass = this.isHost ? 'party-pill is-host' : 'party-pill';
 
         this.main.innerHTML = `
-            <section class="party-layout" style="display: flex; gap: 20px; height: calc(100vh - 80px);">
-                <div class="player-main" style="flex: 1; display: flex; flex-direction: column; min-width: 0;">
-                    <div class="party-header" style="display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 10px; background: rgba(0,0,0,0.5); border-radius: 8px; margin-bottom: 15px; flex-wrap: wrap;">
-                        <h2 style="margin: 0; font-family: var(--font-headline); color: var(--primary-accent);">WATCH PARTY: ${this.escapeHtml(roomId)}</h2>
-                        <span id="party-role-badge" style="color: ${this.isHost ? 'var(--primary-accent)' : '#aaa'}; font-size: 0.85em; letter-spacing: 0.04em;">${roleLabel}</span>
-                        <span id="party-users-count" style="color: #aaa; font-size: 0.9em;">1 user connected</span>
-                        <button class="btn-secondary" onclick="Alexandria.copyPartyLink()">Copy Invite Link</button>
-                    </div>
-                    <div class="player-frame-container" style="flex: 1; position: relative; min-height: 280px;">
-                        <iframe id="embedmaster_iframe" title="Watch Party" src="${embedUrl}" width="100%" height="100%" style="position: absolute; top:0; left:0;" frameborder="0" scrolling="no" referrerpolicy="no-referrer" allow="autoplay *; fullscreen *; picture-in-picture *; encrypted-media *" allowfullscreen></iframe>
-                        <div id="party-spectate-veil" style="display: ${this.isHost ? 'none' : 'flex'}; position: absolute; left: 12px; bottom: 12px; z-index: 2; pointer-events: none; background: rgba(0,0,0,0.72); border: 1px solid rgba(255,255,255,0.12); border-radius: 8px; padding: 8px 12px; font-size: 0.8em; color: #ccc; max-width: calc(100% - 24px);">
-                            Click <strong style="color:#fff;">Play Now</strong> on the video to unlock — then you follow the host’s pause / seek / episodes
+            <section class="party-layout">
+                <div class="party-stage">
+                    <header class="party-topbar">
+                        <h2 class="party-title">Party <span>${this.escapeHtml(roomId)}</span></h2>
+                        <div class="party-meta">
+                            <span id="party-role-badge" class="${roleClass}">${roleLabel}</span>
+                            <span id="party-users-count" class="party-users">1 watching</span>
+                        </div>
+                        <button type="button" class="btn-secondary party-invite" onclick="Alexandria.copyPartyLink()">Invite</button>
+                    </header>
+
+                    <div class="party-screen">
+                        <iframe id="embedmaster_iframe" title="Watch Party" src="${embedUrl}" allow="autoplay *; fullscreen *; picture-in-picture *; encrypted-media *" allowfullscreen referrerpolicy="no-referrer"></iframe>
+                        <div id="party-spectate-veil" class="party-hint" style="display: ${this.isHost ? 'none' : 'block'};">
+                            Click <strong>Play Now</strong> in the player, then Sync
                         </div>
                     </div>
-                    <div id="party-host-controls" style="display: ${this.isHost ? 'flex' : 'none'}; gap: 8px; margin-top: 10px; flex-wrap: wrap; align-items: center;">
-                        <button type="button" class="btn-primary" onclick="Alexandria.partyHostCommand('play')">Play for everyone</button>
-                        <button type="button" class="btn-secondary" onclick="Alexandria.partyHostCommand('pause')">Pause for everyone</button>
-                        <span style="color:#f6c; font-size:0.85em;">Host: use these buttons — in-player pause often won’t sync by itself</span>
+
+                    <div id="party-host-controls" class="party-transport" style="display: ${this.isHost ? 'flex' : 'none'};">
+                        <button type="button" class="party-ctrl party-ctrl--accent" onclick="Alexandria.partyHostCommand('play')">Play</button>
+                        <button type="button" class="party-ctrl" onclick="Alexandria.partyHostCommand('pause')">Pause</button>
                     </div>
-                    <div id="party-guest-controls" style="display: ${this.isHost ? 'none' : 'flex'}; gap: 8px; margin-top: 10px; flex-wrap: wrap; align-items: center;">
-                        <button type="button" class="btn-primary" onclick="Alexandria.partyGuestSync()">Sync with host</button>
-                        <span style="color:#888; font-size:0.8em;">Click Play Now in the player, then Sync with host</span>
+                    <div id="party-guest-controls" class="party-transport" style="display: ${this.isHost ? 'none' : 'flex'};">
+                        <button type="button" class="party-ctrl party-ctrl--accent" onclick="Alexandria.partyGuestSync()">Sync</button>
                     </div>
+
                     ${type === 'tv' ? `
-                    <div class="party-episode-bar" style="margin-top: 12px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
-                        <label style="color:#aaa; font-size:0.85em;">Season
-                            <select id="party-season-selector" ${this.isHost ? '' : 'disabled'} onchange="Alexandria.partyChangeSeason(this.value)" style="margin-left:6px; background:#111; color:#fff; border:1px solid rgba(255,255,255,0.15); border-radius:6px; padding:6px 8px;"></select>
-                        </label>
-                        <span id="party-ep-label" style="color:#888; font-size:0.85em;">S${season} · E${episode}</span>
+                    <div class="party-episodes-wrap">
+                        <div class="party-episode-bar">
+                            <label>Season
+                                <select id="party-season-selector" ${this.isHost ? '' : 'disabled'} onchange="Alexandria.partyChangeSeason(this.value)"></select>
+                            </label>
+                            <span id="party-ep-label" class="party-ep-now">S${season} · E${episode}</span>
+                        </div>
+                        <div id="party-episodes" class="party-episodes"></div>
                     </div>
-                    <div id="party-episodes" class="sidebar-episodes" style="margin-top: 8px; max-height: 140px; overflow-y: auto; display: flex; flex-direction: column; gap: 4px;"></div>
                     ` : ''}
                 </div>
-                <div class="party-chat-sidebar" style="width: 300px; display: flex; flex-direction: column; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; overflow: hidden; flex-shrink: 0;">
-                    <div class="chat-header" style="padding: 15px; background: rgba(0,0,0,0.5); font-family: var(--font-headline); text-align: center; border-bottom: 1px solid rgba(255,255,255,0.1);">PARTY CHAT</div>
-                    <div class="chat-messages" id="party-chat-messages" style="flex: 1; overflow-y: auto; padding: 15px; display: flex; flex-direction: column; gap: 10px; font-size: 0.9em;">
-                        <div class="chat-msg system" style="color: #aaa; font-style: italic; text-align: center;">Welcome to Watch Party!</div>
+
+                <aside class="party-rail">
+                    <div class="party-rail-head">Chat</div>
+                    <div class="party-chat-messages" id="party-chat-messages">
+                        <div class="party-chat-msg system">Welcome in.</div>
                     </div>
-                    <div class="chat-input-area" style="display: flex; padding: 10px; background: rgba(0,0,0,0.5); border-top: 1px solid rgba(255,255,255,0.1);">
-                        <input type="text" id="party-chat-input" placeholder="Type a message..." style="flex: 1; background: rgba(255,255,255,0.1); border: none; color: white; padding: 8px 12px; border-radius: 6px; outline: none; margin-right: 10px;" onkeypress="if(event.key === 'Enter') Alexandria.sendPartyChatMessage()">
-                        <button class="btn-primary" onclick="Alexandria.sendPartyChatMessage()" style="padding: 8px 15px;">Send</button>
+                    <div class="party-chat-compose">
+                        <input type="text" id="party-chat-input" placeholder="Say something…" maxlength="280" onkeypress="if(event.key === 'Enter') Alexandria.sendPartyChatMessage()">
+                        <button type="button" class="btn-primary" onclick="Alexandria.sendPartyChatMessage()">Send</button>
                     </div>
-                </div>
+                </aside>
             </section>`;
 
         if (!sessionStorage.getItem('alexandria_nickname')) {
@@ -1903,10 +1908,9 @@ const Alexandria = {
             const canPick = this.isHost;
             container.innerHTML = this._currentSeasonEpisodes.map(ep => `
                 <div class="episode-item ${activeEpisode == ep.episode_number ? 'active' : ''}" role="button" tabindex="0"
-                     style="opacity: ${canPick ? '1' : '0.75'}; cursor: ${canPick ? 'pointer' : 'default'};"
-                     ${canPick ? `onclick="Alexandria.partySelectEpisode(${ep.episode_number})"` : ''}>
+                     ${canPick ? `onclick="Alexandria.partySelectEpisode(${ep.episode_number})"` : 'style="cursor:default;opacity:0.7"'}>
                     <span class="ep-num">EP ${ep.episode_number}</span>
-                    <span class="ep-name">${this.escapeHtml(ep.name || 'Untitled episode')}</span>
+                    <span class="ep-name">${this.escapeHtml(ep.name || 'Untitled')}</span>
                 </div>`).join('');
         } catch (e) {
             const container = document.getElementById('party-episodes');
@@ -2029,22 +2033,22 @@ const Alexandria = {
         const guestControls = document.getElementById('party-guest-controls');
 
         if (badge) {
+            badge.className = 'party-pill';
             if (this.isHost) {
-                badge.textContent = 'HOST · you control playback';
-                badge.style.color = 'var(--primary-accent)';
+                badge.textContent = 'Host';
+                badge.classList.add('is-host');
             } else if (this._partyGuestUnlocked) {
-                badge.textContent = 'FOLLOWING HOST · synced';
-                badge.style.color = '#8f8';
+                badge.textContent = 'Synced';
+                badge.classList.add('is-synced');
             } else {
-                badge.textContent = 'FOLLOWING HOST · click Play Now on the video to unlock';
-                badge.style.color = '#aaa';
+                badge.textContent = 'Following';
             }
         }
         if (veil) {
-            veil.style.display = this.isHost ? 'none' : 'flex';
+            veil.style.display = this.isHost ? 'none' : 'block';
             veil.innerHTML = this._partyGuestUnlocked
-                ? 'Following host — pause / seek / episodes are controlled by the host'
-                : 'Click <strong style="color:#fff;">Play Now</strong> on the video to unlock — then you follow the host’s pause / seek / episodes';
+                ? 'Following the host'
+                : 'Click <strong>Play Now</strong> in the player, then Sync';
         }
         if (seasonSel) seasonSel.disabled = !this.isHost;
         if (hostControls) hostControls.style.display = this.isHost ? 'flex' : 'none';
@@ -2062,12 +2066,12 @@ const Alexandria = {
             if (time > 0) this.postToEmbed(frame, 'seek', time);
             this.postToEmbed(frame, 'play');
             this.sendPlayerSync('play', time);
-            this.appendChatMessage('System', 'Host pressed Play for everyone');
+            this.showToast('Play sent to room');
         } else if (action === 'pause') {
             if (time > 0) this.postToEmbed(frame, 'seek', time);
             this.postToEmbed(frame, 'pause');
             this.sendPlayerSync('pause', time);
-            this.appendChatMessage('System', 'Host pressed Pause for everyone');
+            this.showToast('Pause sent to room');
         }
     },
 
@@ -2101,38 +2105,36 @@ const Alexandria = {
     postToEmbed(frame, command, value) {
         if (!frame?.contentWindow) return;
         const win = frame.contentWindow;
-        // Primary: EmbedMaster documented command shape.
+
+        // EmbedMaster documented shape
         const em = { source: 'embedmaster_player_command', command };
         if (value !== undefined) em.value = value;
         win.postMessage(em, '*');
-        // Fallbacks some PlayerJS builds listen for.
-        const alt = { method: command };
-        if (value !== undefined) alt.value = value;
-        win.postMessage(alt, '*');
-        try {
-            win.postMessage(JSON.stringify({ event: 'command', method: command, value }), '*');
-        } catch { /* ignore */ }
+
+        // PlayerJS iframe API: {"api":"play"} / {"api":"seek","set":60}
+        // https://playerjs.com/docs/en=apicommands
+        const pjs = { api: command };
+        if (value !== undefined) pjs.set = value;
+        win.postMessage(pjs, '*');
     },
 
     applyRemotePlayerAction(action, time) {
         const frame = document.getElementById('embedmaster_iframe');
         if (!frame?.contentWindow) return;
 
-        // Always attempt — Play Now may no-op until clicked, but locking forever broke sync.
         this._partyGuestUnlocked = true;
         this._pendingPartySync = { action, time: typeof time === 'number' ? time : 0 };
 
         this._applyingRemoteSync = true;
         const t = typeof time === 'number' ? time : 0;
-
         const finish = () => { this._applyingRemoteSync = false; };
 
         if (action === 'play') {
             if (t > 0) this.postToEmbed(frame, 'seek', t);
-            setTimeout(() => { this.postToEmbed(frame, 'play'); finish(); }, 80);
+            setTimeout(() => { this.postToEmbed(frame, 'play'); finish(); }, 100);
         } else if (action === 'pause') {
             if (t > 0) this.postToEmbed(frame, 'seek', t);
-            setTimeout(() => { this.postToEmbed(frame, 'pause'); finish(); }, 80);
+            setTimeout(() => { this.postToEmbed(frame, 'pause'); finish(); }, 100);
         } else if (action === 'seek' && t > 0) {
             this.postToEmbed(frame, 'seek', t);
             finish();
@@ -2141,7 +2143,7 @@ const Alexandria = {
             setTimeout(() => {
                 this.postToEmbed(frame, this._partyRemotePaused ? 'pause' : 'play');
                 finish();
-            }, 80);
+            }, 100);
         } else {
             finish();
         }
@@ -2154,10 +2156,17 @@ const Alexandria = {
         }
         if (!data || typeof data !== 'object') return null;
 
-        let eventName = data.event || data.method || null;
-        if (!eventName && data.source === 'embedmaster_player') return null;
-        // Accept EmbedMaster envelope, or loose PlayerJS-like payloads.
-        const trustedSource = data.source === 'embedmaster_player' || data.source === 'embedmaster_player_command';
+        // PlayerJS request replies: { event: 'time', answer: 12.5 }
+        if (data.event && data.answer !== undefined && data.source !== 'embedmaster_player') {
+            const ev = String(data.event).toLowerCase();
+            const answer = data.answer;
+            const time = typeof answer === 'number' ? answer
+                : (typeof answer?.time === 'number' ? answer.time : undefined);
+            return { event: ev, time };
+        }
+
+        let eventName = data.event || null;
+        const trustedSource = data.source === 'embedmaster_player';
         if (!trustedSource && !eventName) return null;
         if (!eventName) return null;
 
@@ -2175,6 +2184,7 @@ const Alexandria = {
         else if (typeof data.data === 'number') time = data.data;
         else if (typeof data.data?.time === 'number') time = data.data.time;
         else if (typeof data.value === 'number') time = data.value;
+        else if (typeof data.answer === 'number') time = data.answer;
 
         return { event: eventName, time };
     },
@@ -2228,7 +2238,7 @@ const Alexandria = {
                 const users = Object.keys(state);
                 const countEl = document.getElementById('party-users-count');
                 if (countEl) {
-                    countEl.textContent = `${users.length} user${users.length === 1 ? '' : 's'} connected`;
+                    countEl.textContent = `${users.length} watching`;
                 }
 
                 if (users.length === 0) return;
@@ -2267,12 +2277,12 @@ const Alexandria = {
 
                 if (this.isHost && !this.notifiedHost) {
                     this.notifiedHost = true;
-                    this.appendChatMessage('System', 'You are the Host. Use “Play/Pause for everyone” so friends stay in sync.');
+                    this.appendChatMessage('System', 'You’re host — use Play / Pause under the video.');
                 } else if (!this.isHost && wasHost) {
-                    this.appendChatMessage('System', 'Host left — a new host was elected.');
+                    this.appendChatMessage('System', 'Host left — new host elected.');
                 } else if (!this.isHost && !this._partyGuestHinted) {
                     this._partyGuestHinted = true;
-                    this.appendChatMessage('System', 'Click Play Now on the video, then hit Sync with host.');
+                    this.appendChatMessage('System', 'Hit Play Now, then Sync.');
                 }
 
                 if (this.isHost) {
@@ -2330,6 +2340,14 @@ const Alexandria = {
             window.addEventListener('message', this._embedListener);
         }
 
+        // Host: poll PlayerJS current time so seek sync has a real clock.
+        if (this._partySyncTimer) clearInterval(this._partySyncTimer);
+        this._partySyncTimer = setInterval(() => {
+            if (!this.isHost || this.state.view !== 'party') return;
+            const frame = document.getElementById('embedmaster_iframe');
+            this.postToEmbed(frame, 'time');
+        }, 2500);
+
         this.updatePartyRoleUI();
     },
 
@@ -2339,10 +2357,11 @@ const Alexandria = {
         const parsed = this.parseEmbedPlayerEvent(event.data);
         if (!parsed) return;
 
-        // Prefer trusted origins, but don't drop valid EmbedMaster envelopes from odd origins.
+        // Prefer trusted origins, but keep PlayerJS {event, answer} replies and EmbedMaster envelopes.
         const originOk = this.isTrustedEmbedOrigin(event.origin);
         const looksLikeEmbedMaster = event.data?.source === 'embedmaster_player';
-        if (!originOk && !looksLikeEmbedMaster) return;
+        const looksLikePlayerJsReply = event.data?.answer !== undefined;
+        if (!originOk && !looksLikeEmbedMaster && !looksLikePlayerJsReply) return;
 
         const { event: ev, time } = parsed;
 
@@ -2400,8 +2419,13 @@ const Alexandria = {
         const container = document.getElementById('party-chat-messages');
         if (!container) return;
         const div = document.createElement('div');
-        div.style.cssText = 'background: rgba(255,255,255,0.05); padding: 8px 12px; border-radius: 8px; line-height: 1.4;';
-        div.innerHTML = `<strong style="color: var(--primary-accent);">${this.escapeHtml(sender)}:</strong> ${this.escapeHtml(msg)}`;
+        if (sender === 'System') {
+            div.className = 'party-chat-msg system';
+            div.textContent = msg;
+        } else {
+            div.className = 'party-chat-msg';
+            div.innerHTML = `<strong>${this.escapeHtml(sender)}</strong> ${this.escapeHtml(msg)}`;
+        }
         container.appendChild(div);
         container.scrollTop = container.scrollHeight;
     },
