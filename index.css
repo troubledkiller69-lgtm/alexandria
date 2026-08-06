@@ -68,8 +68,17 @@ body.sidebar-open { overflow: hidden; }
 .skip-link:focus { transform: translateY(0); }
 
 :where(a, button, input, select, [tabindex]):focus-visible {
-    outline: 3px solid #f3c74f;
-    outline-offset: 3px;
+    outline: 2px solid rgba(255, 255, 255, 0.35);
+    outline-offset: 2px;
+}
+
+/* Native selects: keep option lists readable (Windows paints light popups otherwise) */
+select {
+    color-scheme: dark;
+}
+select option {
+    background-color: #0a0a0c;
+    color: #f8fafc;
 }
 
 /* Scrollbar - Minimal */
@@ -524,7 +533,7 @@ h1, h2, h3, h4 {
 
 .movie-card:focus-visible {
     transform: translateY(-5px);
-    box-shadow: 0 0 0 3px #f3c74f, 0 20px 40px rgba(138, 3, 3, 0.35);
+    box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.4), 0 20px 40px rgba(138, 3, 3, 0.35);
 }
 
 .movie-card::after {
@@ -764,15 +773,23 @@ h1, h2, h3, h4 {
     font-weight: 500;
     cursor: pointer;
     transition: background 0.2s;
+    outline: none;
+    color-scheme: dark;
 }
 
 .server-select-dropdown:hover {
     background: rgba(255, 255, 255, 0.1);
 }
 
+.server-select-dropdown:focus,
+.server-select-dropdown:focus-visible {
+    outline: none;
+    border-color: rgba(255, 255, 255, 0.28);
+}
+
 .server-select-dropdown option {
-    background: var(--bg-base);
-    color: var(--text-primary);
+    background-color: #0a0a0c;
+    color: #f8fafc;
 }
 
 .server-next-btn {
@@ -888,16 +905,72 @@ h1, h2, h3, h4 {
     margin-bottom: 1rem;
 }
 
+.season-picker {
+    position: relative;
+    width: 100%;
+}
+
 .season-select {
     width: 100%;
-    background: rgba(255,255,255,0.05);
+    background-color: rgba(255,255,255,0.05);
     color: var(--text-primary);
     border: 1px solid rgba(255,255,255,0.1);
-    padding: 0.8rem 1rem;
+    padding: 0.8rem 2.5rem 0.8rem 1rem;
     border-radius: 6px;
     font-family: var(--font-body);
     font-size: 0.9rem;
     cursor: pointer;
+    outline: none;
+    text-align: left;
+    appearance: none;
+    -webkit-appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath fill='%94a3b8' d='M1.4.6 6 5.2 10.6.6 12 2 6 8 0 2z'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 1rem center;
+}
+
+.season-select:focus,
+.season-select:focus-visible,
+.season-select[aria-expanded="true"] {
+    outline: none;
+    border-color: rgba(255, 255, 255, 0.28);
+    box-shadow: none;
+}
+
+.season-menu {
+    position: absolute;
+    z-index: 40;
+    top: calc(100% + 4px);
+    left: 0;
+    right: 0;
+    margin: 0;
+    padding: 0.35rem;
+    list-style: none;
+    background: #0a0a0c;
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    border-radius: 8px;
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.55);
+    max-height: min(50vh, 280px);
+    overflow-y: auto;
+}
+
+.season-menu-item {
+    padding: 0.7rem 0.85rem;
+    border-radius: 6px;
+    color: #f8fafc;
+    font-size: 0.9rem;
+    cursor: pointer;
+}
+
+.season-menu-item:hover,
+.season-menu-item:focus-visible {
+    background: rgba(255, 255, 255, 0.08);
+    outline: none;
+}
+
+.season-menu-item.is-active {
+    background: rgba(138, 3, 3, 0.35);
+    color: #fff;
 }
 
 .episode-list {
@@ -984,6 +1057,11 @@ h1, h2, h3, h4 {
     background: rgba(255,255,255,0.08);
     border-color: rgba(255,255,255,0.25);
     box-shadow: 0 0 20px rgba(255,255,255,0.05);
+}
+
+.search-input-container input:focus,
+.search-input-container input:focus-visible {
+    outline: none;
 }
 
 .search-icon {
@@ -1133,7 +1211,7 @@ h1, h2, h3, h4 {
     height: 1px;
     opacity: 0;
 }
-.avatar-option input:focus-visible + .avatar-icon { outline: 3px solid #f3c74f; outline-offset: 3px; }
+.avatar-option input:focus-visible + .avatar-icon { outline: 2px solid rgba(255, 255, 255, 0.4); outline-offset: 2px; }
 
 .avatar-icon {
     display: flex;
@@ -1527,11 +1605,21 @@ h1, h2, h3, h4 {
     .player-layout { flex-direction: column; height: auto; min-height: calc(100dvh - 62px); }
     .player-main { flex: none; border-radius: 0; }
     .player-frame-container { flex: none; aspect-ratio: 16 / 9; }
-    .episode-sidebar { width: 100%; min-height: 420px; border-left: 0; border-top: var(--glass-border); }
+    .episode-sidebar {
+        width: 100%;
+        max-height: min(52vh, 480px);
+        min-height: 280px;
+        border-left: 0;
+        border-top: var(--glass-border);
+    }
+    .discover-panel { flex-direction: column; align-items: stretch; gap: 1rem; }
+    .filter-group { width: 100%; }
+    .filter-group select, .filter-group input { width: 100%; }
 }
 
 @media (max-width: 620px) {
     .brand-logo { height: 23px; max-width: 180px; }
+    .top-nav-actions { gap: 0.5rem; }
     .cyber-sidebar { width: min(86vw, 320px); height: 100dvh; }
     .hero-featured { min-height: 610px; padding: 2rem 1.25rem 9.5rem; background-position: 58% center; }
     .featured-content p { font-size: 0.98rem; margin-bottom: 1.5rem; -webkit-line-clamp: 4; }
@@ -1539,9 +1627,16 @@ h1, h2, h3, h4 {
     .view-section, .modern-search .results-grid { padding-left: 1.25rem; padding-right: 1.25rem; }
     .view-section { padding-top: 1.5rem; }
     .search-header-sticky, .view-header { top: 59px; padding: 1.25rem; }
-    .search-input-container { padding: 0 1rem; }
+    .search-input-container { padding: 0 1rem; width: 100%; max-width: none; }
     .search-input-container input { min-width: 0; padding: 1rem 0; font-size: 1rem; }
-    .search-filters { gap: 0.5rem; overflow-x: auto; }
+    .search-filters {
+        gap: 0.5rem;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        scrollbar-width: none;
+        padding-bottom: 0.15rem;
+    }
+    .search-filters::-webkit-scrollbar { display: none; }
     .filter-btn { flex: 0 0 auto; }
     .results-grid, .person-credits-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1.25rem 0.75rem; }
     .results-grid .movie-card, .person-credits-grid .movie-card { min-width: 0; width: 100%; }
@@ -1567,8 +1662,13 @@ h1, h2, h3, h4 {
     .player-layout { min-height: calc(100dvh - 59px); }
     .server-controls { align-items: stretch; flex-direction: column; gap: 0.5rem; }
     .server-status { margin-left: 0; }
+    .server-select-dropdown { width: 100%; }
+    .sidebar-top { padding: 1.25rem 1rem 0.75rem; }
+    .episode-list { padding: 0.75rem 1rem 1.25rem; }
+    .episode-sidebar { max-height: min(48vh, 420px); min-height: 240px; }
     .error-state { align-items: center; text-align: center; }
     .error-actions { justify-content: center; }
+    .year-range { flex-wrap: wrap; }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -1607,9 +1707,16 @@ h1, h2, h3, h4 {
     font-family: var(--font-body);
     outline: none;
     transition: all 0.2s ease;
+    color-scheme: dark;
 }
-.filter-group select:focus, .filter-group input:focus {
-    border-color: var(--accent-primary);
+.filter-group select:focus, .filter-group input:focus,
+.filter-group select:focus-visible, .filter-group input:focus-visible {
+    outline: none;
+    border-color: rgba(255, 255, 255, 0.28);
+}
+.filter-group select option {
+    background-color: #0a0a0c;
+    color: #f8fafc;
 }
 .year-range {
     display: flex;
@@ -1859,6 +1966,19 @@ h1, h2, h3, h4 {
     border-radius: 6px;
     padding: 0.4rem 0.65rem;
     font-size: 0.85rem;
+    outline: none;
+    color-scheme: dark;
+}
+
+.party-episode-bar select:focus,
+.party-episode-bar select:focus-visible {
+    outline: none;
+    border-color: rgba(255, 255, 255, 0.28);
+}
+
+.party-episode-bar select option {
+    background-color: #0a0a0c;
+    color: #f8fafc;
 }
 
 .party-episode-bar select:disabled {
@@ -1976,6 +2096,8 @@ h1, h2, h3, h4 {
         grid-template-columns: 1fr;
         height: auto;
         min-height: calc(100vh - 88px);
+        padding: 0 1rem 1rem;
+        gap: 1rem;
     }
 
     .party-screen {
@@ -1987,6 +2109,35 @@ h1, h2, h3, h4 {
     .party-rail {
         min-height: 280px;
         max-height: 360px;
+    }
+}
+
+@media (max-width: 620px) {
+    .party-layout {
+        padding: 0 0.75rem 0.75rem;
+        min-height: calc(100dvh - 72px);
+    }
+
+    .party-topbar {
+        gap: 0.5rem 0.75rem;
+    }
+
+    .party-title {
+        font-size: 1.1rem;
+        width: 100%;
+    }
+
+    .party-invite {
+        margin-left: auto;
+    }
+
+    .party-episode-bar {
+        flex-wrap: wrap;
+    }
+
+    .party-rail {
+        min-height: 240px;
+        max-height: 50vh;
     }
 }
 

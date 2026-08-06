@@ -1468,8 +1468,10 @@ const Alexandria = {
                     <div class="episode-sidebar">
                         <div class="sidebar-top">
                             <h3 id="sidebar-title">DATA LINK</h3>
-                            <label class="sr-only" for="season-selector">Season</label>
-                            <select id="season-selector" class="season-select" onchange="Alexandria.handleSeasonChange(this.value)"></select>
+                            <div class="season-picker" id="season-picker">
+                                <button type="button" id="season-selector-btn" class="season-select" aria-haspopup="listbox" aria-expanded="false" aria-controls="season-menu" onclick="Alexandria.toggleSeasonMenu(event)">SEASON 1</button>
+                                <ul id="season-menu" class="season-menu" role="listbox" hidden></ul>
+                            </div>
                         </div>
                         <div class="episode-list" id="sidebar-episodes">
                             <div class="placeholder-msg">DECRYPTING EPISODES...</div>
@@ -1735,14 +1737,45 @@ const Alexandria = {
     },
 
     populateSeasonSelector(data, activeSeason) {
-        const selector = document.getElementById('season-selector');
-        if (!selector || !data?.seasons) return;
-        selector.innerHTML = data.seasons
-            .filter(s => s.season_number > 0)
-            .map(s => `<option value="${s.season_number}" ${s.season_number == activeSeason ? 'selected' : ''}>SEASON ${s.season_number}</option>`)
-            .join('');
+        const btn = document.getElementById('season-selector-btn');
+        const menu = document.getElementById('season-menu');
+        if (!btn || !menu || !data?.seasons) return;
+
+        const seasons = data.seasons.filter(s => s.season_number > 0);
+        const active = Number(activeSeason) || seasons[0]?.season_number || 1;
+        btn.textContent = `SEASON ${active}`;
+        btn.setAttribute('aria-expanded', 'false');
+        menu.hidden = true;
+        menu.innerHTML = seasons.map(s => `
+            <li role="option" class="season-menu-item${s.season_number == active ? ' is-active' : ''}"
+                data-season="${s.season_number}"
+                aria-selected="${s.season_number == active ? 'true' : 'false'}"
+                tabindex="-1"
+                onclick="Alexandria.handleSeasonChange(${s.season_number})">
+                SEASON ${s.season_number}
+            </li>`).join('');
+
         const title = document.getElementById('sidebar-title');
         if (title && data.name) title.textContent = data.name.toUpperCase();
+    },
+
+    toggleSeasonMenu(event) {
+        event?.stopPropagation?.();
+        const btn = document.getElementById('season-selector-btn');
+        const menu = document.getElementById('season-menu');
+        if (!btn || !menu) return;
+        const open = menu.hidden;
+        menu.hidden = !open;
+        btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+        if (open) {
+            const close = (e) => {
+                if (e.target.closest?.('#season-picker')) return;
+                menu.hidden = true;
+                btn.setAttribute('aria-expanded', 'false');
+                document.removeEventListener('click', close);
+            };
+            setTimeout(() => document.addEventListener('click', close), 0);
+        }
     },
 
     async initSeasonSelector(id, activeSeason) {
@@ -1759,6 +1792,10 @@ const Alexandria = {
     handleSeasonChange(newSeason) {
         const season = Number.parseInt(newSeason, 10);
         if (!Number.isInteger(season) || season < 1) return;
+        const menu = document.getElementById('season-menu');
+        const btn = document.getElementById('season-selector-btn');
+        if (menu) menu.hidden = true;
+        if (btn) btn.setAttribute('aria-expanded', 'false');
         window.location.hash = `#tv/${this.state.activeContent.id}/s/${season}/e/1`;
     },
 
