@@ -2033,8 +2033,9 @@ const Alexandria = {
         const badge = document.getElementById('party-role-badge');
         const veil = document.getElementById('party-spectate-veil');
         const seasonSel = document.getElementById('party-season-selector');
-        const hostControls = document.getElementById('party-host-controls');
-        const guestControls = document.getElementById('party-guest-controls');
+        const hostClock = document.getElementById('party-sync-clock');
+        const guestSync = document.getElementById('party-guest-sync');
+        const guestClock = document.getElementById('party-sync-clock-guest');
 
         if (badge) {
             badge.className = 'party-role';
@@ -2052,11 +2053,12 @@ const Alexandria = {
             veil.style.display = this.isHost ? 'none' : 'block';
             veil.innerHTML = this._partyGuestUnlocked
                 ? 'Following host'
-                : 'Hit <strong>Play Now</strong>, then Sync';
+                : 'Hit <strong>Play Now</strong> in the player, then Sync if needed';
         }
         if (seasonSel) seasonSel.disabled = !this.isHost;
-        if (hostControls) hostControls.style.display = this.isHost ? 'flex' : 'none';
-        if (guestControls) guestControls.style.display = this.isHost ? 'none' : 'flex';
+        if (hostClock) hostClock.style.display = this.isHost ? 'inline-flex' : 'none';
+        if (guestSync) guestSync.style.display = this.isHost ? 'none' : 'inline-flex';
+        if (guestClock) guestClock.style.display = this.isHost ? 'none' : 'inline-flex';
 
         const { id, type, season, episode } = this.state.activeContent;
         if (type === 'tv' && id) this.loadPartyEpisodes(id, season, episode);
