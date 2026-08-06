@@ -431,7 +431,12 @@ const Alexandria = {
                 overlay?.classList.toggle('active');
             }
             toggleBtn?.setAttribute('aria-expanded', String(willOpen));
-            if (sidebar) sidebar.inert = !willOpen;
+            if (sidebar) {
+                try { sidebar.inert = !willOpen; } catch { /* older browsers */ }
+                sidebar.classList.toggle('is-inert', !willOpen);
+                if (willOpen) sidebar.removeAttribute('inert');
+                else sidebar.setAttribute('inert', '');
+            }
             overlay?.setAttribute('aria-hidden', String(!willOpen));
             document.body.classList.toggle('sidebar-open', willOpen);
             if (willOpen) closeBtn?.focus();
@@ -2119,7 +2124,7 @@ const Alexandria = {
 
             if (action === 'play') {
                 this.postToEmbed(frame, 'play');
-                this._partyLastAction = 'play';
+                this.setPartyPaused(false);
                 this._partyLastTimeAt = Date.now();
                 this.sendPlayerSync('play', canSeekRoom ? safeTime : this.getHostPlaybackTime(), {
                     force: true,
@@ -2127,9 +2132,9 @@ const Alexandria = {
                 });
             } else if (action === 'pause') {
                 this.postToEmbed(frame, 'pause');
-                this._partyLastAction = 'pause';
+                this.setPartyPaused(true);
                 if (canSeekRoom) this.notePartyTime(safeTime);
-                this.sendPlayerSync('pause', canSeekRoom ? safeTime : 0, {
+                this.sendPlayerSync('pause', canSeekRoom ? safeTime : this.getHostPlaybackTime(), {
                     force: true,
                     noSeek: !canSeekRoom
                 });
@@ -2159,8 +2164,11 @@ const Alexandria = {
             return;
         }
         this.notePartyTime(seconds, { force: true });
-        this._partyLastAction = this._partyLastAction === 'pause' ? 'pause' : 'play';
         this.tickPartyClock();
+        if (this.isHost && this.partyChannel) {
+            const action = this.isPartyPaused() ? 'pause' : 'sync';
+            this.sendPlayerSync(action, seconds, { force: true });
+        }
         this.showToast(`Sync position set to ${this.formatTime(Math.floor(seconds))}`);
     },
 
@@ -2217,20 +2225,46 @@ const Alexandria = {
         if (!Number.isFinite(n) || n < 0) return false;
 
         // Critical: never let 0:00 poll replies wipe a real mid-movie clock.
-        // That was pinning guests at ~0:01.
         const known = Number(this._partyLastTime) || 0;
         if (n < 1 && known >= 1 && !opts.force) return false;
 
         this._partyLastTime = n;
-        this._partyLastTimeAt = Date.now();
+        // Only refresh the wall-clock anchor while actually playing.
+        // Updating it while paused made the timer keep climbing between polls.
+        if (!this.isPartyPaused()) this._partyLastTimeAt = Date.now();
         this.tickPartyClock();
         return true;
     },
 
+    isPartyPaused() {
+        if (this.isHost) {
+            return this._partyPaused === true || this._partyLastAction === 'pause';
+        }
+        return this._partyRemotePaused === true
+            || this._pendingPartySync?.action === 'pause'
+            || this._pendingPartySync?.paused === true;
+    },
+
+    setPartyPaused(paused, opts = {}) {
+        const next = !!paused;
+        this._partyPaused = next;
+        if (next) {
+            this._partyLastAction = 'pause';
+            this._partyPausedViaStall = !!opts.viaStall;
+            this._partyLastTimeAt = Date.now();
+        } else {
+            this._partyPausedViaStall = false;
+            if (this._partyLastAction === 'pause' || !this._partyLastAction) {
+                this._partyLastAction = 'play';
+            }
+            this._partyLastTimeAt = Date.now();
+        }
+    },
+
     getHostPlaybackTime() {
         let t = Number(this._partyLastTime) || 0;
-        // Keep estimating while host is playing (button or in-player).
-        if (this._partyLastAction !== 'pause' && this._partyLastTimeAt) {
+        // Frozen while paused — do not invent progress from wall time.
+        if (!this.isPartyPaused() && this._partyLastTimeAt) {
             t += (Date.now() - this._partyLastTimeAt) / 1000;
         }
         return Math.max(0, t);
@@ -2239,9 +2273,17 @@ const Alexandria = {
     tickPartyClock() {
         const hostEl = document.getElementById('party-sync-clock');
         const guestEl = document.getElementById('party-sync-clock-guest');
-        const t = this.isHost
-            ? this.getHostPlaybackTime()
-            : (this._pendingPartySync?.time || 0);
+        let t;
+        if (this.isHost) {
+            t = this.getHostPlaybackTime();
+        } else {
+            const pending = this._pendingPartySync;
+            t = Number(pending?.time) || 0;
+            // Guests: only estimate forward while host is playing.
+            if (pending && !this.isPartyPaused() && pending.at) {
+                t += (Date.now() - pending.at) / 1000;
+            }
+        }
         const label = this.formatTime(Math.floor(t || 0));
         if (hostEl) hostEl.textContent = label;
         if (guestEl) guestEl.textContent = label;
@@ -2272,12 +2314,36 @@ const Alexandria = {
     },
 
     ingestEmbedTimePayload(data) {
+        // PlayerJS paused replies: { answer: true/false } paired with recent paused request,
+        // or explicit paused fields in EmbedMaster payloads.
+        if (data && typeof data === 'object') {
+            const pausedHint = data.paused ?? data.isPaused ?? data.data?.paused;
+            if (typeof pausedHint === 'boolean' && this.isHost) {
+                this.setPartyPaused(pausedHint);
+            }
+            // PlayerJS often returns { api: 'paused', answer: true }
+            if ((data.api === 'paused' || data.api === 'getPaused') && typeof data.answer === 'boolean') {
+                if (this.isHost) this.setPartyPaused(data.answer);
+            }
+        }
+
         const times = this.harvestEmbedTimes(data);
         if (!times.length) return null;
         const best = Math.max(...times);
         if (best >= 1) {
+            const prev = Number(this._partyLastTime) || 0;
             this.notePartyTime(best);
-            if (this._partyLastAction !== 'pause') this._partyLastAction = 'play';
+
+            // Stall detection: same stamp repeatedly mid-watch ⇒ player is paused
+            // (some shows like Z Nation never fire a pause event).
+            if (prev >= 5 && Math.abs(best - prev) < 0.4) {
+                this._partyTimeStallCount = (this._partyTimeStallCount || 0) + 1;
+                if (this._partyTimeStallCount >= 2) this.setPartyPaused(true, { viaStall: true });
+            } else if (best > prev + 0.6) {
+                this._partyTimeStallCount = 0;
+                // Only auto-resume the clock if pause was inferred from a stall.
+                if (this._partyPausedViaStall) this.setPartyPaused(false);
+            }
             return best;
         }
         return null;
@@ -2289,9 +2355,17 @@ const Alexandria = {
         if (!frame?.contentWindow) return;
         const win = frame.contentWindow;
         win.postMessage({ api: 'time' }, '*');
-        // Some builds answer getTime / currentTime.
         win.postMessage({ api: 'getTime' }, '*');
         win.postMessage({ source: 'embedmaster_player_command', command: 'getTime' }, '*');
+    },
+
+    requestPlayerPaused(frame) {
+        if (!frame?.contentWindow) return;
+        const win = frame.contentWindow;
+        win.postMessage({ api: 'paused' }, '*');
+        win.postMessage({ api: 'getPaused' }, '*');
+        win.postMessage({ source: 'embedmaster_player_command', command: 'paused' }, '*');
+        win.postMessage({ source: 'embedmaster_player_command', command: 'getPaused' }, '*');
     },
 
     collectHostTime(ms = 900) {
@@ -2379,7 +2453,14 @@ const Alexandria = {
 
         this._partyGuestUnlocked = true;
         const t = this.normalizePlayerTime(time);
-        this._pendingPartySync = { action, time: t };
+        this._pendingPartySync = {
+            action,
+            time: t,
+            paused: action === 'pause',
+            at: Date.now()
+        };
+        if (action === 'pause') this._partyRemotePaused = true;
+        if (action === 'play') this._partyRemotePaused = false;
 
         const force = !!opts.force;
         const noSeek = !!opts.noSeek;
@@ -2462,9 +2543,9 @@ const Alexandria = {
         if (!eventName) return null;
 
         eventName = String(eventName).toLowerCase();
-        if (eventName === 'userplay') eventName = 'play';
-        if (eventName === 'userpause') eventName = 'pause';
-        if (eventName === 'userseek') eventName = 'seek';
+        if (eventName === 'userplay' || eventName === 'playing' || eventName === 'resume') eventName = 'play';
+        if (eventName === 'userpause' || eventName === 'paused' || eventName === 'stop') eventName = 'pause';
+        if (eventName === 'userseek' || eventName === 'seeked') eventName = 'seek';
         if (eventName === 'start') eventName = 'play';
 
         const info = data.info;
@@ -2501,6 +2582,7 @@ const Alexandria = {
 
         this._lastSentPartySync = { action, time: t, at: now };
         this._partyLastAction = action;
+        this.setPartyPaused(action === 'pause');
         // Store the real host time (without lead) for the local clock.
         const raw = this.normalizePlayerTime(typeof time === 'number' ? time : this.getHostPlaybackTime());
         if (raw >= 1) this.notePartyTime(raw);
@@ -2540,6 +2622,10 @@ const Alexandria = {
         this._partyLastAction = null;
         this._partyLastTime = 0;
         this._partyLastTimeAt = 0;
+        this._partyPaused = false;
+        this._partyPausedViaStall = false;
+        this._partyTimeStallCount = 0;
+        this._lastHostHeartbeat = 0;
         this._partyRemotePaused = false;
         this._partyGuestUnlocked = isCreator;
         this._pendingPartySync = null;
@@ -2619,7 +2705,12 @@ const Alexandria = {
                 if (typeof paused === 'boolean') this._partyRemotePaused = paused;
                 if (action === 'pause') this._partyRemotePaused = true;
                 if (action === 'play') this._partyRemotePaused = false;
-                this._pendingPartySync = { action, time: typeof time === 'number' ? time : 0 };
+                this._pendingPartySync = {
+                    action,
+                    time: typeof time === 'number' ? time : 0,
+                    paused: this._partyRemotePaused,
+                    at: Date.now()
+                };
                 this.tickPartyClock();
                 this.applyRemotePlayerAction(action, time, { force: !!force, noSeek: !!noSeek });
             })
@@ -2659,7 +2750,7 @@ const Alexandria = {
             window.addEventListener('message', this._embedListener);
         }
 
-        // Host: quietly poll PlayerJS time (api only) + tick the sync clock.
+        // Host: poll time + pause state, tick clock, heartbeat sync for stubborn embeds.
         if (this._partySyncTimer) clearInterval(this._partySyncTimer);
         this._partySyncTimer = setInterval(() => {
             if (this.state.view !== 'party') return;
@@ -2667,6 +2758,18 @@ const Alexandria = {
             if (!this.isHost) return;
             const frame = document.getElementById('embedmaster_iframe');
             this.requestPlayerTime(frame);
+            this.requestPlayerPaused(frame);
+
+            // Periodic soft sync so guests stay lined up even when play/pause
+            // events never fire (seen on some titles like Z Nation).
+            if (!this.isPartyPaused()) {
+                const now = Date.now();
+                const t = this.getHostPlaybackTime();
+                if (t >= 5 && (!this._lastHostHeartbeat || now - this._lastHostHeartbeat > 4000)) {
+                    this._lastHostHeartbeat = now;
+                    this.sendPlayerSync('sync', t, { force: false });
+                }
+            }
         }, 2000);
 
         this.updatePartyRoleUI();
@@ -2720,14 +2823,10 @@ const Alexandria = {
 
         if (typeof time === 'number' && time >= 1) {
             this.notePartyTime(time);
-            if (ev === 'time' || ev === 'timeupdate' || ev === 'play') {
-                if (this._partyLastAction !== 'pause') this._partyLastAction = 'play';
-            }
         }
 
         if (ev === 'play' || ev === 'pause') {
-            if (ev === 'pause') this._partyLastAction = 'pause';
-            if (ev === 'play') this._partyLastAction = 'play';
+            this.setPartyPaused(ev === 'pause');
 
             // Prefer the player's reported time; fall back to our running clock.
             const fromEvent = (typeof time === 'number' && time >= 5) ? this.normalizePlayerTime(time) : null;

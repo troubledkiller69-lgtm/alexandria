@@ -41,6 +41,13 @@ button, input, select { font: inherit; }
 button, a { -webkit-tap-highlight-color: transparent; }
 body.sidebar-open { overflow: hidden; }
 
+/* Firefox / older-browser inert fallback */
+.cyber-sidebar.is-inert,
+.cyber-sidebar[inert] {
+    pointer-events: none;
+    user-select: none;
+}
+
 .sr-only {
     position: absolute;
     width: 1px;
@@ -746,6 +753,7 @@ h1, h2, h3, h4 {
 /* Player Interface - Minimalist Cinema Mode */
 .player-layout {
     display: flex;
+    height: calc(100vh - 69px);
     height: calc(100dvh - 69px);
     background: #000;
 }
@@ -1638,7 +1646,7 @@ h1, h2, h3, h4 {
 
 @media (max-width: 900px) {
     .top-nav { padding: 0.8rem 1rem; }
-    .hero-featured { min-height: 650px; height: calc(100dvh - 62px); padding: 3rem 2rem; }
+    .hero-featured { min-height: 650px; height: calc(100vh - 62px); height: calc(100dvh - 62px); padding: 3rem 2rem; }
     .featured-content { max-width: 600px; }
     .featured-content h1, .featured-content h2 { font-size: clamp(2.75rem, 10vw, 4.5rem); }
     .resume-widget { right: 2rem; bottom: 2rem; }
@@ -1671,7 +1679,7 @@ h1, h2, h3, h4 {
 @media (max-width: 620px) {
     .brand-logo { height: 23px; max-width: 180px; }
     .top-nav-actions { gap: 0.5rem; }
-    .cyber-sidebar { width: min(86vw, 320px); height: 100dvh; }
+    .cyber-sidebar { width: min(86vw, 320px); height: 100vh; height: 100dvh; }
     .hero-featured { min-height: 610px; padding: 2rem 1.25rem 9.5rem; background-position: 58% center; }
     .featured-content p { font-size: 0.98rem; margin-bottom: 1.5rem; -webkit-line-clamp: 4; }
     .resume-widget { left: 1.25rem; right: 1.25rem; bottom: 1.5rem; width: auto; }
