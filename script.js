@@ -2211,6 +2211,7 @@ const Alexandria = {
         // Host immediately if you created the room — presence only re-elects if creator leaves.
         this.isHost = isCreator;
         this.notifiedHost = false;
+        this._partyGuestHinted = false;
         this._partyLastAction = null;
         this._partyLastTime = 0;
         this._partyRemotePaused = false;
