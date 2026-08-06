@@ -38,10 +38,10 @@
                     <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
                 </button>
                 <div class="social-links" style="display: flex; gap: 0.5rem;">
-                    <a href="https://t.me/Rxtribution" target="_blank" class="icon-btn" aria-label="Rxtribution on Telegram" title="@Rxtribution">
+                    <a href="https://t.me/Rxtribution" target="_blank" rel="noopener noreferrer" class="icon-btn" aria-label="Rxtribution on Telegram" title="@Rxtribution">
                         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2L11 13"></path><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
                     </a>
-                    <a href="https://t.me/Yuntoez" target="_blank" class="icon-btn" aria-label="Yuntoez on Telegram" title="@Yuntoez">
+                    <a href="https://t.me/Yuntoez" target="_blank" rel="noopener noreferrer" class="icon-btn" aria-label="Yuntoez on Telegram" title="@Yuntoez">
                         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2L11 13"></path><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
                     </a>
                 </div>
@@ -79,6 +79,11 @@
             </nav>
 
             <div class="sidebar-footer">
+                <div class="list-transfer">
+                    <button type="button" id="export-lists-btn" class="btn-secondary list-transfer-btn">Export Lists</button>
+                    <button type="button" id="import-lists-btn" class="btn-secondary list-transfer-btn">Import Lists</button>
+                    <input type="file" id="import-lists-file" accept="application/json,.json" hidden>
+                </div>
                 <div class="system-status">
                     <div class="status-dot"></div>
                     <span class="status-text">OFFLINE</span>

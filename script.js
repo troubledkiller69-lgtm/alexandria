@@ -1,8 +1,6 @@
 const Alexandria = {
     state: {
         view: 'home', // home, movies, tv, anime, search, player
-        user: null,
-        clickCount: 0,
         searchTimeout: null,
         trendingData: null,
         activeContent: { id: null, type: 'movie', season: 1, episode: 1 },
@@ -10,20 +8,84 @@ const Alexandria = {
         searchFilter: 'multi',
         activeServer: 0,
         watchlist: [],
-        history: []
+        history: [],
+        partyRoomId: null
     },
 
     servers: [
-        { name: "Alexandria", getMovie: id => `https://embedmaster.link/9gis39azyhxlvq5t/movie/${id}`, getTv: (id, s, e) => `https://embedmaster.link/9gis39azyhxlvq5t/tv/${id}/${s}/${e}` }
+        {
+            name: 'Alexandria',
+            supportsApi: true,
+            getMovie: id => `https://embedmaster.link/9gis39azyhxlvq5t/movie/${id}`,
+            getTv: (id, s, e) => `https://embedmaster.link/9gis39azyhxlvq5t/tv/${id}/${s}/${e}`
+        },
+        {
+            name: 'EmbedMaster Public',
+            supportsApi: true,
+            getMovie: id => `https://embedmaster.link/movie/${id}`,
+            getTv: (id, s, e) => `https://embedmaster.link/tv/${id}/${s}/${e}`
+        },
+        {
+            name: 'VidSrc',
+            supportsApi: false,
+            getMovie: id => `https://vidsrc.cc/v2/embed/movie/${id}`,
+            getTv: (id, s, e) => `https://vidsrc.cc/v2/embed/tv/${id}/${s}/${e}`
+        },
+        {
+            name: 'VidSrc TO',
+            supportsApi: false,
+            getMovie: id => `https://vidsrc.to/embed/movie/${id}`,
+            getTv: (id, s, e) => `https://vidsrc.to/embed/tv/${id}/${s}/${e}`
+        },
+        {
+            name: 'EmbedSU',
+            supportsApi: false,
+            getMovie: id => `https://embed.su/embed/movie/${id}`,
+            getTv: (id, s, e) => `https://embed.su/embed/tv/${id}/${s}/${e}`
+        }
     ],
 
     supabase: null,
     _renderToken: 0,
+    _apiCache: new Map(),
+    _CACHE_TTL_MS: 10 * 60 * 1000,
+    _EMBED_ORIGIN: 'https://embedmaster.link',
+    _FAILOVER_MS: 10000,
+    _failoverTimer: null,
+    _serverHealthy: false,
+    _triedServers: null,
+    _resumeSeekDone: false,
+    _pendingResumeTime: 0,
+    _resumeIgnoreUntil: 0,
+    _lastProgressWrite: 0,
+    _PROGRESS_WRITE_MS: 5000,
+    _currentSeasonEpisodes: [],
+    _movieGenres: [
+        ['', 'All Genres'], ['28', 'Action'], ['12', 'Adventure'], ['16', 'Animation'], ['35', 'Comedy'],
+        ['80', 'Crime'], ['99', 'Documentary'], ['18', 'Drama'], ['10751', 'Family'], ['14', 'Fantasy'],
+        ['36', 'History'], ['27', 'Horror'], ['10402', 'Music'], ['9648', 'Mystery'], ['10749', 'Romance'],
+        ['878', 'Sci-Fi'], ['53', 'Thriller']
+    ],
+    _tvGenres: [
+        ['', 'All Genres'], ['10759', 'Action & Adventure'], ['16', 'Animation'], ['35', 'Comedy'],
+        ['80', 'Crime'], ['99', 'Documentary'], ['18', 'Drama'], ['10751', 'Family'], ['10762', 'Kids'],
+        ['9648', 'Mystery'], ['10763', 'News'], ['10764', 'Reality'], ['10765', 'Sci-Fi & Fantasy'],
+        ['10766', 'Soap'], ['10767', 'Talk'], ['10768', 'War & Politics']
+    ],
 
     escapeHtml(value = '') {
         return String(value).replace(/[&<>'"]/g, character => ({
             '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;'
         })[character]);
+    },
+
+    isTrustedEmbedOrigin(origin) {
+        return origin === this._EMBED_ORIGIN || origin === 'https://www.embedmaster.link';
+    },
+
+    genreOptionsHtml() {
+        const list = this.state.searchFilter === 'tv' ? this._tvGenres : this._movieGenres;
+        return list.map(([value, label]) => `<option value="${value}">${label}</option>`).join('');
     },
 
     imageUrl(path, size = 'w500') {
@@ -34,6 +96,13 @@ const Alexandria = {
     },
 
     async getJson(endpoint, options = {}) {
+        const useCache = !options.noCache;
+        const now = Date.now();
+        if (useCache && this._apiCache.has(endpoint)) {
+            const hit = this._apiCache.get(endpoint);
+            if (now - hit.at < this._CACHE_TTL_MS) return hit.data;
+        }
+
         const response = await fetch(`/api/proxy?endpoint=${encodeURIComponent(endpoint)}`, options);
         let data;
         try {
@@ -44,6 +113,7 @@ const Alexandria = {
         if (!response.ok || data?.success === false || data?.error) {
             throw new Error(data?.status_message || data?.error || `Archive request failed (${response.status}).`);
         }
+        if (useCache) this._apiCache.set(endpoint, { data, at: now });
         return data;
     },
 
@@ -94,7 +164,14 @@ const Alexandria = {
 
         await this.syncFromCloud();
 
-        // Authentication is optional; local watchlists work without Supabase.
+        try {
+            const savedServer = Number.parseInt(localStorage.getItem('alexandria_activeServer'), 10);
+            if (Number.isInteger(savedServer) && this.servers[savedServer]) {
+                this.state.activeServer = savedServer;
+            }
+        } catch { /* ignore */ }
+
+        // Supabase is optional; used only for Watch Party Realtime.
         this.initNetwork().catch(e => {
             console.error("Alexandria Protocol: Background Init Failed -", e);
         });
@@ -105,53 +182,116 @@ const Alexandria = {
         this.bindEvents();
         window.addEventListener('hashchange', () => this.handleRouting());
         this.handleRouting();
+        this.bindListTransferControls();
+    },
+
+    bindListTransferControls() {
+        document.getElementById('export-lists-btn')?.addEventListener('click', () => this.exportLists());
+        const fileInput = document.getElementById('import-lists-file');
+        document.getElementById('import-lists-btn')?.addEventListener('click', () => fileInput?.click());
+        fileInput?.addEventListener('change', (event) => this.importLists(event));
+    },
+
+    exportLists() {
+        const payload = {
+            version: 1,
+            exportedAt: new Date().toISOString(),
+            watchlist: this.state.watchlist,
+            history: this.state.history
+        };
+        const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `alexandria-lists-${Date.now()}.json`;
+        a.click();
+        URL.revokeObjectURL(url);
+        this.showToast('Lists exported.');
+    },
+
+    async importLists(event) {
+        const file = event.target?.files?.[0];
+        event.target.value = '';
+        if (!file) return;
+        try {
+            const text = await file.text();
+            const data = JSON.parse(text);
+            if (!Array.isArray(data.watchlist) || !Array.isArray(data.history)) {
+                throw new Error('Invalid list file.');
+            }
+            const cleanWatchlist = data.watchlist
+                .filter(i => i && i.id && i.type && (i.type === 'movie' || i.type === 'tv'))
+                .map(i => ({
+                    id: String(i.id),
+                    type: i.type,
+                    title: String(i.title || 'Untitled'),
+                    poster_path: i.poster_path || ''
+                }));
+            const cleanHistory = data.history
+                .filter(i => i && i.id && i.type && (i.type === 'movie' || i.type === 'tv'))
+                .map(i => ({
+                    id: String(i.id),
+                    type: i.type,
+                    title: String(i.title || 'Untitled'),
+                    poster_path: i.poster_path || '',
+                    season: Number(i.season) || 1,
+                    episode: Number(i.episode) || 1,
+                    isAnime: !!i.isAnime,
+                    progress: typeof i.progress === 'number' ? i.progress : 0
+                }));
+            this.state.watchlist = cleanWatchlist;
+            this.state.history = cleanHistory;
+            this.writeLocalList('alexandria_watchlist', this.state.watchlist);
+            this.writeLocalList('alexandria_history', this.state.history);
+            this.showToast('Lists imported.');
+            if (this.state.view === 'home') {
+                this.renderWatchlist();
+                this.renderHistory();
+            } else {
+                this.setView('home');
+            }
+        } catch (error) {
+            this.showToast(error.message || 'Could not import lists.');
+        }
+    },
+
+    async shareCurrent(title = 'Alexandria') {
+        const url = window.location.href;
+        try {
+            if (navigator.share) {
+                await navigator.share({ title, url });
+                return;
+            }
+        } catch {
+            /* fall through to clipboard */
+        }
+        try {
+            await navigator.clipboard.writeText(url);
+            this.showToast('Link copied.');
+        } catch {
+            this.showToast('Could not share this link.');
+        }
     },
 
     async initNetwork() {
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 10000); // Increased to 10s
+        const timeoutId = setTimeout(() => controller.abort(), 10000);
 
         try {
             const configRes = await fetch('/api/config', { signal: controller.signal });
             clearTimeout(timeoutId);
             if (!configRes.ok) throw new Error(`Configuration unavailable (${configRes.status})`);
             const config = await configRes.json();
-            
+
             if (!config.supabaseUrl || !config.supabaseAnonKey) {
-                console.info("Alexandria Protocol: Cloud sync is not configured; using local mode.");
+                console.info("Alexandria Protocol: Watch Party cloud is not configured; using local mode.");
                 this.updateSyncIndicator('GUEST');
                 return;
             }
 
-            if (!window.supabase?.createClient) throw new Error('Account service failed to load.');
+            if (!window.supabase?.createClient) throw new Error('Realtime client failed to load.');
             this.supabase = window.supabase.createClient(config.supabaseUrl, config.supabaseAnonKey);
-            
-            this.supabase.auth.onAuthStateChange(async (event, session) => {
-                console.log("Alexandria Protocol: Auth Event -", event);
-                const prevUser = this.state.user;
-                this.state.user = session?.user || null;
-                this.updateSyncIndicator(this.state.user ? 'SYNCED' : 'OFFLINE');
-                
-                if (event === 'SIGNED_IN' && !prevUser) {
-                    await this.syncFromCloud();
-                    this.setView('home');
-                } else if (event === 'SIGNED_OUT') {
-                    await this.syncFromCloud();
-                    this.setView('home');
-                }
-                this.render();
-            });
-
-            const { data: { session } } = await this.supabase.auth.getSession();
-            if (session) {
-                this.state.user = session.user;
-                this.updateSyncIndicator('SYNCED');
-                await this.syncFromCloud();
-                if (this.state.view === 'auth') this.setView('home');
-            } else {
-                if (this.state.view === 'auth') this.state.view = 'home';
-                this.updateSyncIndicator('GUEST');
-            }
+            this.updateSyncIndicator('GUEST');
         } catch (e) {
             console.error("Alexandria Protocol: Handshake Failure -", e);
             this.updateSyncIndicator('OFFLINE');
@@ -162,19 +302,15 @@ const Alexandria = {
         const dot = document.querySelector('.status-dot');
         const text = document.querySelector('.status-text');
         if (!dot || !text) return;
-        
-        if (status === 'SYNCED') {
-            dot.style.background = '#10b981';
-            dot.style.boxShadow = '0 0 10px #10b981';
-            text.textContent = 'ARCHIVE SYNCED';
-        } else if (status === 'OFFLINE') {
+
+        if (status === 'OFFLINE') {
             dot.style.background = '#ef4444';
             dot.style.boxShadow = '0 0 10px #ef4444';
-            text.textContent = 'SYNC OFFLINE';
+            text.textContent = 'PARTY OFFLINE';
         } else if (status === 'GUEST') {
-            dot.style.background = '#f59e0b';
-            dot.style.boxShadow = '0 0 10px #f59e0b';
-            text.textContent = 'LOCAL MODE';
+            dot.style.background = this.supabase ? '#10b981' : '#f59e0b';
+            dot.style.boxShadow = this.supabase ? '0 0 10px #10b981' : '0 0 10px #f59e0b';
+            text.textContent = this.supabase ? 'LOCAL + PARTY READY' : 'LOCAL MODE';
         } else {
             dot.style.background = '#f59e0b';
             dot.style.boxShadow = '0 0 10px #f59e0b';
@@ -190,7 +326,7 @@ const Alexandria = {
                 progress += Math.random() * 15;
                 if (progress > 100) progress = 100;
                 if (progress > 30 && progress < 60) statusText.textContent = "STABILIZING ARCHIVE...";
-                if (progress > 60 && progress < 90) statusText.textContent = "SYNCING CLOUD DATA...";
+                if (progress > 60 && progress < 90) statusText.textContent = "LOADING LOCAL LISTS...";
                 if (progress >= 100) {
                     clearInterval(interval);
                     setTimeout(() => {
@@ -261,7 +397,7 @@ const Alexandria = {
             this.state.activeContent = { id, type: 'person' };
             this.setView('person');
         } else {
-            const allowedViews = new Set(['home', 'movies', 'tv', 'anime', '420', 'franchises', 'search']);
+            const allowedViews = new Set(['home', 'movies', 'tv', 'anime', 'franchises', 'search']);
             this.setView(allowedViews.has(path) ? path : 'home');
         }
     },
@@ -305,7 +441,7 @@ const Alexandria = {
 
         document.addEventListener('keydown', event => {
             if (event.key === 'Escape' && sidebar?.classList.contains('open')) toggleSidebar(false);
-            if ((event.key === 'Enter' || event.key === ' ') && event.target.matches('.cast-card, .episode-item, .resume-widget')) {
+            if ((event.key === 'Enter' || event.key === ' ') && event.target.matches('.cast-card, .episode-item, .resume-widget, .person-result-card')) {
                 event.preventDefault();
                 event.target.click();
             }
@@ -333,7 +469,6 @@ const Alexandria = {
         document.addEventListener('click', async (e) => {
             const logBtn = e.target.classList.contains('log-btn') ? e.target : e.target.closest('.log-btn');
             const searchTrigger = e.target.id === 'search-trigger' || e.target.closest('#search-trigger');
-            const authTrigger = e.target.id === 'auth-trigger' || e.target.closest('#auth-trigger');
             const retryButton = e.target.closest('[data-retry-view]');
             const searchRetry = e.target.closest('[data-search-retry]');
 
@@ -355,13 +490,17 @@ const Alexandria = {
             } else {
                 const card = e.target.classList.contains('movie-card') ? e.target : e.target.closest('.movie-card');
                 if (card) {
-                    const isAnime = card.dataset.isAnime === 'true';
-                    const season = parseInt(card.dataset.season);
-                    const episode = parseInt(card.dataset.episode);
-                    
+                    if (card.classList.contains('person-result-card') || card.dataset.type === 'person') {
+                        const personId = card.dataset.id;
+                        if (personId) window.location.hash = `#person/${personId}`;
+                        return;
+                    }
+                    const season = parseInt(card.dataset.season, 10);
+                    const episode = parseInt(card.dataset.episode, 10);
+
                     if (season && episode) {
                         window.location.hash = `#tv/${card.dataset.id}/s/${season}/e/${episode}`;
-                    } else {
+                    } else if (card.dataset.type && card.dataset.id) {
                         window.location.hash = `#details/${card.dataset.type}/${card.dataset.id}`;
                     }
                 }
@@ -370,7 +509,24 @@ const Alexandria = {
 
     },
 
+    teardownParty() {
+        if (this.partyChannel && this.supabase) {
+            this.supabase.removeChannel(this.partyChannel);
+            this.partyChannel = null;
+        }
+        this.isHost = false;
+        this.notifiedHost = false;
+        this.state.partyRoomId = null;
+    },
+
     setView(view) {
+        if (this.state.view === 'party' && view !== 'party') {
+            this.teardownParty();
+        }
+        if (this.state.view === 'player' && view !== 'player') {
+            this.writeLocalList('alexandria_history', this.state.history);
+        }
+        if (view !== 'player') this.clearFailoverWatch();
         this.state.view = view;
         this._renderToken += 1;
         if (this._autoNextTimer) { clearInterval(this._autoNextTimer); this._autoNextTimer = null; }
@@ -378,115 +534,20 @@ const Alexandria = {
         window.scrollTo({ top: 0, behavior: 'auto' });
     },
 
-    async handleAuth(e, type) {
-        e.preventDefault();
-        if (!this.supabase) {
-            this.showToast('Cloud accounts are not configured. Your lists are still saved on this device.');
-            return;
-        }
-        const email = document.getElementById('auth-email').value;
-        const password = document.getElementById('auth-password').value;
-        let avatar = 'python';
-        if (type === 'signup') {
-            const selected = document.querySelector('input[name="avatar"]:checked');
-            if (selected) avatar = selected.value;
-        }
-
-        const btn = e.currentTarget.querySelector('button[type="submit"]');
-        btn.textContent = "VERIFYING...";
-        btn.disabled = true;
-
-        try {
-            const { data, error } = type === 'login' 
-                ? await this.supabase.auth.signInWithPassword({ email, password })
-                : await this.supabase.auth.signUp({ email, password });
-            
-            if (error) throw error;
-            
-            if (type === 'signup' && data.user) {
-                // Create profile with avatar
-                const { error: profileError } = await this.supabase
-                    .from('profiles')
-                    .upsert({ id: data.user.id, email, avatar_id: avatar }, { onConflict: 'id' });
-                
-                if (profileError) console.error("Profile creation error:", profileError);
-                alert("Security Credentials Created! Please check email for verification.");
-                window.location.hash = '#login';
-            } else if (type === 'login' && data.user) {
-                this.state.user = data.user;
-                await this.syncFromCloud();
-                this.setView('home');
-            }
-        } catch (error) {
-            alert("Archive Error: " + error.message);
-            btn.textContent = type === 'login' ? "ACCESS ARCHIVE" : "CREATE CREDENTIALS";
-            btn.disabled = false;
-        }
-    },
-
     async syncFromCloud() {
-        if (!this.state.user) {
-            try {
-                this.state.watchlist = JSON.parse(localStorage.getItem('alexandria_watchlist')) || [];
-                this.state.history = JSON.parse(localStorage.getItem('alexandria_history')) || [];
-            } catch (e) {
-                this.state.watchlist = [];
-                this.state.history = [];
-            }
-            return;
+        try {
+            this.state.watchlist = JSON.parse(localStorage.getItem('alexandria_watchlist')) || [];
+            this.state.history = JSON.parse(localStorage.getItem('alexandria_history')) || [];
+        } catch {
+            this.state.watchlist = [];
+            this.state.history = [];
         }
-        const [wRes, hRes, pRes] = await Promise.all([
-            this.supabase.from('survival_cache').select('*').order('added_at', { ascending: false }),
-            this.supabase.from('history').select('*').order('created_at', { ascending: false }).limit(10),
-            this.supabase.from('profiles').select('avatar_id').eq('id', this.state.user.id).single()
-        ]);
-        this.state.watchlist = wRes.data?.map(i => ({ id: String(i.tmdb_id), type: i.media_type, title: i.title, poster_path: i.poster_path })) || [];
-        
-        if (pRes.data?.avatar_id) {
-            this.state.avatar = pRes.data.avatar_id;
-            this.updateAvatarUI();
-        }
-
-        let localHistory = [];
-        try { localHistory = JSON.parse(localStorage.getItem('alexandria_history')) || []; } catch { /* ignore invalid local data */ }
-        this.state.history = hRes.data?.map(i => {
-            const local = localHistory.find(lh => String(lh.id) === String(i.content_id) && lh.type === i.type);
-            return {
-                id: String(i.content_id), type: i.type, title: i.title, poster_path: i.poster_path,
-                season: local?.season || 1, episode: local?.episode || 1, isAnime: local?.isAnime || false
-            };
-        }) || [];
-    },
-
-    updateAvatarUI() {
-        const authBtn = document.getElementById('auth-trigger');
-        if (!authBtn || !this.state.avatar) return;
-        
-        const avatarMap = {
-            'rick': 'https://image.tmdb.org/t/p/w185/yVrGBtHXFMYYjjybMIRBMNatF1c.jpg',
-            'michonne': 'https://image.tmdb.org/t/p/w185/xNHWHlcJfiibWWMJGJDOPMRaOYl.jpg',
-            'daryl': 'https://image.tmdb.org/t/p/w185/khMla0oVIVIpMIIVLMqBCMqXXaJ.jpg',
-            'negan': 'https://image.tmdb.org/t/p/w185/bVMBBwVoPn35OmS1JpCCz2cOSqz.jpg',
-            'carl': 'https://image.tmdb.org/t/p/w185/7LECqLCy1sHHxE9OcGYSmfeXrmW.jpg'
-        };
-        
-        const imgUrl = avatarMap[this.state.avatar];
-        if (imgUrl) {
-            authBtn.innerHTML = `<img src="${imgUrl}" alt="${this.state.avatar}" style="width:28px;height:28px;border-radius:50%;object-fit:cover;">`;
-        } else {
-            authBtn.innerHTML = `<span style="font-size: 1.2rem;">👤</span>`;
-        }
-        authBtn.style.border = '1px solid var(--accent-primary)';
-        authBtn.style.background = 'rgba(138, 3, 3, 0.1)';
-        authBtn.style.borderRadius = '50%';
-        authBtn.style.padding = '2px';
     },
 
     async toggleWatchlist(item) {
         const itemId = String(item.id);
         const index = this.state.watchlist.findIndex(i => String(i.id) === itemId && i.type === item.type);
-        
-        // Find all buttons for this item in the DOM and update them immediately
+
         document.querySelectorAll(`.log-btn[data-id="${itemId}"][data-type="${item.type}"]`).forEach(btn => {
             const isActive = btn.classList.contains('active');
             btn.classList.toggle('active');
@@ -497,20 +558,13 @@ const Alexandria = {
 
         if (index === -1) {
             this.state.watchlist.unshift(item);
-            if (this.state.user) {
-                await this.supabase.from('survival_cache').insert({ user_id: this.state.user.id, tmdb_id: itemId, media_type: item.type, title: item.title, poster_path: item.poster_path });
-            }
         } else {
             this.state.watchlist.splice(index, 1);
-            if (this.state.user) {
-                await this.supabase.from('survival_cache').delete().match({ user_id: this.state.user.id, tmdb_id: itemId, media_type: item.type });
-            }
         }
-        
+
         this.writeLocalList('alexandria_watchlist', this.state.watchlist);
         this.showToast(index === -1 ? 'Added to your watchlist.' : 'Removed from your watchlist.');
-        
-        // If we are in the Home view, we only need to update the Watchlist row, not re-fetch everything
+
         if (this.state.view === 'home') this.renderWatchlist();
     },
 
@@ -518,18 +572,7 @@ const Alexandria = {
         this.state.history = this.state.history.filter(i => !(String(i.id) === String(item.id) && i.type === item.type));
         this.state.history.unshift(item);
         if (this.state.history.length > 20) this.state.history.pop();
-        
-        // Always save to localStorage to preserve season/episode data
         this.writeLocalList('alexandria_history', this.state.history);
-        
-        if (this.state.user) {
-            try {
-                // Remove existing to prevent duplicates
-                await this.supabase.from('history').delete().match({ user_id: this.state.user.id, content_id: item.id, type: item.type });
-                // Only insert known columns to prevent schema errors
-                await this.supabase.from('history').insert({ user_id: this.state.user.id, content_id: item.id, type: item.type, title: item.title, poster_path: item.poster_path });
-            } catch(e) { console.error('Alexandria: History Sync Error', e); }
-        }
     },
 
     render() {
@@ -560,100 +603,6 @@ const Alexandria = {
             this.state.view = 'home';
             this.renderHome();
         }
-    },
-
-    renderAuth() {
-        // Prevent re-rendering if already on auth screen (unless forced)
-        if (this.main.querySelector('.auth-card') && !this.main.querySelector('[onsubmit*="signup"]')) return;
-
-        const card = this.main.querySelector('.auth-card');
-        const token = this._renderToken;
-        if (card) card.classList.add('switching');
-        
-        setTimeout(() => {
-            if (token !== this._renderToken) return;
-            this.main.innerHTML = `
-                <section class="auth-view">
-                    <div class="auth-card">
-                        <div class="safe-zone-stamp large">A</div>
-                        <h2>ALEXANDRIA</h2>
-                        <p class="auth-subtitle">SECURITY CLEARANCE REQUIRED</p>
-                        <form onsubmit="Alexandria.handleAuth(event, 'login')">
-                            <div class="input-group">
-                                <label for="auth-email">SURVIVOR EMAIL</label>
-                                <input type="email" id="auth-email" required autocomplete="email" placeholder="IDENTIFICATION CODE">
-                            </div>
-                            <div class="input-group">
-                                <label for="auth-password">ACCESS PASSKEY</label>
-                                <input type="password" id="auth-password" required autocomplete="current-password" minlength="6" placeholder="SECURE KEY">
-                            </div>
-                            <button type="submit" class="btn-primary full">ACCESS ARCHIVE</button>
-                        </form>
-                        <div class="auth-footer">
-                            <p>NEW TO THE SAFE ZONE? <a href="#signup">REQUEST ACCESS</a></p>
-                            <p style="margin-top: 1rem;"><a href="#home" style="color: var(--text-secondary); border-color: transparent;">RETURN TO ARCHIVE</a></p>
-                        </div>
-                    </div>
-                </section>`;
-        }, card ? 300 : 0);
-    },
-
-    renderSignup() {
-        const card = this.main.querySelector('.auth-card');
-        const token = this._renderToken;
-        if (card) card.classList.add('switching');
-        
-        setTimeout(() => {
-            if (token !== this._renderToken) return;
-            this.main.innerHTML = `
-                <section class="auth-view">
-                    <div class="auth-card">
-                        <div class="safe-zone-stamp large">A</div>
-                        <h2>JOIN ARCHIVE</h2>
-                        <p class="auth-subtitle">ESTABLISH NEW CREDENTIALS</p>
-                        <form onsubmit="Alexandria.handleAuth(event, 'signup')">
-                            <div class="input-group">
-                                <label for="auth-email">SURVIVOR EMAIL</label>
-                                <input type="email" id="auth-email" required autocomplete="email" placeholder="ASSIGN EMAIL">
-                            </div>
-                            <div class="input-group">
-                                <label for="auth-password">ACCESS PASSKEY</label>
-                                <input type="password" id="auth-password" required autocomplete="new-password" minlength="6" placeholder="CREATE KEY">
-                            </div>
-                            <div class="input-group">
-                                <label>CHOOSE YOUR SURVIVOR</label>
-                                <div class="avatar-selector">
-                                    <label class="avatar-option">
-                                        <input type="radio" name="avatar" value="rick" checked>
-                                        <span class="avatar-icon" title="Rick Grimes"><img src="https://image.tmdb.org/t/p/w185/yVrGBtHXFMYYjjybMIRBMNatF1c.jpg" alt="Rick"></span>
-                                    </label>
-                                    <label class="avatar-option">
-                                        <input type="radio" name="avatar" value="michonne">
-                                        <span class="avatar-icon" title="Michonne"><img src="https://image.tmdb.org/t/p/w185/xNHWHlcJfiibWWMJGJDOPMRaOYl.jpg" alt="Michonne"></span>
-                                    </label>
-                                    <label class="avatar-option">
-                                        <input type="radio" name="avatar" value="daryl">
-                                        <span class="avatar-icon" title="Daryl Dixon"><img src="https://image.tmdb.org/t/p/w185/khMla0oVIVIpMIIVLMqBCMqXXaJ.jpg" alt="Daryl"></span>
-                                    </label>
-                                    <label class="avatar-option">
-                                        <input type="radio" name="avatar" value="negan">
-                                        <span class="avatar-icon" title="Negan"><img src="https://image.tmdb.org/t/p/w185/bVMBBwVoPn35OmS1JpCCz2cOSqz.jpg" alt="Negan"></span>
-                                    </label>
-                                    <label class="avatar-option">
-                                        <input type="radio" name="avatar" value="carl">
-                                        <span class="avatar-icon" title="Carl Grimes"><img src="https://image.tmdb.org/t/p/w185/7LECqLCy1sHHxE9OcGYSmfeXrmW.jpg" alt="Carl"></span>
-                                    </label>
-                                </div>
-                            </div>
-                            <button type="submit" class="btn-primary full">CREATE CREDENTIALS</button>
-                        </form>
-                        <div class="auth-footer">
-                            <p>ALREADY A SURVIVOR? <a href="#login">LOG IN</a></p>
-                            <p style="margin-top: 1rem;"><a href="#home" style="color: var(--text-secondary); border-color: transparent;">RETURN TO ARCHIVE</a></p>
-                        </div>
-                    </div>
-                </section>`;
-        }, card ? 300 : 0);
     },
 
     async renderHome() {
@@ -694,7 +643,7 @@ const Alexandria = {
                             <button class="btn-primary" onclick="Alexandria.playContent(${featured.id}, 'movie')">WATCH NOW</button>
                         </div>
                         ${last ? `<div class="resume-widget" role="link" tabindex="0" onclick="window.location.hash = '${last.type === 'tv' ? `#tv/${last.id}/s/${last.season || 1}/e/${last.episode || 1}` : `#movie/${last.id}`}'">
-                            <div class="resume-content"><span class="resume-label">CONTINUE WATCHING</span><h4>${this.escapeHtml(last.title)}</h4><p>Resume playback</p></div>
+                            <div class="resume-content"><span class="resume-label">CONTINUE WATCHING</span><h4>${this.escapeHtml(last.title)}</h4><p>${last.progress > 5 ? `Resume at ${this.formatTime(last.progress)}` : 'Resume playback'}</p></div>
                         </div>` : ''}
                     </div>
                     <div id="continue-watching-section"></div>
@@ -829,35 +778,57 @@ const Alexandria = {
         ];
 
         try {
+            const FRANCHISE_CACHE_KEY = 'alexandria_franchise_cache_v1';
+            let cached = null;
+            try {
+                cached = JSON.parse(sessionStorage.getItem(FRANCHISE_CACHE_KEY));
+            } catch {
+                cached = null;
+            }
+
             const fetchCollection = async (franchise) => {
                 if (franchise.tvIds || franchise.isTv) {
-                    const results = await Promise.all((franchise.tvIds || []).map(async id => {
+                    const results = await this.mapWithConcurrency(franchise.tvIds || [], 6, async (id) => {
                         try {
                             const data = await this.getJson('tv/' + id);
                             return { ...data, media_type: 'tv' };
                         } catch { return null; }
-                    }));
+                    });
                     return { ...franchise, items: results.filter(Boolean) };
                 }
                 if (franchise.movieIds) {
-                    const results = await Promise.all(franchise.movieIds.map(async id => {
+                    const results = await this.mapWithConcurrency(franchise.movieIds, 6, async (id) => {
                         try {
                             const data = await this.getJson('movie/' + id);
                             return { ...data, media_type: 'movie' };
                         } catch { return null; }
-                    }));
-                    const sorted = results.filter(Boolean).sort((a, b) => new Date(a.release_date || '9999') - new Date(b.release_date || '9999'));
+                    });
+                    const sorted = results.filter(Boolean).sort(
+                        (a, b) => new Date(a.release_date || '9999') - new Date(b.release_date || '9999')
+                    );
                     return { ...franchise, items: sorted };
                 }
                 try {
                     const data = await this.getJson('collection/' + franchise.collectionId);
-                    // Sort by release date (chronological)
-                    const sorted = (data.parts || []).sort((a, b) => new Date(a.release_date || '9999') - new Date(b.release_date || '9999'));
+                    const sorted = (data.parts || []).sort(
+                        (a, b) => new Date(a.release_date || '9999') - new Date(b.release_date || '9999')
+                    );
                     return { ...franchise, items: sorted };
-                } catch { return { ...franchise, items: [] }; }
+                } catch {
+                    return { ...franchise, items: [] };
+                }
             };
 
-            const results = await Promise.all(franchises.map(fetchCollection));
+            const results = (cached?.at && Date.now() - cached.at < 15 * 60 * 1000 && Array.isArray(cached.results) && cached.results.length)
+                ? cached.results
+                : await Promise.all(franchises.map(fetchCollection));
+
+            if (!(cached?.at && Date.now() - cached.at < 15 * 60 * 1000 && Array.isArray(cached.results) && cached.results.length)) {
+                try {
+                    sessionStorage.setItem(FRANCHISE_CACHE_KEY, JSON.stringify({ at: Date.now(), results }));
+                } catch { /* quota */ }
+            }
+
             if (token !== this._renderToken) return;
             if (!results.some(franchise => franchise.items.length)) {
                 throw new Error('No franchise collections were returned.');
@@ -911,33 +882,19 @@ const Alexandria = {
                         <button class="filter-btn ${this.state.searchFilter === 'multi' ? 'active' : ''}" type="button" aria-pressed="${this.state.searchFilter === 'multi'}" onclick="Alexandria.setSearchFilter('multi')">All</button>
                         <button class="filter-btn ${this.state.searchFilter === 'movie' ? 'active' : ''}" type="button" aria-pressed="${this.state.searchFilter === 'movie'}" onclick="Alexandria.setSearchFilter('movie')">Movies</button>
                         <button class="filter-btn ${this.state.searchFilter === 'tv' ? 'active' : ''}" type="button" aria-pressed="${this.state.searchFilter === 'tv'}" onclick="Alexandria.setSearchFilter('tv')">TV Shows</button>
+                        <button class="filter-btn ${this.state.searchFilter === 'person' ? 'active' : ''}" type="button" aria-pressed="${this.state.searchFilter === 'person'}" onclick="Alexandria.setSearchFilter('person')">People</button>
                     </div>
                 </div>
                 <div class="results-grid" id="search-results">
                     <div class="search-empty-state" id="search-empty-state">
+                        ${this.state.searchFilter === 'person' ? `
+                        <div class="placeholder-msg">Search for actors, directors, and creators above.</div>
+                        ` : `
                         <div class="discover-panel">
                             <div class="filter-group">
                                 <label for="discover-genre">GENRE</label>
                                 <select id="discover-genre" onchange="Alexandria.executeDiscover()">
-                                    <option value="">All Genres</option>
-                                    <option value="28">Action</option>
-                                    <option value="12">Adventure</option>
-                                    <option value="16">Animation</option>
-                                    <option value="35">Comedy</option>
-                                    <option value="80">Crime</option>
-                                    <option value="99">Documentary</option>
-                                    <option value="18">Drama</option>
-                                    <option value="10751">Family</option>
-                                    <option value="14">Fantasy</option>
-                                    <option value="36">History</option>
-                                    <option value="27">Horror</option>
-                                    <option value="10402">Music</option>
-                                    <option value="9648">Mystery</option>
-                                    <option value="10749">Romance</option>
-                                    <option value="878">Sci-Fi</option>
-                                    <option value="53">Thriller</option>
-                                    <option value="10759">Action & Adventure (TV)</option>
-                                    <option value="10765">Sci-Fi & Fantasy (TV)</option>
+                                    ${this.genreOptionsHtml()}
                                 </select>
                             </div>
                             <div class="filter-group">
@@ -945,20 +902,27 @@ const Alexandria = {
                                 <select id="discover-sort" onchange="Alexandria.executeDiscover()">
                                     <option value="popularity.desc">Most Popular</option>
                                     <option value="vote_average.desc">Highest Rated</option>
-                                    <option value="primary_release_date.desc">Newest Releases</option>
+                                    <option value="${this.state.searchFilter === 'tv' ? 'first_air_date.desc' : 'primary_release_date.desc'}">Newest Releases</option>
                                 </select>
                             </div>
                             <div class="filter-group">
                                 <label for="discover-year">YEAR (OPTIONAL)</label>
                                 <input type="number" id="discover-year" placeholder="e.g. 2023" min="1900" max="2030" onchange="Alexandria.executeDiscover()">
                             </div>
+                            <div class="filter-group">
+                                <button type="button" class="btn-secondary" onclick="Alexandria.surpriseMe()">SURPRISE ME</button>
+                            </div>
                         </div>
+                        `}
                     </div>
                 </div>
             </section>
         `;
         
         const searchInput = document.getElementById('tmdb-search');
+        searchInput.placeholder = this.state.searchFilter === 'person'
+            ? 'Search people in the archive…'
+            : 'What are you looking for, survivor?';
         searchInput.addEventListener('input', () => this.handleSearchInput());
         
         if (this.state.searchQuery) {
@@ -966,9 +930,10 @@ const Alexandria = {
             document.getElementById('clear-search-btn').style.display = 'block';
             this.executeSearch(this.state.searchQuery);
         } else {
-            // Focus input if empty and run discover
             setTimeout(() => searchInput.focus(), 100);
-            setTimeout(() => this.executeDiscover(), 150);
+            if (this.state.searchFilter !== 'person') {
+                setTimeout(() => this.executeDiscover(), 150);
+            }
         }
     },
 
@@ -977,16 +942,23 @@ const Alexandria = {
         const clearBtn = document.getElementById('clear-search-btn');
         const query = queryField.value;
         const emptyState = document.getElementById('search-empty-state');
-        
+
         clearBtn.style.display = query.trim() ? 'block' : 'none';
         if (emptyState) emptyState.style.display = query.trim() ? 'none' : 'block';
-        
+
         if (this.state.searchTimeout) clearTimeout(this.state.searchTimeout);
-        
+
         if (!query.trim()) {
             this.state.searchQuery = '';
-            document.getElementById('search-results').innerHTML = '';
-            this.executeDiscover();
+            if (this.state.searchFilter === 'person') {
+                document.getElementById('search-results').innerHTML = `
+                    <div class="search-empty-state" id="search-empty-state">
+                        <div class="placeholder-msg">Search for actors, directors, and creators above.</div>
+                    </div>`;
+            } else {
+                document.getElementById('search-results').innerHTML = '';
+                this.executeDiscover();
+            }
         } else {
             this.state.searchQuery = query;
             this.state.searchTimeout = setTimeout(() => {
@@ -1001,18 +973,25 @@ const Alexandria = {
     },
 
     async executeDiscover() {
+        if (this.state.searchFilter === 'person') {
+            const container = document.getElementById('search-results');
+            if (container) {
+                container.innerHTML = '<div class="placeholder-msg">Search for an actor or creator above.</div>';
+            }
+            return;
+        }
         const container = document.getElementById('search-results');
         if (!container) return;
         const requestId = (this._searchRequestId || 0) + 1;
         this._searchRequestId = requestId;
-        
+
         const genre = document.getElementById('discover-genre')?.value;
         const sort = document.getElementById('discover-sort')?.value || 'popularity.desc';
         const year = document.getElementById('discover-year')?.value;
-        const type = this.state.searchFilter === 'tv' ? 'tv' : 'movie'; // discover endpoint doesn't support 'multi', default to movie
+        const type = this.state.searchFilter === 'tv' ? 'tv' : 'movie';
 
         container.innerHTML = '<div class="search-loading"><div class="elegant-spinner"></div></div>';
-        
+
         try {
             let endpoint = `discover/${type}?sort_by=${sort}`;
             if (genre) endpoint += `&with_genres=${genre}`;
@@ -1020,14 +999,14 @@ const Alexandria = {
                 if (type === 'movie') endpoint += `&primary_release_year=${year}`;
                 else endpoint += `&first_air_date_year=${year}`;
             }
-            if (sort === 'vote_average.desc') endpoint += `&vote_count.gte=200`; // Ensure we don't get 10/10 with 1 vote
-            
+            if (sort.includes('vote_average')) endpoint += `&vote_count.gte=200`;
+
             const data = await this.getJson(endpoint);
             if (requestId !== this._searchRequestId || !document.body.contains(container)) return;
-            
+
             const results = data.results || [];
-            results.forEach(r => r.media_type = type); // Force media_type for renderResults
-            
+            results.forEach(r => r.media_type = type);
+
             container.innerHTML = '';
             this.renderResults(results, 'search-results');
         } catch (e) {
@@ -1038,6 +1017,20 @@ const Alexandria = {
         }
     },
 
+    async surpriseMe() {
+        const type = this.state.searchFilter === 'tv' ? 'tv' : 'movie';
+        const page = Math.floor(Math.random() * 10) + 1;
+        try {
+            const data = await this.getJson(`discover/${type}?sort_by=popularity.desc&page=${page}`, { noCache: true });
+            const pool = (data.results || []).filter(r => r.id);
+            if (!pool.length) throw new Error('No titles found.');
+            const pick = pool[Math.floor(Math.random() * pool.length)];
+            window.location.hash = `#details/${type}/${pick.id}`;
+        } catch (error) {
+            this.showToast(error.message || 'Surprise failed.');
+        }
+    },
+
     async executeSearch(query) {
         if (!query) return;
         const container = document.getElementById('search-results');
@@ -1045,23 +1038,42 @@ const Alexandria = {
         const requestId = (this._searchRequestId || 0) + 1;
         this._searchRequestId = requestId;
         container.innerHTML = '<div class="search-loading"><div class="elegant-spinner"></div></div>';
-        
+
         try {
             const filter = this.state.searchFilter || 'multi';
             const endpoint = `search/${filter}?query=${encodeURIComponent(query)}`;
             const data = await this.getJson(endpoint);
             if (requestId !== this._searchRequestId || !document.body.contains(container)) return;
             const results = data.results || [];
-            
-            // Filter out people if multi search returns them
+
+            if (filter === 'person') {
+                if (!results.length) {
+                    container.innerHTML = `<div class="placeholder-msg">NO PEOPLE FOUND FOR "${this.escapeHtml(query.toUpperCase())}".</div>`;
+                    return;
+                }
+                container.innerHTML = results.map(person => `
+                    <article class="movie-card person-result-card" data-id="${Number(person.id)}" data-type="person" role="link" tabindex="0">
+                        <div class="poster-wrapper">
+                            ${this.imageUrl(person.profile_path, 'w185')
+                                ? `<img src="${this.imageUrl(person.profile_path, 'w185')}" alt="${this.escapeHtml(person.name)}" loading="lazy" decoding="async">`
+                                : `<div class="poster-placeholder" role="img" aria-label="No photo"><span>A</span><small>NO PHOTO</small></div>`}
+                        </div>
+                        <div class="card-info">
+                            <h3><a class="card-title-link" href="#person/${Number(person.id)}">${this.escapeHtml(person.name || 'Unknown')}</a></h3>
+                            <p class="person-known-for-line">${this.escapeHtml(person.known_for_department || 'Talent')}</p>
+                        </div>
+                    </article>
+                `).join('');
+                return;
+            }
+
             const filteredResults = results.filter(item => item.media_type !== 'person');
-            
+
             if (filteredResults.length === 0) {
                  container.innerHTML = `<div class="placeholder-msg">NO ARCHIVE RECORDS FOUND FOR "${this.escapeHtml(query.toUpperCase())}".</div>`;
                  return;
             }
-            
-            // Clear inner HTML specifically and let renderResults inject
+
             container.innerHTML = '';
             this.renderResults(filteredResults, 'search-results');
         } catch (e) {
@@ -1157,7 +1169,7 @@ const Alexandria = {
         this.main.innerHTML = '<div class="placeholder-msg">DECRYPTING ARCHIVE...</div>';
         
         try {
-            const endpoint = `${type}/${id}?append_to_response=credits,aggregate_credits,similar,videos`;
+            const endpoint = `${type}/${id}?append_to_response=credits,aggregate_credits,similar,videos,watch/providers`;
             const data = await this.getJson(endpoint);
             if (token !== this._renderToken) return;
             
@@ -1184,6 +1196,28 @@ const Alexandria = {
                 </article>
             `).join('') || '<div class="placeholder-msg">NO CAST DATA</div>';
 
+            const usProviders = data['watch/providers']?.results?.US || {};
+            const providerBuckets = [
+                ['Stream', usProviders.flatrate],
+                ['Rent', usProviders.rent],
+                ['Buy', usProviders.buy]
+            ].filter(([, list]) => Array.isArray(list) && list.length);
+            const providersHtml = providerBuckets.length
+                ? providerBuckets.map(([label, list]) => `
+                    <div class="provider-row">
+                        <span class="provider-label">${label}</span>
+                        <div class="provider-logos">
+                            ${list.slice(0, 8).map(p => `
+                                <span class="provider-chip" title="${this.escapeHtml(p.provider_name)}">
+                                    ${p.logo_path
+                                        ? `<img src="${this.imageUrl(p.logo_path, 'w92')}" alt="${this.escapeHtml(p.provider_name)}">`
+                                        : this.escapeHtml(p.provider_name)}
+                                </span>
+                            `).join('')}
+                        </div>
+                    </div>`).join('')
+                : '<p class="provider-empty">No US watch providers listed on TMDB.</p>';
+
             this.main.innerHTML = `
                 <section class="details-layout">
                     <div class="hero-details" style="--details-image: url('${backdrop}')">
@@ -1204,12 +1238,19 @@ const Alexandria = {
                                     <button class="btn-secondary play-btn" onclick="Alexandria.createWatchParty(${id}, '${type}')" style="margin-left: 10px;">
                                         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg> WATCH PARTY
                                     </button>
+                                    <button class="btn-secondary" type="button" data-share-title="${this.escapeHtml(title)}" onclick="Alexandria.shareCurrent(this.dataset.shareTitle)" style="margin-left: 10px;">SHARE</button>
                                     <button class="icon-btn log-btn ${inWatchlist ? 'active' : ''}" type="button" aria-label="${inWatchlist ? 'Remove from' : 'Add to'} watchlist" aria-pressed="${inWatchlist}" data-id="${Number(id)}" data-type="${type}" data-title="${this.escapeHtml(title)}" data-poster="${this.escapeHtml(data.poster_path || '')}">
                                         ${inWatchlist ? '✓' : '+'}
                                     </button>
                                 </div>
                             </div>
                         </div>
+                    </div>
+
+                    <div class="view-section">
+                        <h3>WHERE TO WATCH</h3>
+                        <div class="providers-panel">${providersHtml}</div>
+                        <p class="provider-note">Provider data via TMDB / JustWatch · US region</p>
                     </div>
                     
                     <div class="view-section">
@@ -1242,6 +1283,9 @@ const Alexandria = {
             `;
             
             if (data.similar?.results?.length) {
+                data.similar.results.forEach(item => {
+                    if (!item.media_type) item.media_type = type;
+                });
                 this.renderResults(data.similar.results, 'similar-results');
             }
         } catch(e) {
@@ -1361,9 +1405,13 @@ const Alexandria = {
 
     async renderPlayer() {
         const { id, type, season, episode, isAnime } = this.state.activeContent;
+        if (!this.servers[this.state.activeServer]) this.state.activeServer = 0;
         const server = this.servers[this.state.activeServer];
+        const embedUrl = type === 'movie' ? server.getMovie(id) : server.getTv(id, season, episode);
 
-        let embedUrl = type === 'movie' ? server.getMovie(id) : server.getTv(id, season, episode);
+        this._triedServers = new Set([this.state.activeServer]);
+        this._serverHealthy = false;
+        this._currentSeasonEpisodes = [];
 
         this.main.innerHTML = `
             <section class="player-layout">
@@ -1373,10 +1421,11 @@ const Alexandria = {
                         <select id="server-selector" class="server-select-dropdown" onchange="Alexandria.handleServerChange(this.value)">
                             ${this.servers.map((s, i) => `<option value="${i}" ${i === this.state.activeServer ? 'selected' : ''}>${s.name}</option>`).join('')}
                         </select>
+                        <button type="button" class="btn-secondary server-next-btn" onclick="Alexandria.failoverToNextServer(true)" title="Try the next mirror">NEXT SERVER</button>
+                        <span id="server-status" class="server-status" aria-live="polite">Connecting to ${this.escapeHtml(server.name)}…</span>
                     </div>
                     <div class="player-frame-container">
                         <iframe id="video-iframe" title="Alexandria video player" src="${embedUrl}" width="100%" height="100%" scrolling="no" referrerpolicy="no-referrer" allow="autoplay; fullscreen; encrypted-media; picture-in-picture"></iframe>
-
                     </div>
                 </div>
                 ${type === 'tv' ? `
@@ -1392,29 +1441,276 @@ const Alexandria = {
                     </div>` : ''}
             </section>`;
 
-        this.getJson(type + '/' + id).then(data => {
+        this.bindSoloPlayerEvents();
+        this.prepareResumeSeek();
+        this.armFailoverWatch(server);
+
+        try {
+            const data = await this.getJson(type + '/' + id);
             const title = type === 'movie' ? data.title : data.name;
-            if (title) this.addToHistory({ id, type, title, poster_path: data.poster_path, season, episode, isAnime });
-        }).catch(e => console.error("Alexandria: History Metadata Fetch Failed", e));
-        
-        if (type === 'tv') {
-            await this.initSeasonSelector(id, season);
-            await this.loadEpisodes(id, season);
+            if (title) {
+                const existing = this.state.history.find(h => String(h.id) === String(id) && h.type === type);
+                const keepProgress = type === 'tv'
+                    && Number(existing?.season) === Number(season)
+                    && Number(existing?.episode) === Number(episode)
+                    ? (existing?.progress || 0)
+                    : (type === 'movie' ? (existing?.progress || 0) : 0);
+                this.addToHistory({
+                    id, type, title, poster_path: data.poster_path, season, episode, isAnime,
+                    progress: keepProgress
+                });
+            }
+            if (type === 'tv') {
+                this.populateSeasonSelector(data, season);
+                await this.loadEpisodes(id, season);
+            }
+        } catch (e) {
+            console.error("Alexandria: Player metadata failed", e);
+            if (type === 'tv') {
+                await this.initSeasonSelector(id, season);
+                await this.loadEpisodes(id, season);
+            }
         }
+    },
+
+    setServerStatus(message) {
+        const el = document.getElementById('server-status');
+        if (el) el.textContent = message;
+    },
+
+    clearFailoverWatch() {
+        if (this._failoverTimer) {
+            clearTimeout(this._failoverTimer);
+            this._failoverTimer = null;
+        }
+    },
+
+    armFailoverWatch(server) {
+        this.clearFailoverWatch();
+        this._serverHealthy = false;
+        const name = server?.name || 'server';
+        this.setServerStatus(`Connecting to ${name}…`);
+
+        const iframe = document.getElementById('video-iframe');
+        if (iframe && !server?.supportsApi) {
+            iframe.addEventListener('load', () => {
+                if (this.state.view !== 'player' || this._serverHealthy) return;
+                this.setServerStatus(`Loaded · ${name} · use NEXT if blank`);
+                // Non-API mirrors: do not auto-failover on load (error pages can still load).
+            }, { once: true });
+            return;
+        }
+
+        this._failoverTimer = setTimeout(() => {
+            if (this.state.view !== 'player' || this._serverHealthy) return;
+            this.failoverToNextServer(false);
+        }, this._FAILOVER_MS);
+    },
+
+    markServerHealthy() {
+        if (this._serverHealthy) return;
+        this._serverHealthy = true;
+        this.clearFailoverWatch();
+        const server = this.servers[this.state.activeServer];
+        this.setServerStatus(server ? `Live · ${server.name}` : 'Live');
+    },
+
+    failoverToNextServer(manual = false) {
+        if (this.state.view !== 'player') return;
+        if (!this._triedServers) this._triedServers = new Set([this.state.activeServer]);
+
+        const total = this.servers.length;
+        if (total < 2) {
+            this.setServerStatus('No backup servers configured.');
+            return;
+        }
+
+        let next = (this.state.activeServer + 1) % total;
+        let hops = 0;
+        while (this._triedServers.has(next) && hops < total) {
+            next = (next + 1) % total;
+            hops += 1;
+        }
+
+        if (this._triedServers.has(next) && this._triedServers.size >= total) {
+            this.clearFailoverWatch();
+            this.setServerStatus('All servers tried. Pick one manually.');
+            this.showToast('All mirrors were tried. Choose a server from the list.');
+            this._triedServers = new Set();
+            return;
+        }
+
+        const label = this.servers[next]?.name || `Server ${next + 1}`;
+        this.showToast(manual ? `Switching to ${label}…` : `${this.servers[this.state.activeServer]?.name || 'Server'} timed out. Trying ${label}…`);
+        this.applyServer(next, { resetTried: false });
+    },
+
+    applyServer(serverIndex, { resetTried = true } = {}) {
+        if (!Number.isInteger(serverIndex) || !this.servers[serverIndex]) return;
+        this.state.activeServer = serverIndex;
+        try {
+            localStorage.setItem('alexandria_activeServer', String(serverIndex));
+        } catch { /* ignore */ }
+
+        if (resetTried) this._triedServers = new Set([serverIndex]);
+        else this._triedServers?.add(serverIndex);
+
+        const { id, type, season, episode } = this.state.activeContent;
+        const server = this.servers[this.state.activeServer];
+        const embedUrl = type === 'movie' ? server.getMovie(id) : server.getTv(id, season, episode);
+
+        const selector = document.getElementById('server-selector');
+        if (selector) selector.value = String(serverIndex);
+
+        const iframe = document.getElementById('video-iframe') || document.getElementById('embedmaster_iframe');
+        if (iframe) iframe.src = embedUrl;
+
+        if (this.state.view === 'player') {
+            this.prepareResumeSeek();
+            this.armFailoverWatch(server);
+        } else {
+            this.setServerStatus(`Using ${server.name}`);
+        }
+    },
+
+    formatTime(seconds) {
+        const total = Math.max(0, Math.floor(Number(seconds) || 0));
+        const h = Math.floor(total / 3600);
+        const m = Math.floor((total % 3600) / 60);
+        const s = total % 60;
+        if (h > 0) return `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+        return `${m}:${String(s).padStart(2, '0')}`;
+    },
+
+    getSavedProgress() {
+        const { id, type, season, episode } = this.state.activeContent;
+        const item = this.state.history.find(h => String(h.id) === String(id) && h.type === type);
+        if (!item || typeof item.progress !== 'number') return 0;
+        if (item.progress < 5) return 0;
+        if (type === 'tv') {
+            if (Number(item.season) !== Number(season) || Number(item.episode) !== Number(episode)) return 0;
+        }
+        return item.progress;
+    },
+
+    prepareResumeSeek() {
+        this._resumeSeekDone = false;
+        this._pendingResumeTime = this.getSavedProgress();
+        this._resumeIgnoreUntil = 0;
+        if (this._pendingResumeTime > 0) {
+            this.setServerStatus(`Will resume at ${this.formatTime(this._pendingResumeTime)}`);
+        }
+    },
+
+    tryResumeSeek() {
+        if (this._resumeSeekDone || this.state.view !== 'player') return;
+        const server = this.servers[this.state.activeServer];
+        if (!server?.supportsApi) {
+            this._resumeSeekDone = true;
+            return;
+        }
+        const time = this._pendingResumeTime || this.getSavedProgress();
+        if (!time || time < 5) {
+            this._resumeSeekDone = true;
+            return;
+        }
+        const frame = document.getElementById('video-iframe');
+        if (!frame?.contentWindow) return;
+
+        this.postToEmbed(frame, 'seek', time);
+        this._resumeSeekDone = true;
+        this._resumeIgnoreUntil = Date.now() + 2500;
+        this._pendingResumeTime = 0;
+        this.showToast(`Resumed at ${this.formatTime(time)}`);
+        this.setServerStatus(`Live · ${server.name} · ${this.formatTime(time)}`);
+    },
+
+    persistProgress(t, force = false) {
+        if (typeof t !== 'number' || Number.isNaN(t)) return;
+        if (!force && Date.now() < this._resumeIgnoreUntil) return;
+        if (!force && Date.now() - this._lastProgressWrite < this._PROGRESS_WRITE_MS) return;
+
+        const { id, type, season, episode } = this.state.activeContent;
+        const existing = this.state.history.find(h => String(h.id) === String(id) && h.type === type);
+        if (!existing) return;
+        existing.progress = t;
+        existing.season = season;
+        existing.episode = episode;
+        this._lastProgressWrite = Date.now();
+        this.writeLocalList('alexandria_history', this.state.history);
+    },
+
+    async advanceEpisode() {
+        const { id, season, episode } = this.state.activeContent;
+        const eps = this._currentSeasonEpisodes || [];
+        const numbers = eps.map(e => e.episode_number).filter(n => Number.isFinite(n));
+        const maxEp = numbers.length ? Math.max(...numbers) : episode;
+
+        if (episode < maxEp) {
+            window.location.hash = `#tv/${id}/s/${season || 1}/e/${episode + 1}`;
+            return;
+        }
+
+        try {
+            const show = await this.getJson('tv/' + id);
+            const seasons = (show.seasons || []).filter(s => s.season_number > 0);
+            const nextSeason = seasons.find(s => s.season_number === (season || 1) + 1);
+            if (nextSeason) {
+                this.showToast(`Season ${season} complete. Loading season ${nextSeason.season_number}…`);
+                window.location.hash = `#tv/${id}/s/${nextSeason.season_number}/e/1`;
+                return;
+            }
+        } catch { /* ignore */ }
+
+        this.showToast('End of available episodes.');
+        this.persistProgress(0, true);
+    },
+
+    bindSoloPlayerEvents() {
+        if (this._soloEmbedListener) return;
+        this._soloEmbedListener = (event) => {
+            if (!this.isTrustedEmbedOrigin(event.origin)) return;
+            const data = event.data;
+            if (!data || data.source !== 'embedmaster_player') return;
+            if (this.state.view !== 'player') return;
+
+            this.markServerHealthy();
+
+            if (data.event === 'ready') {
+                this.tryResumeSeek();
+            } else if (!this._resumeSeekDone && this._pendingResumeTime > 0 && (data.event === 'play' || data.event === 'time')) {
+                this.tryResumeSeek();
+            }
+
+            if (data.event === 'time' || data.event === 'seek' || data.event === 'timeupdate' || data.event === 'play' || data.event === 'pause') {
+                const t = data.info?.time;
+                if (typeof t === 'number' && this._resumeSeekDone) {
+                    this.persistProgress(t, data.event === 'pause' || data.event === 'seek');
+                }
+            }
+
+            if (data.event === 'finish' || data.event === 'ended' || data.event === 'complete') {
+                if (this.state.activeContent.type === 'tv') this.advanceEpisode();
+            }
+        };
+        window.addEventListener('message', this._soloEmbedListener);
+    },
+
+    populateSeasonSelector(data, activeSeason) {
+        const selector = document.getElementById('season-selector');
+        if (!selector || !data?.seasons) return;
+        selector.innerHTML = data.seasons
+            .filter(s => s.season_number > 0)
+            .map(s => `<option value="${s.season_number}" ${s.season_number == activeSeason ? 'selected' : ''}>SEASON ${s.season_number}</option>`)
+            .join('');
+        const title = document.getElementById('sidebar-title');
+        if (title && data.name) title.textContent = data.name.toUpperCase();
     },
 
     async initSeasonSelector(id, activeSeason) {
         try {
             const data = await this.getJson('tv/' + id);
-            const selector = document.getElementById('season-selector');
-            if (!selector) return;
-
-            selector.innerHTML = data.seasons
-                .filter(s => s.season_number > 0)
-                .map(s => `<option value="${s.season_number}" ${s.season_number == activeSeason ? 'selected' : ''}>SEASON ${s.season_number}</option>`)
-                .join('');
-            
-            document.getElementById('sidebar-title').textContent = data.name.toUpperCase();
+            this.populateSeasonSelector(data, activeSeason);
         } catch (e) {
             console.error("Alexandria Protocol: Season Init Failed -", e);
             const title = document.getElementById('sidebar-title');
@@ -1430,14 +1726,7 @@ const Alexandria = {
 
     handleServerChange(newServerIndex) {
         const serverIndex = Number.parseInt(newServerIndex, 10);
-        if (!Number.isInteger(serverIndex) || !this.servers[serverIndex]) return;
-        this.state.activeServer = serverIndex;
-        const { id, type, season, episode } = this.state.activeContent;
-        const server = this.servers[this.state.activeServer];
-        const embedUrl = type === 'movie' ? server.getMovie(id) : server.getTv(id, season, episode);
-        
-        const iframe = document.getElementById('video-iframe');
-        if (iframe) iframe.src = embedUrl;
+        this.applyServer(serverIndex, { resetTried: true });
     },
 
     async loadEpisodes(id, season) {
@@ -1445,8 +1734,9 @@ const Alexandria = {
             const data = await this.getJson('tv/' + id + '/season/' + season);
             const container = document.getElementById('sidebar-episodes');
             if (!container) return;
-            
-            container.innerHTML = data.episodes.map(ep => `
+            this._currentSeasonEpisodes = data.episodes || [];
+
+            container.innerHTML = this._currentSeasonEpisodes.map(ep => `
                 <div class="episode-item ${this.state.activeContent.episode == ep.episode_number ? 'active' : ''}" role="link" tabindex="0"
                      onclick="window.location.hash = '#tv/${id}/s/${season}/e/${ep.episode_number}'">
                     <span class="ep-num">EP ${ep.episode_number}</span>
@@ -1464,9 +1754,12 @@ const Alexandria = {
     async renderParty() {
         const { id, type, season, episode } = this.state.activeContent;
         const roomId = this.state.partyRoomId;
-        const server = this.servers[this.state.activeServer];
 
-        let embedUrl = type === 'movie' ? server.getMovie(id) : server.getTv(id, season, episode);
+        // Watch Party sync needs EmbedMaster postMessage API.
+        const apiIndex = this.servers.findIndex(s => s.supportsApi);
+        if (apiIndex !== -1) this.state.activeServer = apiIndex;
+        const server = this.servers[this.state.activeServer];
+        const embedUrl = type === 'movie' ? server.getMovie(id) : server.getTv(id, season, episode);
 
         this.main.innerHTML = `
             <section class="party-layout" style="display: flex; gap: 20px; height: calc(100vh - 80px);">
@@ -1492,13 +1785,34 @@ const Alexandria = {
                 </div>
             </section>`;
 
-        // Prompt for nickname if not set
+        // Nickname without relying solely on prompt()
         if (!sessionStorage.getItem('alexandria_nickname')) {
-            const nickname = prompt("Enter a nickname for the Watch Party:") || ('Guest_' + Math.floor(Math.random()*1000));
-            sessionStorage.setItem('alexandria_nickname', nickname);
+            let nickname = '';
+            try {
+                nickname = prompt('Enter a nickname for the Watch Party:') || '';
+            } catch {
+                nickname = '';
+            }
+            if (!nickname.trim()) nickname = 'Guest_' + Math.floor(Math.random() * 1000);
+            sessionStorage.setItem('alexandria_nickname', nickname.trim().slice(0, 24));
+        }
+        if (!sessionStorage.getItem('alexandria_party_uid')) {
+            sessionStorage.setItem(
+                'alexandria_party_uid',
+                (typeof crypto !== 'undefined' && crypto.randomUUID)
+                    ? crypto.randomUUID()
+                    : `uid_${Date.now()}_${Math.random().toString(36).slice(2)}`
+            );
         }
 
         this.initPartySync(roomId);
+    },
+
+    postToEmbed(frame, command, value) {
+        if (!frame?.contentWindow) return;
+        const payload = { source: 'embedmaster_player_command', command };
+        if (value !== undefined) payload.value = value;
+        frame.contentWindow.postMessage(payload, this._EMBED_ORIGIN);
     },
 
     initPartySync(roomId) {
@@ -1506,31 +1820,34 @@ const Alexandria = {
             this.showToast('Supabase is not configured. Watch Party requires cloud sync.');
             return;
         }
-        
-        // Clean up previous channel
-        if (this.partyChannel) {
-            this.supabase.removeChannel(this.partyChannel);
-        }
 
-        this.isHost = false; 
+        this.teardownParty();
+        this.state.partyRoomId = roomId;
+
+        this.isHost = false;
+        this.notifiedHost = false;
         const nickname = sessionStorage.getItem('alexandria_nickname');
+        const uid = sessionStorage.getItem('alexandria_party_uid');
 
         this.partyChannel = this.supabase.channel(`party_${roomId}`, {
-            config: { presence: { key: nickname } }
+            config: { presence: { key: uid } }
         });
 
         this.partyChannel
             .on('presence', { event: 'sync' }, () => {
                 const state = this.partyChannel.presenceState();
                 const users = Object.keys(state);
-                document.getElementById('party-users-count').textContent = `${users.length} user${users.length === 1 ? '' : 's'} connected`;
-                
+                const countEl = document.getElementById('party-users-count');
+                if (countEl) {
+                    countEl.textContent = `${users.length} user${users.length === 1 ? '' : 's'} connected`;
+                }
+
                 if (users.length > 0) {
                     let earliestTime = Infinity;
                     let hostKey = users[0];
                     for (const key of users) {
                         const presences = state[key];
-                        if (presences && presences[0] && presences[0].online_at) {
+                        if (presences?.[0]?.online_at) {
                             const time = new Date(presences[0].online_at).getTime();
                             if (time < earliestTime) {
                                 earliestTime = time;
@@ -1538,7 +1855,7 @@ const Alexandria = {
                             }
                         }
                     }
-                    this.isHost = (hostKey === nickname);
+                    this.isHost = (hostKey === uid);
                     if (this.isHost && !this.notifiedHost) {
                         this.notifiedHost = true;
                         this.appendChatMessage('System', 'You are the Host. You control playback.');
@@ -1546,31 +1863,35 @@ const Alexandria = {
                 }
             })
             .on('broadcast', { event: 'player_sync' }, (payload) => {
-                if (this.isHost) return; 
+                if (this.isHost) return;
                 const { action, time } = payload.payload;
                 const frame = document.getElementById('embedmaster_iframe');
-                if (!frame || !frame.contentWindow) return;
-                
+                if (!frame?.contentWindow) return;
+
                 if (action === 'play') {
-                    if (time) frame.contentWindow.postMessage({ source: 'embedmaster_player_command', command: 'seek', value: time }, '*');
-                    frame.contentWindow.postMessage({ source: 'embedmaster_player_command', command: 'play' }, '*');
+                    if (time) this.postToEmbed(frame, 'seek', time);
+                    this.postToEmbed(frame, 'play');
                 } else if (action === 'pause') {
-                    if (time) frame.contentWindow.postMessage({ source: 'embedmaster_player_command', command: 'seek', value: time }, '*');
-                    frame.contentWindow.postMessage({ source: 'embedmaster_player_command', command: 'pause' }, '*');
+                    if (time) this.postToEmbed(frame, 'seek', time);
+                    this.postToEmbed(frame, 'pause');
                 } else if (action === 'seek' && time) {
-                    frame.contentWindow.postMessage({ source: 'embedmaster_player_command', command: 'seek', value: time }, '*');
+                    this.postToEmbed(frame, 'seek', time);
                 }
             })
             .on('broadcast', { event: 'chat_msg' }, (payload) => {
-                this.appendChatMessage(payload.payload.sender, payload.payload.msg);
+                const { sender, msg, fromUid } = payload.payload;
+                if (fromUid === uid) return;
+                this.appendChatMessage(sender, msg);
             })
             .subscribe(async (status) => {
                 if (status === 'SUBSCRIBED') {
-                    await this.partyChannel.track({ online_at: new Date().toISOString() });
+                    await this.partyChannel.track({
+                        online_at: new Date().toISOString(),
+                        nickname
+                    });
                 }
             });
 
-        // Listen to EmbedMaster events exactly once
         if (!this._embedListener) {
             this._embedListener = this.handleEmbedMasterMessage.bind(this);
             window.addEventListener('message', this._embedListener);
@@ -1578,9 +1899,10 @@ const Alexandria = {
     },
 
     handleEmbedMasterMessage(event) {
+        if (!this.isTrustedEmbedOrigin(event.origin)) return;
         const data = event.data;
         if (!data || data.source !== 'embedmaster_player' || !this.partyChannel) return;
-        
+
         if (this.isHost) {
             if (data.event === 'play' || data.event === 'pause' || data.event === 'seek') {
                 this.partyChannel.send({
@@ -1596,15 +1918,16 @@ const Alexandria = {
         const input = document.getElementById('party-chat-input');
         const msg = input.value.trim();
         if (!msg || !this.partyChannel) return;
-        
+
         const nickname = sessionStorage.getItem('alexandria_nickname');
-        
+        const fromUid = sessionStorage.getItem('alexandria_party_uid');
+
         this.partyChannel.send({
             type: 'broadcast',
             event: 'chat_msg',
-            payload: { sender: nickname, msg: msg }
+            payload: { sender: nickname, msg, fromUid }
         });
-        
+
         this.appendChatMessage(nickname, msg);
         input.value = '';
     },
@@ -1619,9 +1942,24 @@ const Alexandria = {
         container.scrollTop = container.scrollHeight;
     },
 
-    copyPartyLink() {
-        navigator.clipboard.writeText(window.location.href);
-        this.showToast('Invite link copied to clipboard!');
+    async copyPartyLink() {
+        const url = window.location.href;
+        try {
+            await navigator.clipboard.writeText(url);
+            this.showToast('Invite link copied to clipboard!');
+        } catch {
+            try {
+                const input = document.createElement('input');
+                input.value = url;
+                document.body.appendChild(input);
+                input.select();
+                document.execCommand('copy');
+                input.remove();
+                this.showToast('Invite link copied to clipboard!');
+            } catch {
+                this.showToast('Could not copy link. Copy from the address bar.');
+            }
+        }
     },
 
     showToast(message) {

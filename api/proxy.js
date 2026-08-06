@@ -2,6 +2,34 @@ const ALLOWED_ROOTS = new Set([
   'trending', 'discover', 'movie', 'tv', 'search', 'collection', 'person'
 ]);
 
+async function fetchTmdb(target, apiKey, attempt = 0) {
+  target.searchParams.delete('api_key');
+  target.searchParams.set('api_key', apiKey);
+  if (!target.searchParams.has('language')) target.searchParams.set('language', 'en-US');
+
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 8000);
+  try {
+    const response = await fetch(target, {
+      signal: controller.signal,
+      headers: { Accept: 'application/json' }
+    });
+    clearTimeout(timeoutId);
+
+    if (response.status === 429 && attempt < 2) {
+      const retryAfter = Number.parseInt(response.headers.get('Retry-After') || '2', 10);
+      const waitMs = Math.min(Number.isFinite(retryAfter) ? retryAfter * 1000 : 2000, 8000);
+      await new Promise(resolve => setTimeout(resolve, waitMs));
+      return fetchTmdb(target, apiKey, attempt + 1);
+    }
+
+    return response;
+  } catch (error) {
+    clearTimeout(timeoutId);
+    throw error;
+  }
+}
+
 export default async function handler(req, res) {
   if (req.method !== 'GET') {
     res.setHeader('Allow', 'GET');
@@ -32,18 +60,7 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: 'Unsupported TMDB endpoint.' });
     }
 
-    target.searchParams.delete('api_key');
-    target.searchParams.set('api_key', apiKey);
-    if (!target.searchParams.has('language')) target.searchParams.set('language', 'en-US');
-
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 8000);
-    const response = await fetch(target, {
-      signal: controller.signal,
-      headers: { Accept: 'application/json' }
-    });
-    clearTimeout(timeoutId);
-
+    const response = await fetchTmdb(target, apiKey);
     const data = await response.json().catch(() => ({ error: 'TMDB returned an unreadable response.' }));
     res.setHeader(
       'Cache-Control',
