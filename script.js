@@ -80,7 +80,12 @@ const Alexandria = {
     },
 
     isTrustedEmbedOrigin(origin) {
-        return origin === this._EMBED_ORIGIN || origin === 'https://www.embedmaster.link';
+        try {
+            const host = new URL(origin).hostname;
+            return host === 'embedmaster.link' || host.endsWith('.embedmaster.link');
+        } catch {
+            return false;
+        }
     },
 
     genreOptionsHtml() {
@@ -510,12 +515,23 @@ const Alexandria = {
     },
 
     teardownParty() {
+        if (this._partySyncTimer) {
+            clearInterval(this._partySyncTimer);
+            this._partySyncTimer = null;
+        }
+        if (this._partyPresenceResyncTimer) {
+            clearTimeout(this._partyPresenceResyncTimer);
+            this._partyPresenceResyncTimer = null;
+        }
         if (this.partyChannel && this.supabase) {
             this.supabase.removeChannel(this.partyChannel);
             this.partyChannel = null;
         }
         this.isHost = false;
         this.notifiedHost = false;
+        this._partyLastAction = null;
+        this._partyLastTime = 0;
+        this._applyingRemoteSync = false;
         this.state.partyRoomId = null;
     },
 
@@ -1152,7 +1168,14 @@ const Alexandria = {
 
     createWatchParty(id, type) {
         const roomId = Math.random().toString(36).substring(2, 8);
-        window.location.hash = `#party/${roomId}/${type}/${id}`;
+        sessionStorage.setItem('alexandria_party_creator_' + roomId, '1');
+        if (type === 'tv') {
+            const season = this.state.activeContent?.season || 1;
+            const episode = this.state.activeContent?.episode || 1;
+            window.location.hash = `#party/${roomId}/${type}/${id}/s/${season}/e/${episode}`;
+        } else {
+            window.location.hash = `#party/${roomId}/${type}/${id}`;
+        }
     },
 
     playContent(id, type, isAnime = false) {
@@ -1754,6 +1777,7 @@ const Alexandria = {
     async renderParty() {
         const { id, type, season, episode } = this.state.activeContent;
         const roomId = this.state.partyRoomId;
+        const sameRoom = this.partyChannel && this.state.partyRoomId === roomId;
 
         // Watch Party sync needs EmbedMaster postMessage API.
         const apiIndex = this.servers.findIndex(s => s.supportsApi);
@@ -1761,19 +1785,44 @@ const Alexandria = {
         const server = this.servers[this.state.activeServer];
         const embedUrl = type === 'movie' ? server.getMovie(id) : server.getTv(id, season, episode);
 
+        // Creator is host immediately — don't wait for presence (fixes play/pause never broadcasting).
+        const isCreator = sessionStorage.getItem('alexandria_party_creator_' + roomId) === '1';
+        this.isHost = isCreator || this.isHost;
+
+        const roleLabel = this.isHost ? 'HOST · you control playback' : 'SPECTATING · host controls playback';
+        const framePointer = this.isHost ? 'auto' : 'none';
+
         this.main.innerHTML = `
             <section class="party-layout" style="display: flex; gap: 20px; height: calc(100vh - 80px);">
-                <div class="player-main" style="flex: 1; display: flex; flex-direction: column;">
-                    <div class="party-header" style="display: flex; justify-content: space-between; align-items: center; padding: 10px; background: rgba(0,0,0,0.5); border-radius: 8px; margin-bottom: 15px;">
-                        <h2 style="margin: 0; font-family: var(--font-headline); color: var(--primary-accent);">WATCH PARTY: ${roomId}</h2>
+                <div class="player-main" style="flex: 1; display: flex; flex-direction: column; min-width: 0;">
+                    <div class="party-header" style="display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 10px; background: rgba(0,0,0,0.5); border-radius: 8px; margin-bottom: 15px; flex-wrap: wrap;">
+                        <h2 style="margin: 0; font-family: var(--font-headline); color: var(--primary-accent);">WATCH PARTY: ${this.escapeHtml(roomId)}</h2>
+                        <span id="party-role-badge" style="color: ${this.isHost ? 'var(--primary-accent)' : '#aaa'}; font-size: 0.85em; letter-spacing: 0.04em;">${roleLabel}</span>
                         <span id="party-users-count" style="color: #aaa; font-size: 0.9em;">1 user connected</span>
                         <button class="btn-secondary" onclick="Alexandria.copyPartyLink()">Copy Invite Link</button>
                     </div>
-                    <div class="player-frame-container" style="flex: 1; position: relative;">
-                        <iframe id="embedmaster_iframe" title="Watch Party" src="${embedUrl}" width="100%" height="100%" style="position: absolute; top:0; left:0;" frameborder="0" scrolling="no" referrerpolicy="no-referrer" allow="autoplay; fullscreen; encrypted-media; picture-in-picture"></iframe>
+                    <div class="player-frame-container" style="flex: 1; position: relative; min-height: 280px;">
+                        <iframe id="embedmaster_iframe" title="Watch Party" src="${embedUrl}" width="100%" height="100%" style="position: absolute; top:0; left:0; pointer-events: ${framePointer};" frameborder="0" scrolling="no" referrerpolicy="no-referrer" allow="autoplay; fullscreen; encrypted-media; picture-in-picture"></iframe>
+                        <div id="party-spectate-veil" style="display: ${this.isHost ? 'none' : 'flex'}; position: absolute; left: 12px; bottom: 12px; z-index: 2; pointer-events: none; background: rgba(0,0,0,0.72); border: 1px solid rgba(255,255,255,0.12); border-radius: 8px; padding: 8px 12px; font-size: 0.8em; color: #ccc;">
+                            Spectating — only the host can pause, seek, or change episodes
+                        </div>
                     </div>
+                    <div id="party-host-controls" style="display: ${this.isHost ? 'flex' : 'none'}; gap: 8px; margin-top: 10px; flex-wrap: wrap; align-items: center;">
+                        <button type="button" class="btn-primary" onclick="Alexandria.partyHostCommand('play')">Play for everyone</button>
+                        <button type="button" class="btn-secondary" onclick="Alexandria.partyHostCommand('pause')">Pause for everyone</button>
+                        <span style="color:#666; font-size:0.8em;">Use these if in-player pause doesn’t sync</span>
+                    </div>
+                    ${type === 'tv' ? `
+                    <div class="party-episode-bar" style="margin-top: 12px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+                        <label style="color:#aaa; font-size:0.85em;">Season
+                            <select id="party-season-selector" ${this.isHost ? '' : 'disabled'} onchange="Alexandria.partyChangeSeason(this.value)" style="margin-left:6px; background:#111; color:#fff; border:1px solid rgba(255,255,255,0.15); border-radius:6px; padding:6px 8px;"></select>
+                        </label>
+                        <span id="party-ep-label" style="color:#888; font-size:0.85em;">S${season} · E${episode}</span>
+                    </div>
+                    <div id="party-episodes" class="sidebar-episodes" style="margin-top: 8px; max-height: 140px; overflow-y: auto; display: flex; flex-direction: column; gap: 4px;"></div>
+                    ` : ''}
                 </div>
-                <div class="party-chat-sidebar" style="width: 300px; display: flex; flex-direction: column; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; overflow: hidden;">
+                <div class="party-chat-sidebar" style="width: 300px; display: flex; flex-direction: column; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; overflow: hidden; flex-shrink: 0;">
                     <div class="chat-header" style="padding: 15px; background: rgba(0,0,0,0.5); font-family: var(--font-headline); text-align: center; border-bottom: 1px solid rgba(255,255,255,0.1);">PARTY CHAT</div>
                     <div class="chat-messages" id="party-chat-messages" style="flex: 1; overflow-y: auto; padding: 15px; display: flex; flex-direction: column; gap: 10px; font-size: 0.9em;">
                         <div class="chat-msg system" style="color: #aaa; font-style: italic; text-align: center;">Welcome to Watch Party!</div>
@@ -1785,7 +1834,6 @@ const Alexandria = {
                 </div>
             </section>`;
 
-        // Nickname without relying solely on prompt()
         if (!sessionStorage.getItem('alexandria_nickname')) {
             let nickname = '';
             try {
@@ -1805,14 +1853,244 @@ const Alexandria = {
             );
         }
 
+        if (type === 'tv') {
+            this.initPartyEpisodeUI(id, season, episode);
+        }
+
+        if (sameRoom) {
+            this.updatePartyRoleUI();
+            return;
+        }
         this.initPartySync(roomId);
+    },
+
+    async initPartyEpisodeUI(id, activeSeason, activeEpisode) {
+        try {
+            const show = await this.getJson('tv/' + id);
+            const selector = document.getElementById('party-season-selector');
+            if (selector && show?.seasons) {
+                selector.innerHTML = show.seasons
+                    .filter(s => s.season_number > 0)
+                    .map(s => `<option value="${s.season_number}" ${s.season_number == activeSeason ? 'selected' : ''}>Season ${s.season_number}</option>`)
+                    .join('');
+                selector.disabled = !this.isHost;
+            }
+            await this.loadPartyEpisodes(id, activeSeason, activeEpisode);
+        } catch (e) {
+            console.error('Alexandria Protocol: Party episode UI failed -', e);
+        }
+    },
+
+    async loadPartyEpisodes(id, season, activeEpisode) {
+        try {
+            const data = await this.getJson('tv/' + id + '/season/' + season);
+            const container = document.getElementById('party-episodes');
+            if (!container) return;
+            this._currentSeasonEpisodes = data.episodes || [];
+            const canPick = this.isHost;
+            container.innerHTML = this._currentSeasonEpisodes.map(ep => `
+                <div class="episode-item ${activeEpisode == ep.episode_number ? 'active' : ''}" role="button" tabindex="0"
+                     style="opacity: ${canPick ? '1' : '0.75'}; cursor: ${canPick ? 'pointer' : 'default'};"
+                     ${canPick ? `onclick="Alexandria.partySelectEpisode(${ep.episode_number})"` : ''}>
+                    <span class="ep-num">EP ${ep.episode_number}</span>
+                    <span class="ep-name">${this.escapeHtml(ep.name || 'Untitled episode')}</span>
+                </div>`).join('');
+        } catch (e) {
+            const container = document.getElementById('party-episodes');
+            if (container) container.innerHTML = '<div class="placeholder-msg">Episodes unavailable.</div>';
+        }
+    },
+
+    partyChangeSeason(newSeason) {
+        if (!this.isHost) return;
+        const season = Number.parseInt(newSeason, 10);
+        if (!Number.isInteger(season) || season < 1) return;
+        this.partySetContent({ season, episode: 1 });
+    },
+
+    partySelectEpisode(episode) {
+        if (!this.isHost) return;
+        const ep = Number.parseInt(episode, 10);
+        if (!Number.isInteger(ep) || ep < 1) return;
+        this.partySetContent({ episode: ep });
+    },
+
+    partySetContent({ season, episode } = {}) {
+        if (!this.isHost || !this.partyChannel) return;
+        const content = this.state.activeContent;
+        if (season != null) content.season = season;
+        if (episode != null) content.episode = episode;
+
+        const { id, type } = content;
+        const s = content.season || 1;
+        const e = content.episode || 1;
+        const server = this.servers[this.state.activeServer];
+        const frame = document.getElementById('embedmaster_iframe');
+        if (frame && type === 'tv') frame.src = server.getTv(id, s, e);
+
+        const hash = type === 'tv'
+            ? `#party/${this.state.partyRoomId}/${type}/${id}/s/${s}/e/${e}`
+            : `#party/${this.state.partyRoomId}/${type}/${id}`;
+        history.replaceState(null, '', hash);
+
+        const label = document.getElementById('party-ep-label');
+        if (label) label.textContent = `S${s} · E${e}`;
+        if (type === 'tv') this.loadPartyEpisodes(id, s, e);
+
+        this.broadcastPartyContent();
+        this.appendChatMessage('System', `Host switched to S${s}E${e}`);
+    },
+
+    broadcastPartyContent() {
+        if (!this.partyChannel || !this.isHost) return;
+        const { id, type, season, episode } = this.state.activeContent;
+        this.partyChannel.send({
+            type: 'broadcast',
+            event: 'content_sync',
+            payload: {
+                type,
+                id,
+                season: season || 1,
+                episode: episode || 1,
+                time: this._partyLastTime || 0,
+                paused: this._partyLastAction === 'pause'
+            }
+        });
+    },
+
+    applyPartyContent(payload) {
+        if (!payload || this.isHost) return;
+        const { type, id, season, episode, time, paused } = payload;
+        if (!type || !id) return;
+
+        const prev = this.state.activeContent;
+        const changed = prev.type !== type || String(prev.id) !== String(id)
+            || Number(prev.season) !== Number(season || 1)
+            || Number(prev.episode) !== Number(episode || 1);
+
+        this.state.activeContent = {
+            ...prev,
+            type,
+            id,
+            season: season || 1,
+            episode: episode || 1
+        };
+
+        if (changed) {
+            const server = this.servers[this.state.activeServer];
+            const frame = document.getElementById('embedmaster_iframe');
+            if (frame) {
+                frame.src = type === 'movie'
+                    ? server.getMovie(id)
+                    : server.getTv(id, season || 1, episode || 1);
+            }
+            const hash = type === 'tv'
+                ? `#party/${this.state.partyRoomId}/${type}/${id}/s/${season || 1}/e/${episode || 1}`
+                : `#party/${this.state.partyRoomId}/${type}/${id}`;
+            history.replaceState(null, '', hash);
+
+            const label = document.getElementById('party-ep-label');
+            if (label) label.textContent = `S${season || 1} · E${episode || 1}`;
+            if (type === 'tv') {
+                const sel = document.getElementById('party-season-selector');
+                if (sel) sel.value = String(season || 1);
+                this.loadPartyEpisodes(id, season || 1, episode || 1);
+            }
+            this.appendChatMessage('System', `Host switched to ${type === 'tv' ? `S${season || 1}E${episode || 1}` : 'a new title'}`);
+        }
+
+        if (typeof time === 'number' && time > 0) {
+            setTimeout(() => {
+                this.applyRemotePlayerAction(paused ? 'pause' : 'play', time);
+            }, 800);
+        }
+    },
+
+    updatePartyRoleUI() {
+        const badge = document.getElementById('party-role-badge');
+        const veil = document.getElementById('party-spectate-veil');
+        const frame = document.getElementById('embedmaster_iframe');
+        const seasonSel = document.getElementById('party-season-selector');
+        const hostControls = document.getElementById('party-host-controls');
+
+        if (badge) {
+            badge.textContent = this.isHost ? 'HOST · you control playback' : 'SPECTATING · host controls playback';
+            badge.style.color = this.isHost ? 'var(--primary-accent)' : '#aaa';
+        }
+        if (veil) veil.style.display = this.isHost ? 'none' : 'flex';
+        if (frame) frame.style.pointerEvents = this.isHost ? 'auto' : 'none';
+        if (seasonSel) seasonSel.disabled = !this.isHost;
+        if (hostControls) hostControls.style.display = this.isHost ? 'flex' : 'none';
+
+        const { id, type, season, episode } = this.state.activeContent;
+        if (type === 'tv' && id) this.loadPartyEpisodes(id, season, episode);
+    },
+
+    partyHostCommand(action) {
+        if (!this.isHost) return;
+        const frame = document.getElementById('embedmaster_iframe');
+        const time = this._partyLastTime || 0;
+        if (action === 'play') {
+            if (time > 0) this.postToEmbed(frame, 'seek', time);
+            this.postToEmbed(frame, 'play');
+            this.sendPlayerSync('play', time);
+        } else if (action === 'pause') {
+            if (time > 0) this.postToEmbed(frame, 'seek', time);
+            this.postToEmbed(frame, 'pause');
+            this.sendPlayerSync('pause', time);
+        }
     },
 
     postToEmbed(frame, command, value) {
         if (!frame?.contentWindow) return;
         const payload = { source: 'embedmaster_player_command', command };
         if (value !== undefined) payload.value = value;
-        frame.contentWindow.postMessage(payload, this._EMBED_ORIGIN);
+        // EmbedMaster docs use '*' — a fixed origin silently fails if the player path differs.
+        frame.contentWindow.postMessage(payload, '*');
+    },
+
+    applyRemotePlayerAction(action, time) {
+        const frame = document.getElementById('embedmaster_iframe');
+        if (!frame?.contentWindow) return;
+
+        this._applyingRemoteSync = true;
+        const t = typeof time === 'number' ? time : 0;
+
+        if (action === 'play') {
+            if (t > 0) this.postToEmbed(frame, 'seek', t);
+            setTimeout(() => {
+                this.postToEmbed(frame, 'play');
+                this._applyingRemoteSync = false;
+            }, 60);
+        } else if (action === 'pause') {
+            if (t > 0) this.postToEmbed(frame, 'seek', t);
+            setTimeout(() => {
+                this.postToEmbed(frame, 'pause');
+                this._applyingRemoteSync = false;
+            }, 60);
+        } else if (action === 'seek' && t > 0) {
+            this.postToEmbed(frame, 'seek', t);
+            this._applyingRemoteSync = false;
+        } else if (action === 'sync') {
+            if (t > 0) this.postToEmbed(frame, 'seek', t);
+            setTimeout(() => {
+                this.postToEmbed(frame, this._partyRemotePaused ? 'pause' : 'play');
+                this._applyingRemoteSync = false;
+            }, 60);
+        } else {
+            this._applyingRemoteSync = false;
+        }
+    },
+
+    sendPlayerSync(action, time) {
+        if (!this.partyChannel || !this.isHost) return;
+        this._partyLastAction = action;
+        if (typeof time === 'number') this._partyLastTime = time;
+        this.partyChannel.send({
+            type: 'broadcast',
+            event: 'player_sync',
+            payload: { action, time: typeof time === 'number' ? time : 0 }
+        });
     },
 
     initPartySync(roomId) {
@@ -1824,10 +2102,16 @@ const Alexandria = {
         this.teardownParty();
         this.state.partyRoomId = roomId;
 
-        this.isHost = false;
-        this.notifiedHost = false;
         const nickname = sessionStorage.getItem('alexandria_nickname');
         const uid = sessionStorage.getItem('alexandria_party_uid');
+        const isCreator = sessionStorage.getItem('alexandria_party_creator_' + roomId) === '1';
+
+        // Host immediately if you created the room — presence only re-elects if creator leaves.
+        this.isHost = isCreator;
+        this.notifiedHost = false;
+        this._partyLastAction = null;
+        this._partyLastTime = 0;
+        this._partyRemotePaused = false;
 
         this.partyChannel = this.supabase.channel(`party_${roomId}`, {
             config: { presence: { key: uid } }
@@ -1842,41 +2126,68 @@ const Alexandria = {
                     countEl.textContent = `${users.length} user${users.length === 1 ? '' : 's'} connected`;
                 }
 
-                if (users.length > 0) {
-                    let earliestTime = Infinity;
-                    let hostKey = users[0];
+                if (users.length === 0) return;
+
+                let hostKey = null;
+                let earliestTime = Infinity;
+
+                for (const key of users) {
+                    const p = state[key]?.[0];
+                    if (p?.isCreator) {
+                        hostKey = key;
+                        break;
+                    }
+                }
+
+                if (!hostKey) {
                     for (const key of users) {
-                        const presences = state[key];
-                        if (presences?.[0]?.online_at) {
-                            const time = new Date(presences[0].online_at).getTime();
+                        const p = state[key]?.[0];
+                        if (p?.online_at) {
+                            const time = new Date(p.online_at).getTime();
                             if (time < earliestTime) {
                                 earliestTime = time;
                                 hostKey = key;
                             }
                         }
                     }
-                    this.isHost = (hostKey === uid);
-                    if (this.isHost && !this.notifiedHost) {
-                        this.notifiedHost = true;
-                        this.appendChatMessage('System', 'You are the Host. You control playback.');
-                    }
+                }
+                if (!hostKey) hostKey = users[0];
+
+                const wasHost = this.isHost;
+                // Room creator stays host while present; otherwise earliest joiner.
+                this.isHost = isCreator ? true : (hostKey === uid);
+
+                this.updatePartyRoleUI();
+
+                if (this.isHost && !this.notifiedHost) {
+                    this.notifiedHost = true;
+                    this.appendChatMessage('System', 'You are the Host. Friends will follow your playback.');
+                } else if (!this.isHost && wasHost) {
+                    this.appendChatMessage('System', 'Host left — a new host was elected.');
+                }
+
+                if (this.isHost) {
+                    clearTimeout(this._partyPresenceResyncTimer);
+                    this._partyPresenceResyncTimer = setTimeout(() => {
+                        if (!this.isHost || !this.partyChannel) return;
+                        this.broadcastPartyContent();
+                        if (this._partyLastAction === 'play' || this._partyLastAction === 'pause') {
+                            this.sendPlayerSync(this._partyLastAction, this._partyLastTime || 0);
+                        }
+                    }, 500);
                 }
             })
             .on('broadcast', { event: 'player_sync' }, (payload) => {
+                if (this.isHost || this._applyingRemoteSync) return;
+                const { action, time, paused } = payload.payload || {};
+                if (typeof paused === 'boolean') this._partyRemotePaused = paused;
+                if (action === 'pause') this._partyRemotePaused = true;
+                if (action === 'play') this._partyRemotePaused = false;
+                this.applyRemotePlayerAction(action, time);
+            })
+            .on('broadcast', { event: 'content_sync' }, (payload) => {
                 if (this.isHost) return;
-                const { action, time } = payload.payload;
-                const frame = document.getElementById('embedmaster_iframe');
-                if (!frame?.contentWindow) return;
-
-                if (action === 'play') {
-                    if (time) this.postToEmbed(frame, 'seek', time);
-                    this.postToEmbed(frame, 'play');
-                } else if (action === 'pause') {
-                    if (time) this.postToEmbed(frame, 'seek', time);
-                    this.postToEmbed(frame, 'pause');
-                } else if (action === 'seek' && time) {
-                    this.postToEmbed(frame, 'seek', time);
-                }
+                this.applyPartyContent(payload.payload);
             })
             .on('broadcast', { event: 'chat_msg' }, (payload) => {
                 const { sender, msg, fromUid } = payload.payload;
@@ -1887,8 +2198,12 @@ const Alexandria = {
                 if (status === 'SUBSCRIBED') {
                     await this.partyChannel.track({
                         online_at: new Date().toISOString(),
-                        nickname
+                        nickname,
+                        isCreator
                     });
+                    if (this.isHost) {
+                        this.broadcastPartyContent();
+                    }
                 }
             });
 
@@ -1896,21 +2211,26 @@ const Alexandria = {
             this._embedListener = this.handleEmbedMasterMessage.bind(this);
             window.addEventListener('message', this._embedListener);
         }
+
+        this.updatePartyRoleUI();
     },
 
     handleEmbedMasterMessage(event) {
         if (!this.isTrustedEmbedOrigin(event.origin)) return;
         const data = event.data;
         if (!data || data.source !== 'embedmaster_player' || !this.partyChannel) return;
+        if (this.state.view !== 'party') return;
+        if (!this.isHost || this._applyingRemoteSync) return;
 
-        if (this.isHost) {
-            if (data.event === 'play' || data.event === 'pause' || data.event === 'seek') {
-                this.partyChannel.send({
-                    type: 'broadcast',
-                    event: 'player_sync',
-                    payload: { action: data.event, time: data.info?.time || 0 }
-                });
-            }
+        if (typeof data.info?.time === 'number') {
+            this._partyLastTime = data.info.time;
+        }
+
+        if (data.event === 'play' || data.event === 'pause' || data.event === 'seek') {
+            this.sendPlayerSync(data.event, data.info?.time || 0);
+        } else if (data.event === 'time' || data.event === 'timeupdate') {
+            // Keep host clock fresh for heartbeat / late joiners.
+            if (typeof data.info?.time === 'number') this._partyLastTime = data.info.time;
         }
     },
 
