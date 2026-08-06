@@ -1068,7 +1068,7 @@ const Alexandria = {
             const poster = this.imageUrl(item.poster_path);
             const type = item.media_type === 'tv' || item.media_type === 'movie'
                 ? item.media_type
-                : (item.name && !item.title ? 'tv' : 'movie');
+                : (item.type === 'tv' || item.type === 'movie' ? item.type : (item.name && !item.title ? 'tv' : 'movie'));
             const inWatchlist = this.state.watchlist.some(i => String(i.id) === String(item.id) && i.type === type);
             const isAnime = item.isAnime || (item.origin_country && item.origin_country.includes('JP') && item.genre_ids && item.genre_ids.includes(16));
             
