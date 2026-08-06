@@ -1525,9 +1525,19 @@ const Alexandria = {
                 const users = Object.keys(state);
                 document.getElementById('party-users-count').textContent = `${users.length} user${users.length === 1 ? '' : 's'} connected`;
                 
-                // First person in the presence state array is deterministically the host.
                 if (users.length > 0) {
-                    const hostKey = users[0];
+                    let earliestTime = Infinity;
+                    let hostKey = users[0];
+                    for (const key of users) {
+                        const presences = state[key];
+                        if (presences && presences[0] && presences[0].online_at) {
+                            const time = new Date(presences[0].online_at).getTime();
+                            if (time < earliestTime) {
+                                earliestTime = time;
+                                hostKey = key;
+                            }
+                        }
+                    }
                     this.isHost = (hostKey === nickname);
                     if (this.isHost && !this.notifiedHost) {
                         this.notifiedHost = true;
@@ -1539,11 +1549,17 @@ const Alexandria = {
                 if (this.isHost) return; 
                 const { action, time } = payload.payload;
                 const frame = document.getElementById('embedmaster_iframe');
-                if (!frame) return;
+                if (!frame || !frame.contentWindow) return;
                 
-                if (action === 'play') frame.contentWindow.postMessage({ source: 'embedmaster_player_command', command: 'play' }, '*');
-                if (action === 'pause') frame.contentWindow.postMessage({ source: 'embedmaster_player_command', command: 'pause' }, '*');
-                if (action === 'seek' && time) frame.contentWindow.postMessage({ source: 'embedmaster_player_command', command: 'seek', value: time }, '*');
+                if (action === 'play') {
+                    if (time) frame.contentWindow.postMessage({ source: 'embedmaster_player_command', command: 'seek', value: time }, '*');
+                    frame.contentWindow.postMessage({ source: 'embedmaster_player_command', command: 'play' }, '*');
+                } else if (action === 'pause') {
+                    if (time) frame.contentWindow.postMessage({ source: 'embedmaster_player_command', command: 'seek', value: time }, '*');
+                    frame.contentWindow.postMessage({ source: 'embedmaster_player_command', command: 'pause' }, '*');
+                } else if (action === 'seek' && time) {
+                    frame.contentWindow.postMessage({ source: 'embedmaster_player_command', command: 'seek', value: time }, '*');
+                }
             })
             .on('broadcast', { event: 'chat_msg' }, (payload) => {
                 this.appendChatMessage(payload.payload.sender, payload.payload.msg);
