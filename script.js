@@ -523,6 +523,10 @@ const Alexandria = {
             clearTimeout(this._partyPresenceResyncTimer);
             this._partyPresenceResyncTimer = null;
         }
+        if (this._partyGuestFlushTimer) {
+            clearTimeout(this._partyGuestFlushTimer);
+            this._partyGuestFlushTimer = null;
+        }
         if (this.partyChannel && this.supabase) {
             this.supabase.removeChannel(this.partyChannel);
             this.partyChannel = null;
@@ -532,6 +536,8 @@ const Alexandria = {
         this._partyLastAction = null;
         this._partyLastTime = 0;
         this._applyingRemoteSync = false;
+        this._partyGuestUnlocked = false;
+        this._pendingPartySync = null;
         this.state.partyRoomId = null;
     },
 
@@ -1789,8 +1795,9 @@ const Alexandria = {
         const isCreator = sessionStorage.getItem('alexandria_party_creator_' + roomId) === '1';
         this.isHost = isCreator || this.isHost;
 
-        const roleLabel = this.isHost ? 'HOST · you control playback' : 'SPECTATING · host controls playback';
-        const framePointer = this.isHost ? 'auto' : 'none';
+        const roleLabel = this.isHost
+            ? 'HOST · you control playback'
+            : 'FOLLOWING HOST · click Play Now on the video to unlock';
 
         this.main.innerHTML = `
             <section class="party-layout" style="display: flex; gap: 20px; height: calc(100vh - 80px);">
@@ -1802,15 +1809,19 @@ const Alexandria = {
                         <button class="btn-secondary" onclick="Alexandria.copyPartyLink()">Copy Invite Link</button>
                     </div>
                     <div class="player-frame-container" style="flex: 1; position: relative; min-height: 280px;">
-                        <iframe id="embedmaster_iframe" title="Watch Party" src="${embedUrl}" width="100%" height="100%" style="position: absolute; top:0; left:0; pointer-events: ${framePointer};" frameborder="0" scrolling="no" referrerpolicy="no-referrer" allow="autoplay; fullscreen; encrypted-media; picture-in-picture"></iframe>
-                        <div id="party-spectate-veil" style="display: ${this.isHost ? 'none' : 'flex'}; position: absolute; left: 12px; bottom: 12px; z-index: 2; pointer-events: none; background: rgba(0,0,0,0.72); border: 1px solid rgba(255,255,255,0.12); border-radius: 8px; padding: 8px 12px; font-size: 0.8em; color: #ccc;">
-                            Spectating — only the host can pause, seek, or change episodes
+                        <iframe id="embedmaster_iframe" title="Watch Party" src="${embedUrl}" width="100%" height="100%" style="position: absolute; top:0; left:0;" frameborder="0" scrolling="no" referrerpolicy="no-referrer" allow="autoplay *; fullscreen *; picture-in-picture *; encrypted-media *" allowfullscreen></iframe>
+                        <div id="party-spectate-veil" style="display: ${this.isHost ? 'none' : 'flex'}; position: absolute; left: 12px; bottom: 12px; z-index: 2; pointer-events: none; background: rgba(0,0,0,0.72); border: 1px solid rgba(255,255,255,0.12); border-radius: 8px; padding: 8px 12px; font-size: 0.8em; color: #ccc; max-width: calc(100% - 24px);">
+                            Click <strong style="color:#fff;">Play Now</strong> on the video to unlock — then you follow the host’s pause / seek / episodes
                         </div>
                     </div>
                     <div id="party-host-controls" style="display: ${this.isHost ? 'flex' : 'none'}; gap: 8px; margin-top: 10px; flex-wrap: wrap; align-items: center;">
                         <button type="button" class="btn-primary" onclick="Alexandria.partyHostCommand('play')">Play for everyone</button>
                         <button type="button" class="btn-secondary" onclick="Alexandria.partyHostCommand('pause')">Pause for everyone</button>
-                        <span style="color:#666; font-size:0.8em;">Use these if in-player pause doesn’t sync</span>
+                        <span style="color:#666; font-size:0.8em;">Use these if in-player controls don’t sync</span>
+                    </div>
+                    <div id="party-guest-controls" style="display: ${this.isHost ? 'none' : 'flex'}; gap: 8px; margin-top: 10px; flex-wrap: wrap; align-items: center;">
+                        <button type="button" class="btn-primary" onclick="Alexandria.partyGuestSync()">Sync with host</button>
+                        <span style="color:#888; font-size:0.8em;">Stuck on Play Now? Click it in the player first, then hit Sync</span>
                     </div>
                     ${type === 'tv' ? `
                     <div class="party-episode-bar" style="margin-top: 12px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
@@ -1977,6 +1988,7 @@ const Alexandria = {
         };
 
         if (changed) {
+            this._partyGuestUnlocked = false;
             const server = this.servers[this.state.activeServer];
             const frame = document.getElementById('embedmaster_iframe');
             if (frame) {
@@ -1997,30 +2009,44 @@ const Alexandria = {
                 this.loadPartyEpisodes(id, season || 1, episode || 1);
             }
             this.appendChatMessage('System', `Host switched to ${type === 'tv' ? `S${season || 1}E${episode || 1}` : 'a new title'}`);
+            this.updatePartyRoleUI();
         }
 
-        if (typeof time === 'number' && time > 0) {
-            setTimeout(() => {
-                this.applyRemotePlayerAction(paused ? 'pause' : 'play', time);
-            }, 800);
+        const nextAction = paused ? 'pause' : 'play';
+        this._pendingPartySync = { action: nextAction, time: typeof time === 'number' ? time : 0 };
+        if (this._partyGuestUnlocked) {
+            setTimeout(() => this.applyRemotePlayerAction(nextAction, time || 0), 800);
         }
     },
 
     updatePartyRoleUI() {
         const badge = document.getElementById('party-role-badge');
         const veil = document.getElementById('party-spectate-veil');
-        const frame = document.getElementById('embedmaster_iframe');
         const seasonSel = document.getElementById('party-season-selector');
         const hostControls = document.getElementById('party-host-controls');
+        const guestControls = document.getElementById('party-guest-controls');
 
         if (badge) {
-            badge.textContent = this.isHost ? 'HOST · you control playback' : 'SPECTATING · host controls playback';
-            badge.style.color = this.isHost ? 'var(--primary-accent)' : '#aaa';
+            if (this.isHost) {
+                badge.textContent = 'HOST · you control playback';
+                badge.style.color = 'var(--primary-accent)';
+            } else if (this._partyGuestUnlocked) {
+                badge.textContent = 'FOLLOWING HOST · synced';
+                badge.style.color = '#8f8';
+            } else {
+                badge.textContent = 'FOLLOWING HOST · click Play Now on the video to unlock';
+                badge.style.color = '#aaa';
+            }
         }
-        if (veil) veil.style.display = this.isHost ? 'none' : 'flex';
-        if (frame) frame.style.pointerEvents = this.isHost ? 'auto' : 'none';
+        if (veil) {
+            veil.style.display = this.isHost ? 'none' : 'flex';
+            veil.innerHTML = this._partyGuestUnlocked
+                ? 'Following host — pause / seek / episodes are controlled by the host'
+                : 'Click <strong style="color:#fff;">Play Now</strong> on the video to unlock — then you follow the host’s pause / seek / episodes';
+        }
         if (seasonSel) seasonSel.disabled = !this.isHost;
         if (hostControls) hostControls.style.display = this.isHost ? 'flex' : 'none';
+        if (guestControls) guestControls.style.display = this.isHost ? 'none' : 'flex';
 
         const { id, type, season, episode } = this.state.activeContent;
         if (type === 'tv' && id) this.loadPartyEpisodes(id, season, episode);
@@ -2041,6 +2067,22 @@ const Alexandria = {
         }
     },
 
+    partyGuestSync() {
+        if (this.isHost) return;
+        const frame = document.getElementById('embedmaster_iframe');
+        // Nudge the player in case they're past ads but not playing yet.
+        this.postToEmbed(frame, 'play');
+        this._partyGuestUnlocked = true;
+        this.updatePartyRoleUI();
+        const pending = this._pendingPartySync;
+        if (pending) {
+            this.applyRemotePlayerAction(pending.action, pending.time);
+            this.showToast('Synced with host');
+        } else {
+            this.showToast('Unlocked — waiting for host playback');
+        }
+    },
+
     postToEmbed(frame, command, value) {
         if (!frame?.contentWindow) return;
         const payload = { source: 'embedmaster_player_command', command };
@@ -2052,6 +2094,12 @@ const Alexandria = {
     applyRemotePlayerAction(action, time) {
         const frame = document.getElementById('embedmaster_iframe');
         if (!frame?.contentWindow) return;
+
+        // EmbedMaster "Play Now" / ads need a real click — queue until guest unlocks.
+        if (!this.isHost && !this._partyGuestUnlocked) {
+            this._pendingPartySync = { action, time: typeof time === 'number' ? time : 0 };
+            return;
+        }
 
         this._applyingRemoteSync = true;
         const t = typeof time === 'number' ? time : 0;
@@ -2112,6 +2160,8 @@ const Alexandria = {
         this._partyLastAction = null;
         this._partyLastTime = 0;
         this._partyRemotePaused = false;
+        this._partyGuestUnlocked = isCreator; // host doesn't need Play Now unlock gate
+        this._pendingPartySync = null;
 
         this.partyChannel = this.supabase.channel(`party_${roomId}`, {
             config: { presence: { key: uid } }
@@ -2156,6 +2206,7 @@ const Alexandria = {
                 const wasHost = this.isHost;
                 // Room creator stays host while present; otherwise earliest joiner.
                 this.isHost = isCreator ? true : (hostKey === uid);
+                if (this.isHost) this._partyGuestUnlocked = true;
 
                 this.updatePartyRoleUI();
 
@@ -2183,6 +2234,7 @@ const Alexandria = {
                 if (typeof paused === 'boolean') this._partyRemotePaused = paused;
                 if (action === 'pause') this._partyRemotePaused = true;
                 if (action === 'play') this._partyRemotePaused = false;
+                this._pendingPartySync = { action, time: typeof time === 'number' ? time : 0 };
                 this.applyRemotePlayerAction(action, time);
             })
             .on('broadcast', { event: 'content_sync' }, (payload) => {
@@ -2220,7 +2272,30 @@ const Alexandria = {
         const data = event.data;
         if (!data || data.source !== 'embedmaster_player' || !this.partyChannel) return;
         if (this.state.view !== 'party') return;
-        if (!this.isHost || this._applyingRemoteSync) return;
+
+        // Guests: Play Now / first playback unlocks the player, then flush queued host sync.
+        if (!this.isHost) {
+            if (this._applyingRemoteSync) return;
+            if (data.event === 'ready' || data.event === 'play' || data.event === 'time' || data.event === 'timeupdate') {
+                const wasLocked = !this._partyGuestUnlocked;
+                this._partyGuestUnlocked = true;
+                if (wasLocked) {
+                    this.updatePartyRoleUI();
+                    this.appendChatMessage('System', 'Player unlocked — syncing with host.');
+                }
+                if (this._pendingPartySync) {
+                    const pending = this._pendingPartySync;
+                    // Slight delay so Play Now click finishes settling.
+                    clearTimeout(this._partyGuestFlushTimer);
+                    this._partyGuestFlushTimer = setTimeout(() => {
+                        this.applyRemotePlayerAction(pending.action, pending.time);
+                    }, wasLocked ? 400 : 0);
+                }
+            }
+            return;
+        }
+
+        if (this._applyingRemoteSync) return;
 
         if (typeof data.info?.time === 'number') {
             this._partyLastTime = data.info.time;
@@ -2229,7 +2304,6 @@ const Alexandria = {
         if (data.event === 'play' || data.event === 'pause' || data.event === 'seek') {
             this.sendPlayerSync(data.event, data.info?.time || 0);
         } else if (data.event === 'time' || data.event === 'timeupdate') {
-            // Keep host clock fresh for heartbeat / late joiners.
             if (typeof data.info?.time === 'number') this._partyLastTime = data.info.time;
         }
     },
