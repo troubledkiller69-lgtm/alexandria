@@ -527,6 +527,10 @@ const Alexandria = {
             clearTimeout(this._partyGuestFlushTimer);
             this._partyGuestFlushTimer = null;
         }
+        if (this._partyApplyLockTimer) {
+            clearTimeout(this._partyApplyLockTimer);
+            this._partyApplyLockTimer = null;
+        }
         if (this.partyChannel && this.supabase) {
             this.supabase.removeChannel(this.partyChannel);
             this.partyChannel = null;
@@ -2060,19 +2064,21 @@ const Alexandria = {
 
     partyHostCommand(action) {
         if (!this.isHost) return;
-        // Resolve current time first — without it guests always land at 0:00.
         this.resolveHostTime().then((time) => {
             const frame = document.getElementById('embedmaster_iframe');
+            // Ignore echo events from our own play/pause for a bit.
+            this._suppressHostBroadcastUntil = Date.now() + 1500;
+
             if (action === 'play') {
                 this.postToEmbed(frame, 'play');
                 this._partyLastAction = 'play';
                 this._partyLastTimeAt = Date.now();
-                this.sendPlayerSync('play', time);
+                this.sendPlayerSync('play', time, { force: true });
             } else if (action === 'pause') {
                 this.postToEmbed(frame, 'pause');
                 this._partyLastAction = 'pause';
                 this.notePartyTime(time);
-                this.sendPlayerSync('pause', time);
+                this.sendPlayerSync('pause', time, { force: true });
             }
             const stamp = this.formatTime(Math.floor(time || 0));
             this.showToast(`${action === 'play' ? 'Play' : 'Pause'} @ ${stamp}`);
@@ -2098,7 +2104,7 @@ const Alexandria = {
 
         const pending = this._pendingPartySync;
         if (pending && pending.time >= 1) {
-            this.applyRemotePlayerAction(pending.action, pending.time);
+            this.applyRemotePlayerAction(pending.action, pending.time, { force: true });
             this.showToast(`Syncing @ ${this.formatTime(Math.floor(pending.time))}…`);
         } else {
             this.showToast('Asking host for timestamp…');
@@ -2190,28 +2196,44 @@ const Alexandria = {
         win.postMessage(pjs, '*');
     },
 
-    applyRemotePlayerAction(action, time) {
+    applyRemotePlayerAction(action, time, opts = {}) {
         const frame = document.getElementById('embedmaster_iframe');
         if (!frame?.contentWindow) return;
 
         this._partyGuestUnlocked = true;
         const t = this.normalizePlayerTime(time);
         this._pendingPartySync = { action, time: t };
+
+        const force = !!opts.force;
+        const now = Date.now();
+        const last = this._lastAppliedPartySync;
+        // Skip spam that re-triggers EmbedMaster buffering / loading loops.
+        if (!force && last && last.action === action && (now - last.at) < 2500) {
+            if (Math.abs((last.time || 0) - t) < 3) return;
+        }
+        if (this._applyingRemoteSync && !force) return;
+
+        this._lastAppliedPartySync = { action, time: t, at: now };
         this.updatePartyRoleUI();
 
         this._applyingRemoteSync = true;
-        const finish = () => { this._applyingRemoteSync = false; };
-        const seekTo = Math.floor(t);
+        const finish = () => {
+            clearTimeout(this._partyApplyLockTimer);
+            this._partyApplyLockTimer = setTimeout(() => {
+                this._applyingRemoteSync = false;
+            }, 800);
+        };
 
-        const afterSeek = (cmd) => {
-            if (seekTo >= 1) {
+        const seekTo = Math.floor(t);
+        const shouldSeek = seekTo >= 1 && (force || !last || Math.abs((last.time || 0) - t) >= 2);
+
+        const run = (cmd) => {
+            if (shouldSeek) {
                 this.postToEmbed(frame, 'seek', seekTo);
-                // Second seek — some players ignore the first right after Play Now.
-                setTimeout(() => this.postToEmbed(frame, 'seek', seekTo), 150);
                 setTimeout(() => {
                     this.postToEmbed(frame, cmd);
                     finish();
-                }, 350);
+                }, 250);
             } else {
                 this.postToEmbed(frame, cmd);
                 finish();
@@ -2219,17 +2241,14 @@ const Alexandria = {
         };
 
         if (action === 'play') {
-            afterSeek('play');
+            run('play');
         } else if (action === 'pause') {
-            afterSeek('pause');
-        } else if (action === 'seek' && seekTo >= 1) {
-            this.postToEmbed(frame, 'seek', seekTo);
-            setTimeout(() => {
-                this.postToEmbed(frame, 'seek', seekTo);
-                finish();
-            }, 150);
+            run('pause');
+        } else if (action === 'seek') {
+            if (shouldSeek) this.postToEmbed(frame, 'seek', seekTo);
+            finish();
         } else if (action === 'sync') {
-            afterSeek(this._partyRemotePaused ? 'pause' : 'play');
+            run(this._partyRemotePaused ? 'pause' : 'play');
         } else {
             finish();
         }
@@ -2279,12 +2298,25 @@ const Alexandria = {
         return { event: eventName, time };
     },
 
-    sendPlayerSync(action, time) {
+    sendPlayerSync(action, time, opts = {}) {
         if (!this.partyChannel || !this.isHost) return;
         const t = this.normalizePlayerTime(typeof time === 'number' ? time : this.getHostPlaybackTime());
+        const force = !!opts.force;
+        const now = Date.now();
+
+        // Debounce duplicate host broadcasts (player echoes + presence noise).
+        if (!force && this._lastSentPartySync) {
+            const last = this._lastSentPartySync;
+            if (last.action === action && (now - last.at) < 1200 && Math.abs((last.time || 0) - t) < 2) {
+                return;
+            }
+        }
+
+        this._lastSentPartySync = { action, time: t, at: now };
         this._partyLastAction = action;
         this.notePartyTime(t);
         if (action === 'play') this._partyLastTimeAt = Date.now();
+
         this.partyChannel.send({
             type: 'broadcast',
             event: 'player_sync',
@@ -2292,6 +2324,7 @@ const Alexandria = {
                 action,
                 time: t,
                 paused: action === 'pause',
+                force,
                 at: Date.now()
             }
         });
@@ -2320,6 +2353,9 @@ const Alexandria = {
         this._partyRemotePaused = false;
         this._partyGuestUnlocked = isCreator;
         this._pendingPartySync = null;
+        this._lastAppliedPartySync = null;
+        this._lastSentPartySync = null;
+        this._suppressHostBroadcastUntil = 0;
 
         this.partyChannel = this.supabase.channel(`party_${roomId}`, {
             config: { presence: { key: uid } }
@@ -2379,25 +2415,22 @@ const Alexandria = {
                 }
 
                 if (this.isHost) {
+                    // Only push content metadata on presence — not seek spam (that caused loading loops).
                     clearTimeout(this._partyPresenceResyncTimer);
-                    this._partyPresenceResyncTimer = setTimeout(async () => {
+                    this._partyPresenceResyncTimer = setTimeout(() => {
                         if (!this.isHost || !this.partyChannel) return;
                         this.broadcastPartyContent();
-                        if (this._partyLastAction === 'play' || this._partyLastAction === 'pause') {
-                            const time = await this.resolveHostTime();
-                            this.sendPlayerSync(this._partyLastAction, time);
-                        }
                     }, 500);
                 }
             })
             .on('broadcast', { event: 'player_sync' }, (payload) => {
                 if (this.isHost || this._applyingRemoteSync) return;
-                const { action, time, paused } = payload.payload || {};
+                const { action, time, paused, force } = payload.payload || {};
                 if (typeof paused === 'boolean') this._partyRemotePaused = paused;
                 if (action === 'pause') this._partyRemotePaused = true;
                 if (action === 'play') this._partyRemotePaused = false;
                 this._pendingPartySync = { action, time: typeof time === 'number' ? time : 0 };
-                this.applyRemotePlayerAction(action, time);
+                this.applyRemotePlayerAction(action, time, { force: !!force });
             })
             .on('broadcast', { event: 'sync_request' }, async (payload) => {
                 if (!this.isHost) return;
@@ -2406,7 +2439,7 @@ const Alexandria = {
                 this.broadcastPartyContent();
                 const action = this._partyLastAction || 'play';
                 const time = await this.resolveHostTime();
-                this.sendPlayerSync(action, time);
+                this.sendPlayerSync(action, time, { force: true });
             })
             .on('broadcast', { event: 'content_sync' }, (payload) => {
                 if (this.isHost) return;
@@ -2482,12 +2515,20 @@ const Alexandria = {
         }
 
         if (this._applyingRemoteSync) return;
+        if (Date.now() < (this._suppressHostBroadcastUntil || 0)) {
+            if (typeof time === 'number') this.notePartyTime(time);
+            return;
+        }
 
         if (typeof time === 'number') this.notePartyTime(time);
 
-        if (ev === 'play' || ev === 'pause' || ev === 'seek') {
+        // Only mirror intentional transport changes — not every tiny seek blip.
+        if (ev === 'play' || ev === 'pause') {
             const stamp = typeof time === 'number' ? this.normalizePlayerTime(time) : this.getHostPlaybackTime();
             this.sendPlayerSync(ev, stamp);
+        } else if (ev === 'seek') {
+            const stamp = typeof time === 'number' ? this.normalizePlayerTime(time) : this.getHostPlaybackTime();
+            if (stamp >= 1) this.sendPlayerSync('seek', stamp);
         } else if (ev === 'time' || ev === 'timeupdate') {
             if (typeof time === 'number') this.notePartyTime(time);
         }
