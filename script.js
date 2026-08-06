@@ -2060,19 +2060,23 @@ const Alexandria = {
 
     partyHostCommand(action) {
         if (!this.isHost) return;
-        const frame = document.getElementById('embedmaster_iframe');
-        const time = this._partyLastTime || 0;
-        if (action === 'play') {
-            if (time > 0) this.postToEmbed(frame, 'seek', time);
-            this.postToEmbed(frame, 'play');
-            this.sendPlayerSync('play', time);
-            this.showToast('Play sent to room');
-        } else if (action === 'pause') {
-            if (time > 0) this.postToEmbed(frame, 'seek', time);
-            this.postToEmbed(frame, 'pause');
-            this.sendPlayerSync('pause', time);
-            this.showToast('Pause sent to room');
-        }
+        // Resolve current time first — without it guests always land at 0:00.
+        this.resolveHostTime().then((time) => {
+            const frame = document.getElementById('embedmaster_iframe');
+            if (action === 'play') {
+                this.postToEmbed(frame, 'play');
+                this._partyLastAction = 'play';
+                this._partyLastTimeAt = Date.now();
+                this.sendPlayerSync('play', time);
+            } else if (action === 'pause') {
+                this.postToEmbed(frame, 'pause');
+                this._partyLastAction = 'pause';
+                this.notePartyTime(time);
+                this.sendPlayerSync('pause', time);
+            }
+            const stamp = this.formatTime(Math.floor(time || 0));
+            this.showToast(`${action === 'play' ? 'Play' : 'Pause'} @ ${stamp}`);
+        });
     },
 
     partyGuestSync() {
@@ -2083,7 +2087,6 @@ const Alexandria = {
         const frame = document.getElementById('embedmaster_iframe');
         this.postToEmbed(frame, 'play');
 
-        // Ask host to push current state (don't rely on missed broadcasts).
         if (this.partyChannel) {
             const fromUid = sessionStorage.getItem('alexandria_party_uid');
             this.partyChannel.send({
@@ -2094,25 +2097,94 @@ const Alexandria = {
         }
 
         const pending = this._pendingPartySync;
-        if (pending) {
+        if (pending && pending.time >= 1) {
             this.applyRemotePlayerAction(pending.action, pending.time);
-            this.showToast('Syncing with host…');
+            this.showToast(`Syncing @ ${this.formatTime(Math.floor(pending.time))}…`);
         } else {
-            this.showToast('Asked host for sync — wait a sec');
+            this.showToast('Asking host for timestamp…');
         }
+    },
+
+    normalizePlayerTime(t) {
+        let n = typeof t === 'number' ? t : Number(t);
+        if (!Number.isFinite(n) || n < 0) return 0;
+        // Some builds report milliseconds.
+        if (n > 36000) n = n / 1000;
+        return n;
+    },
+
+    notePartyTime(t) {
+        const n = this.normalizePlayerTime(t);
+        if (!(n >= 0)) return;
+        this._partyLastTime = n;
+        this._partyLastTimeAt = Date.now();
+    },
+
+    getHostPlaybackTime() {
+        let t = Number(this._partyLastTime) || 0;
+        if (this._partyLastAction === 'play' && this._partyLastTimeAt) {
+            t += (Date.now() - this._partyLastTimeAt) / 1000;
+        }
+        return Math.max(0, t);
+    },
+
+    queryEmbedTime(timeoutMs = 600) {
+        return new Promise((resolve) => {
+            const frame = document.getElementById('embedmaster_iframe');
+            if (!frame?.contentWindow) {
+                resolve(null);
+                return;
+            }
+
+            let done = false;
+            const finish = (t) => {
+                if (done) return;
+                done = true;
+                window.removeEventListener('message', onMsg);
+                clearTimeout(timer);
+                if (typeof t === 'number' && t >= 0) {
+                    this.notePartyTime(t);
+                    resolve(t);
+                } else {
+                    resolve(null);
+                }
+            };
+
+            const onMsg = (event) => {
+                const originOk = this.isTrustedEmbedOrigin(event.origin);
+                const em = event.data?.source === 'embedmaster_player';
+                const pjs = event.data?.answer !== undefined;
+                if (!originOk && !em && !pjs) return;
+
+                const parsed = this.parseEmbedPlayerEvent(event.data);
+                if (!parsed || typeof parsed.time !== 'number') return;
+                if (parsed.event === 'time' || parsed.event === 'timeupdate' || pjs) {
+                    finish(this.normalizePlayerTime(parsed.time));
+                }
+            };
+
+            window.addEventListener('message', onMsg);
+            const timer = setTimeout(() => finish(null), timeoutMs);
+            // PlayerJS: request current time. EmbedMaster: keep listening for time events.
+            this.postToEmbed(frame, 'time');
+        });
+    },
+
+    async resolveHostTime() {
+        const polled = await this.queryEmbedTime(650);
+        if (typeof polled === 'number' && polled >= 1) return polled;
+        return this.getHostPlaybackTime();
     },
 
     postToEmbed(frame, command, value) {
         if (!frame?.contentWindow) return;
         const win = frame.contentWindow;
 
-        // EmbedMaster documented shape
         const em = { source: 'embedmaster_player_command', command };
         if (value !== undefined) em.value = value;
         win.postMessage(em, '*');
 
-        // PlayerJS iframe API: {"api":"play"} / {"api":"seek","set":60}
-        // https://playerjs.com/docs/en=apicommands
+        // PlayerJS iframe API uses api + set (not value).
         const pjs = { api: command };
         if (value !== undefined) pjs.set = value;
         win.postMessage(pjs, '*');
@@ -2123,27 +2195,41 @@ const Alexandria = {
         if (!frame?.contentWindow) return;
 
         this._partyGuestUnlocked = true;
-        this._pendingPartySync = { action, time: typeof time === 'number' ? time : 0 };
+        const t = this.normalizePlayerTime(time);
+        this._pendingPartySync = { action, time: t };
+        this.updatePartyRoleUI();
 
         this._applyingRemoteSync = true;
-        const t = typeof time === 'number' ? time : 0;
         const finish = () => { this._applyingRemoteSync = false; };
+        const seekTo = Math.floor(t);
+
+        const afterSeek = (cmd) => {
+            if (seekTo >= 1) {
+                this.postToEmbed(frame, 'seek', seekTo);
+                // Second seek — some players ignore the first right after Play Now.
+                setTimeout(() => this.postToEmbed(frame, 'seek', seekTo), 150);
+                setTimeout(() => {
+                    this.postToEmbed(frame, cmd);
+                    finish();
+                }, 350);
+            } else {
+                this.postToEmbed(frame, cmd);
+                finish();
+            }
+        };
 
         if (action === 'play') {
-            if (t > 0) this.postToEmbed(frame, 'seek', t);
-            setTimeout(() => { this.postToEmbed(frame, 'play'); finish(); }, 100);
+            afterSeek('play');
         } else if (action === 'pause') {
-            if (t > 0) this.postToEmbed(frame, 'seek', t);
-            setTimeout(() => { this.postToEmbed(frame, 'pause'); finish(); }, 100);
-        } else if (action === 'seek' && t > 0) {
-            this.postToEmbed(frame, 'seek', t);
-            finish();
-        } else if (action === 'sync') {
-            if (t > 0) this.postToEmbed(frame, 'seek', t);
+            afterSeek('pause');
+        } else if (action === 'seek' && seekTo >= 1) {
+            this.postToEmbed(frame, 'seek', seekTo);
             setTimeout(() => {
-                this.postToEmbed(frame, this._partyRemotePaused ? 'pause' : 'play');
+                this.postToEmbed(frame, 'seek', seekTo);
                 finish();
-            }, 100);
+            }, 150);
+        } else if (action === 'sync') {
+            afterSeek(this._partyRemotePaused ? 'pause' : 'play');
         } else {
             finish();
         }
@@ -2156,12 +2242,17 @@ const Alexandria = {
         }
         if (!data || typeof data !== 'object') return null;
 
+        const asNum = (v) => {
+            if (typeof v === 'number' && Number.isFinite(v)) return v;
+            if (typeof v === 'string' && v.trim() !== '' && Number.isFinite(Number(v))) return Number(v);
+            return undefined;
+        };
+
         // PlayerJS request replies: { event: 'time', answer: 12.5 }
         if (data.event && data.answer !== undefined && data.source !== 'embedmaster_player') {
             const ev = String(data.event).toLowerCase();
             const answer = data.answer;
-            const time = typeof answer === 'number' ? answer
-                : (typeof answer?.time === 'number' ? answer.time : undefined);
+            const time = asNum(answer) ?? asNum(answer?.time);
             return { event: ev, time };
         }
 
@@ -2176,29 +2267,30 @@ const Alexandria = {
         if (eventName === 'userseek') eventName = 'seek';
         if (eventName === 'start') eventName = 'play';
 
-        let time;
         const info = data.info;
-        if (typeof info === 'number') time = info;
-        else if (typeof info?.time === 'number') time = info.time;
-        else if (typeof data.time === 'number') time = data.time;
-        else if (typeof data.data === 'number') time = data.data;
-        else if (typeof data.data?.time === 'number') time = data.data.time;
-        else if (typeof data.value === 'number') time = data.value;
-        else if (typeof data.answer === 'number') time = data.answer;
+        const time = asNum(info)
+            ?? asNum(info?.time)
+            ?? asNum(data.time)
+            ?? asNum(data.data)
+            ?? asNum(data.data?.time)
+            ?? asNum(data.value)
+            ?? asNum(data.answer);
 
         return { event: eventName, time };
     },
 
     sendPlayerSync(action, time) {
         if (!this.partyChannel || !this.isHost) return;
+        const t = this.normalizePlayerTime(typeof time === 'number' ? time : this.getHostPlaybackTime());
         this._partyLastAction = action;
-        if (typeof time === 'number') this._partyLastTime = time;
+        this.notePartyTime(t);
+        if (action === 'play') this._partyLastTimeAt = Date.now();
         this.partyChannel.send({
             type: 'broadcast',
             event: 'player_sync',
             payload: {
                 action,
-                time: typeof time === 'number' ? time : 0,
+                time: t,
                 paused: action === 'pause',
                 at: Date.now()
             }
@@ -2224,8 +2316,9 @@ const Alexandria = {
         this._partyGuestHinted = false;
         this._partyLastAction = null;
         this._partyLastTime = 0;
+        this._partyLastTimeAt = 0;
         this._partyRemotePaused = false;
-        this._partyGuestUnlocked = isCreator; // host doesn't need Play Now unlock gate
+        this._partyGuestUnlocked = isCreator;
         this._pendingPartySync = null;
 
         this.partyChannel = this.supabase.channel(`party_${roomId}`, {
@@ -2287,11 +2380,12 @@ const Alexandria = {
 
                 if (this.isHost) {
                     clearTimeout(this._partyPresenceResyncTimer);
-                    this._partyPresenceResyncTimer = setTimeout(() => {
+                    this._partyPresenceResyncTimer = setTimeout(async () => {
                         if (!this.isHost || !this.partyChannel) return;
                         this.broadcastPartyContent();
                         if (this._partyLastAction === 'play' || this._partyLastAction === 'pause') {
-                            this.sendPlayerSync(this._partyLastAction, this._partyLastTime || 0);
+                            const time = await this.resolveHostTime();
+                            this.sendPlayerSync(this._partyLastAction, time);
                         }
                     }, 500);
                 }
@@ -2305,13 +2399,14 @@ const Alexandria = {
                 this._pendingPartySync = { action, time: typeof time === 'number' ? time : 0 };
                 this.applyRemotePlayerAction(action, time);
             })
-            .on('broadcast', { event: 'sync_request' }, (payload) => {
+            .on('broadcast', { event: 'sync_request' }, async (payload) => {
                 if (!this.isHost) return;
                 const fromUid = payload.payload?.fromUid;
                 if (fromUid && fromUid === uid) return;
                 this.broadcastPartyContent();
                 const action = this._partyLastAction || 'play';
-                this.sendPlayerSync(action, this._partyLastTime || 0);
+                const time = await this.resolveHostTime();
+                this.sendPlayerSync(action, time);
             })
             .on('broadcast', { event: 'content_sync' }, (payload) => {
                 if (this.isHost) return;
@@ -2388,12 +2483,13 @@ const Alexandria = {
 
         if (this._applyingRemoteSync) return;
 
-        if (typeof time === 'number') this._partyLastTime = time;
+        if (typeof time === 'number') this.notePartyTime(time);
 
         if (ev === 'play' || ev === 'pause' || ev === 'seek') {
-            this.sendPlayerSync(ev, typeof time === 'number' ? time : (this._partyLastTime || 0));
+            const stamp = typeof time === 'number' ? this.normalizePlayerTime(time) : this.getHostPlaybackTime();
+            this.sendPlayerSync(ev, stamp);
         } else if (ev === 'time' || ev === 'timeupdate') {
-            if (typeof time === 'number') this._partyLastTime = time;
+            if (typeof time === 'number') this.notePartyTime(time);
         }
     },
 
