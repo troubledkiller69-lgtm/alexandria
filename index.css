@@ -1644,7 +1644,7 @@ h1, h2, h3, h4 {
     background: rgba(138, 3, 3, 0.15);
 }
 
-/* ── Watch Party ───────────────────────────────────────── */
+/* ── Watch Party · Alexandria radio / wall watch ───────── */
 .party-layout {
     display: grid;
     grid-template-columns: minmax(0, 1fr) 300px;
@@ -1653,6 +1653,24 @@ h1, h2, h3, h4 {
     padding: 0 1.25rem 1.25rem;
     max-width: 1600px;
     margin: 0 auto;
+    position: relative;
+}
+
+.party-layout::before {
+    content: '';
+    pointer-events: none;
+    position: absolute;
+    inset: 0 0.5rem 0.5rem;
+    background:
+        radial-gradient(ellipse 80% 50% at 20% 0%, rgba(138, 3, 3, 0.12), transparent 55%),
+        linear-gradient(180deg, rgba(212, 175, 55, 0.03), transparent 28%);
+    z-index: 0;
+}
+
+.party-stage,
+.party-rail {
+    position: relative;
+    z-index: 1;
 }
 
 .party-stage {
@@ -1660,79 +1678,135 @@ h1, h2, h3, h4 {
     flex-direction: column;
     min-width: 0;
     min-height: 0;
-    gap: 0.75rem;
+    gap: 0.7rem;
 }
 
 .party-topbar {
     display: flex;
-    align-items: center;
-    gap: 0.75rem 1rem;
+    align-items: flex-end;
+    gap: 0.85rem 1.1rem;
     flex-wrap: wrap;
-    padding: 0.35rem 0;
+    padding: 0.55rem 0 0.7rem;
+    border-bottom: 1px solid rgba(138, 3, 3, 0.35);
+    box-shadow: 0 1px 0 rgba(212, 175, 55, 0.08);
+}
+
+.party-id-block {
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+    min-width: 0;
+}
+
+.party-kicker {
+    font-family: var(--font-display);
+    font-size: 0.68rem;
+    font-weight: 600;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: rgba(212, 175, 55, 0.7);
 }
 
 .party-title {
     margin: 0;
     font-family: var(--font-display);
-    font-size: 1.15rem;
+    font-size: 1.35rem;
     font-weight: 700;
-    letter-spacing: 0.12em;
-    color: var(--accent-gold);
+    letter-spacing: 0.14em;
+    color: var(--text-primary);
     text-transform: uppercase;
+    line-height: 1.1;
 }
 
 .party-title span {
-    color: var(--text-secondary);
-    font-weight: 500;
-    letter-spacing: 0.08em;
+    color: var(--accent-gold);
+    font-weight: 600;
 }
 
 .party-meta {
     display: flex;
     align-items: center;
-    gap: 0.5rem;
+    gap: 0.85rem;
     flex: 1;
     min-width: 0;
+    padding-bottom: 0.1rem;
 }
 
-.party-pill {
+.party-role {
     display: inline-flex;
     align-items: center;
-    padding: 0.28rem 0.7rem;
-    border-radius: 999px;
-    border: 1px solid rgba(255, 255, 255, 0.12);
-    background: rgba(255, 255, 255, 0.04);
-    color: var(--text-secondary);
-    font-size: 0.72rem;
-    font-weight: 600;
-    letter-spacing: 0.06em;
+    gap: 0.4rem;
+    font-family: var(--font-display);
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: 0.16em;
     text-transform: uppercase;
-    white-space: nowrap;
+    color: var(--text-secondary);
+    border: 0;
+    background: none;
+    border-radius: 0;
+    padding: 0;
 }
 
-.party-pill.is-host {
-    border-color: rgba(212, 175, 55, 0.45);
-    color: var(--accent-gold);
-    background: rgba(212, 175, 55, 0.08);
+.party-role::before {
+    content: '';
+    width: 0.45rem;
+    height: 0.45rem;
+    background: currentColor;
+    box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.6);
 }
 
-.party-pill.is-synced {
-    border-color: rgba(5, 150, 105, 0.4);
-    color: #34d399;
-    background: rgba(5, 150, 105, 0.1);
+.party-role.is-command {
+    color: #e8c56a;
+}
+
+.party-role.is-command::before {
+    background: var(--accent-primary);
+    box-shadow: 0 0 8px rgba(138, 3, 3, 0.75);
+}
+
+.party-role.is-wall {
+    color: var(--text-muted);
+}
+
+.party-role.is-locked {
+    color: #c4b896;
+}
+
+.party-role.is-locked::before {
+    background: #c4b896;
 }
 
 .party-users {
     color: var(--text-muted);
-    font-size: 0.8rem;
+    font-family: var(--font-display);
+    font-size: 0.78rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
     white-space: nowrap;
 }
 
 .party-invite {
     margin-left: auto;
-    padding: 0.45rem 1.1rem !important;
-    font-size: 0.75rem !important;
-    letter-spacing: 0.08em;
+    appearance: none;
+    border: 1px solid rgba(212, 175, 55, 0.4);
+    background: rgba(0, 0, 0, 0.35);
+    color: var(--accent-gold);
+    padding: 0.5rem 1rem;
+    font-family: var(--font-display);
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    cursor: pointer;
+    border-radius: 2px;
+    transition: background 0.2s, border-color 0.2s, color 0.2s;
+}
+
+.party-invite:hover {
+    background: rgba(138, 3, 3, 0.25);
+    border-color: rgba(138, 3, 3, 0.7);
+    color: #fff;
 }
 
 .party-screen {
@@ -1740,10 +1814,36 @@ h1, h2, h3, h4 {
     flex: 1;
     min-height: 240px;
     background: #000;
-    border: var(--glass-border);
-    border-radius: 10px;
+    border: 1px solid rgba(138, 3, 3, 0.45);
+    border-radius: 2px;
     overflow: hidden;
-    box-shadow: var(--glass-shadow);
+    box-shadow:
+        0 0 0 1px rgba(0, 0, 0, 0.8),
+        0 12px 40px rgba(0, 0, 0, 0.65),
+        inset 0 0 40px rgba(0, 0, 0, 0.35);
+}
+
+.party-frame-mark {
+    position: absolute;
+    width: 18px;
+    height: 18px;
+    z-index: 2;
+    pointer-events: none;
+    border-color: var(--accent-gold);
+    border-style: solid;
+    opacity: 0.55;
+}
+
+.party-frame-mark--tl {
+    top: 8px;
+    left: 8px;
+    border-width: 2px 0 0 2px;
+}
+
+.party-frame-mark--br {
+    right: 8px;
+    bottom: 8px;
+    border-width: 0 2px 2px 0;
 }
 
 .party-screen iframe {
@@ -1761,77 +1861,89 @@ h1, h2, h3, h4 {
     z-index: 2;
     pointer-events: none;
     max-width: min(420px, calc(100% - 1.7rem));
-    padding: 0.45rem 0.75rem;
-    border-radius: 6px;
-    background: rgba(0, 0, 0, 0.72);
-    border: 1px solid rgba(255, 255, 255, 0.1);
+    padding: 0.45rem 0.7rem;
+    border-radius: 2px;
+    background: rgba(8, 4, 4, 0.88);
+    border-left: 2px solid var(--accent-primary);
     color: var(--text-secondary);
     font-size: 0.75rem;
     line-height: 1.35;
 }
 
 .party-hint strong {
-    color: var(--text-primary);
+    color: var(--accent-gold);
     font-weight: 600;
 }
 
 .party-transport {
     display: flex;
     align-items: center;
-    gap: 0.5rem;
+    gap: 0.45rem;
 }
 
 .party-ctrl {
     appearance: none;
-    border: 1px solid rgba(255, 255, 255, 0.14);
-    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    background: rgba(12, 10, 10, 0.9);
     color: var(--text-primary);
-    padding: 0.55rem 1.15rem;
-    border-radius: 8px;
+    padding: 0.55rem 1.05rem;
+    border-radius: 2px;
     font-family: var(--font-display);
-    font-size: 0.8rem;
-    font-weight: 650;
-    letter-spacing: 0.1em;
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: 0.14em;
     text-transform: uppercase;
     cursor: pointer;
     transition: background 0.2s, border-color 0.2s, color 0.2s;
 }
 
 .party-ctrl:hover {
-    background: rgba(255, 255, 255, 0.1);
-    border-color: rgba(255, 255, 255, 0.28);
+    border-color: rgba(212, 175, 55, 0.45);
+    color: var(--accent-gold);
 }
 
 .party-ctrl--accent {
-    background: var(--text-primary);
-    color: var(--bg-base);
-    border-color: transparent;
+    background: var(--accent-primary);
+    border-color: #6e0202;
+    color: #fff;
 }
 
 .party-ctrl--accent:hover {
-    background: #e2e8f0;
-    color: var(--bg-base);
+    background: #a50404;
+    border-color: #c40a0a;
+    color: #fff;
 }
 
 .party-clock {
     appearance: none;
-    border: 1px dashed rgba(255, 255, 255, 0.22);
-    background: transparent;
-    color: var(--text-secondary);
-    padding: 0.45rem 0.7rem;
-    border-radius: 8px;
+    border: 1px solid rgba(212, 175, 55, 0.28);
+    background: rgba(0, 0, 0, 0.45);
+    color: var(--accent-gold);
+    padding: 0.5rem 0.75rem;
+    border-radius: 2px;
     font-family: var(--font-display);
     font-size: 0.85rem;
-    font-weight: 650;
-    letter-spacing: 0.06em;
+    font-weight: 700;
+    letter-spacing: 0.08em;
     cursor: pointer;
-    transition: border-color 0.2s, color 0.2s, background 0.2s;
+    transition: border-color 0.2s, background 0.2s;
 }
 
 .party-clock:hover {
-    border-color: rgba(212, 175, 55, 0.55);
-    color: var(--accent-gold);
-    background: rgba(212, 175, 55, 0.06);
+    border-color: rgba(138, 3, 3, 0.7);
+    background: rgba(138, 3, 3, 0.15);
+}
+
+.party-clock--static {
+    cursor: default;
+    border-style: solid;
+    border-color: rgba(255, 255, 255, 0.1);
+    color: var(--text-secondary);
+}
+
+.party-clock--static:hover {
+    border-color: rgba(255, 255, 255, 0.1);
+    background: rgba(0, 0, 0, 0.45);
 }
 
 .party-episodes-wrap {
@@ -1852,16 +1964,17 @@ h1, h2, h3, h4 {
     align-items: center;
     gap: 0.45rem;
     color: var(--text-muted);
-    font-size: 0.75rem;
-    letter-spacing: 0.06em;
+    font-family: var(--font-display);
+    font-size: 0.72rem;
+    letter-spacing: 0.12em;
     text-transform: uppercase;
 }
 
 .party-episode-bar select {
-    background: rgba(255, 255, 255, 0.05);
+    background: #0c0a0a;
     color: var(--text-primary);
     border: 1px solid rgba(255, 255, 255, 0.12);
-    border-radius: 6px;
+    border-radius: 2px;
     padding: 0.4rem 0.65rem;
     font-size: 0.85rem;
 }
@@ -1873,8 +1986,9 @@ h1, h2, h3, h4 {
 
 .party-ep-now {
     color: var(--text-secondary);
+    font-family: var(--font-display);
     font-size: 0.8rem;
-    letter-spacing: 0.04em;
+    letter-spacing: 0.08em;
 }
 
 .party-episodes {
@@ -1891,28 +2005,57 @@ h1, h2, h3, h4 {
     max-width: 180px;
     padding: 0.65rem 0.75rem;
     border: 1px solid rgba(255, 255, 255, 0.08);
-    background: rgba(255, 255, 255, 0.03);
+    border-radius: 2px;
+    background: rgba(0, 0, 0, 0.35);
+}
+
+.party-episodes .episode-item.active {
+    border-color: rgba(138, 3, 3, 0.7);
+    background: rgba(138, 3, 3, 0.15);
 }
 
 .party-rail {
     display: flex;
     flex-direction: column;
     min-height: 0;
-    background: var(--bg-surface);
-    border: var(--glass-border);
-    border-radius: 12px;
+    background:
+        linear-gradient(180deg, rgba(18, 8, 8, 0.92), rgba(8, 6, 6, 0.96));
+    border: 1px solid rgba(138, 3, 3, 0.35);
+    border-radius: 2px;
     overflow: hidden;
+    box-shadow: inset 0 1px 0 rgba(212, 175, 55, 0.06);
 }
 
 .party-rail-head {
-    padding: 0.9rem 1rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.85rem 1rem;
     font-family: var(--font-display);
-    font-size: 0.85rem;
+    font-size: 0.78rem;
     font-weight: 700;
-    letter-spacing: 0.14em;
-    text-align: center;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
     color: var(--text-secondary);
-    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    border-bottom: 1px solid rgba(138, 3, 3, 0.35);
+    background: rgba(0, 0, 0, 0.35);
+}
+
+.party-rail-live {
+    color: var(--accent-primary);
+    letter-spacing: 0.16em;
+    font-size: 0.68rem;
+}
+
+.party-rail-live::before {
+    content: '';
+    display: inline-block;
+    width: 0.4rem;
+    height: 0.4rem;
+    margin-right: 0.35rem;
+    background: var(--accent-primary);
+    box-shadow: 0 0 8px rgba(138, 3, 3, 0.8);
+    vertical-align: middle;
 }
 
 .party-chat-messages {
@@ -1926,55 +2069,68 @@ h1, h2, h3, h4 {
 }
 
 .party-chat-msg {
-    background: rgba(255, 255, 255, 0.04);
+    background: rgba(255, 255, 255, 0.03);
+    border-left: 2px solid rgba(212, 175, 55, 0.25);
     padding: 0.55rem 0.75rem;
-    border-radius: 8px;
+    border-radius: 0 2px 2px 0;
     line-height: 1.4;
     word-break: break-word;
 }
 
 .party-chat-msg.system {
     background: transparent;
+    border-left-color: rgba(138, 3, 3, 0.45);
     color: var(--text-muted);
     font-style: italic;
-    text-align: center;
     font-size: 0.8rem;
-    padding: 0.25rem;
 }
 
 .party-chat-msg strong {
     color: var(--accent-gold);
     font-weight: 600;
+    margin-right: 0.35rem;
 }
 
 .party-chat-compose {
     display: flex;
     gap: 0.5rem;
     padding: 0.75rem;
-    border-top: 1px solid rgba(255, 255, 255, 0.08);
-    background: rgba(0, 0, 0, 0.25);
+    border-top: 1px solid rgba(138, 3, 3, 0.3);
+    background: rgba(0, 0, 0, 0.35);
 }
 
 .party-chat-compose input {
     flex: 1;
     min-width: 0;
-    background: rgba(255, 255, 255, 0.06);
+    background: rgba(0, 0, 0, 0.45);
     border: 1px solid rgba(255, 255, 255, 0.1);
     color: var(--text-primary);
     padding: 0.55rem 0.75rem;
-    border-radius: 8px;
+    border-radius: 2px;
     outline: none;
 }
 
 .party-chat-compose input:focus {
-    border-color: rgba(212, 175, 55, 0.35);
+    border-color: rgba(212, 175, 55, 0.4);
 }
 
-.party-chat-compose button {
-    padding: 0.55rem 1rem !important;
-    font-size: 0.75rem !important;
-    letter-spacing: 0.08em;
-    border-radius: 8px !important;
+.party-send {
+    appearance: none;
+    border: 1px solid rgba(138, 3, 3, 0.7);
+    background: var(--accent-primary);
+    color: #fff;
+    padding: 0.55rem 1rem;
+    border-radius: 2px;
+    font-family: var(--font-display);
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    cursor: pointer;
+}
+
+.party-send:hover {
+    background: #a50404;
 }
 
 @media (max-width: 960px) {

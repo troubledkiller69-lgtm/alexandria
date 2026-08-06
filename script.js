@@ -1803,36 +1803,41 @@ const Alexandria = {
         const isCreator = sessionStorage.getItem('alexandria_party_creator_' + roomId) === '1';
         this.isHost = isCreator || this.isHost;
 
-        const roleLabel = this.isHost ? 'Host' : 'Following';
-        const roleClass = this.isHost ? 'party-pill is-host' : 'party-pill';
+        const roleLabel = this.isHost ? 'Command' : 'On the wall';
+        const roleClass = this.isHost ? 'party-role is-command' : 'party-role is-wall';
 
         this.main.innerHTML = `
             <section class="party-layout">
                 <div class="party-stage">
                     <header class="party-topbar">
-                        <h2 class="party-title">Party <span>${this.escapeHtml(roomId)}</span></h2>
+                        <div class="party-id-block">
+                            <span class="party-kicker">Alexandria · Watch Post</span>
+                            <h2 class="party-title">Channel <span>${this.escapeHtml(roomId)}</span></h2>
+                        </div>
                         <div class="party-meta">
                             <span id="party-role-badge" class="${roleClass}">${roleLabel}</span>
-                            <span id="party-users-count" class="party-users">1 watching</span>
+                            <span id="party-users-count" class="party-users">1 on the wall</span>
                         </div>
-                        <button type="button" class="btn-secondary party-invite" onclick="Alexandria.copyPartyLink()">Invite</button>
+                        <button type="button" class="party-invite" onclick="Alexandria.copyPartyLink()">Copy Signal</button>
                     </header>
 
                     <div class="party-screen">
+                        <span class="party-frame-mark party-frame-mark--tl" aria-hidden="true"></span>
+                        <span class="party-frame-mark party-frame-mark--br" aria-hidden="true"></span>
                         <iframe id="embedmaster_iframe" title="Watch Party" src="${embedUrl}" allow="autoplay *; fullscreen *; picture-in-picture *; encrypted-media *" allowfullscreen referrerpolicy="no-referrer"></iframe>
                         <div id="party-spectate-veil" class="party-hint" style="display: ${this.isHost ? 'none' : 'block'};">
-                            Click <strong>Play Now</strong> in the player, then Sync
+                            Hit <strong>Play Now</strong> in the player, then Sync
                         </div>
                     </div>
 
                     <div id="party-host-controls" class="party-transport" style="display: ${this.isHost ? 'flex' : 'none'};">
                         <button type="button" class="party-ctrl party-ctrl--accent" onclick="Alexandria.partyHostCommand('play')">Play</button>
-                        <button type="button" class="party-ctrl" onclick="Alexandria.partyHostCommand('pause')">Pause</button>
+                        <button type="button" class="party-ctrl" onclick="Alexandria.partyHostCommand('pause')">Hold</button>
                         <button type="button" id="party-sync-clock" class="party-clock" title="Click to set the time shown on the player" onclick="Alexandria.partyEditSyncClock()">0:00</button>
                     </div>
                     <div id="party-guest-controls" class="party-transport" style="display: ${this.isHost ? 'none' : 'flex'};">
                         <button type="button" class="party-ctrl party-ctrl--accent" onclick="Alexandria.partyGuestSync()">Sync</button>
-                        <span id="party-sync-clock-guest" class="party-ep-now" title="Last host position">0:00</span>
+                        <span id="party-sync-clock-guest" class="party-clock party-clock--static" title="Last host position">0:00</span>
                     </div>
 
                     ${type === 'tv' ? `
@@ -1849,13 +1854,16 @@ const Alexandria = {
                 </div>
 
                 <aside class="party-rail">
-                    <div class="party-rail-head">Chat</div>
+                    <div class="party-rail-head">
+                        <span>Comms</span>
+                        <span class="party-rail-live">Live</span>
+                    </div>
                     <div class="party-chat-messages" id="party-chat-messages">
-                        <div class="party-chat-msg system">Welcome in.</div>
+                        <div class="party-chat-msg system">Gate open. Keep it quiet on the line.</div>
                     </div>
                     <div class="party-chat-compose">
-                        <input type="text" id="party-chat-input" placeholder="Say something…" maxlength="280" onkeypress="if(event.key === 'Enter') Alexandria.sendPartyChatMessage()">
-                        <button type="button" class="btn-primary" onclick="Alexandria.sendPartyChatMessage()">Send</button>
+                        <input type="text" id="party-chat-input" placeholder="Transmit…" maxlength="280" onkeypress="if(event.key === 'Enter') Alexandria.sendPartyChatMessage()">
+                        <button type="button" class="party-send" onclick="Alexandria.sendPartyChatMessage()">Send</button>
                     </div>
                 </aside>
             </section>`;
@@ -2041,22 +2049,23 @@ const Alexandria = {
         const guestControls = document.getElementById('party-guest-controls');
 
         if (badge) {
-            badge.className = 'party-pill';
+            badge.className = 'party-role';
             if (this.isHost) {
-                badge.textContent = 'Host';
-                badge.classList.add('is-host');
+                badge.textContent = 'Command';
+                badge.classList.add('is-command');
             } else if (this._partyGuestUnlocked) {
-                badge.textContent = 'Synced';
-                badge.classList.add('is-synced');
+                badge.textContent = 'Locked on';
+                badge.classList.add('is-locked');
             } else {
-                badge.textContent = 'Following';
+                badge.textContent = 'On the wall';
+                badge.classList.add('is-wall');
             }
         }
         if (veil) {
             veil.style.display = this.isHost ? 'none' : 'block';
             veil.innerHTML = this._partyGuestUnlocked
-                ? 'Following the host'
-                : 'Click <strong>Play Now</strong> in the player, then Sync';
+                ? 'Following command'
+                : 'Hit <strong>Play Now</strong> in the player, then Sync';
         }
         if (seasonSel) seasonSel.disabled = !this.isHost;
         if (hostControls) hostControls.style.display = this.isHost ? 'flex' : 'none';
@@ -2496,7 +2505,7 @@ const Alexandria = {
                 const users = Object.keys(state);
                 const countEl = document.getElementById('party-users-count');
                 if (countEl) {
-                    countEl.textContent = `${users.length} watching`;
+                    countEl.textContent = `${users.length} on the wall`;
                 }
 
                 if (users.length === 0) return;
@@ -2535,9 +2544,9 @@ const Alexandria = {
 
                 if (this.isHost && !this.notifiedHost) {
                     this.notifiedHost = true;
-                    this.appendChatMessage('System', 'You’re host — use Play / Pause under the video.');
+                    this.appendChatMessage('System', 'You’re on command — Play / Hold under the screen.');
                 } else if (!this.isHost && wasHost) {
-                    this.appendChatMessage('System', 'Host left — new host elected.');
+                    this.appendChatMessage('System', 'Command dropped — new lead on the wall.');
                 } else if (!this.isHost && !this._partyGuestHinted) {
                     this._partyGuestHinted = true;
                     this.appendChatMessage('System', 'Hit Play Now, then Sync.');
