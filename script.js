@@ -223,6 +223,24 @@ const Alexandria = {
             const episode = Math.max(1, eIndex !== -1 ? parseInt(parts[eIndex+1], 10) || 1 : 1);
             this.state.activeContent = { id, type: 'tv', isAnime: false, season, episode };
             this.setView('player');
+        } else if (path.startsWith('party/')) {
+            const parts = path.split('/');
+            const roomId = parts[1];
+            const type = parts[2];
+            const id = Number.parseInt(parts[3], 10);
+            if (!roomId || !type || !Number.isInteger(id)) { this.setView('home'); return; }
+            
+            let season = 1;
+            let episode = 1;
+            if (type === 'tv') {
+                const sIndex = parts.indexOf('s');
+                const eIndex = parts.indexOf('e');
+                season = Math.max(1, sIndex !== -1 ? parseInt(parts[sIndex+1], 10) || 1 : 1);
+                episode = Math.max(1, eIndex !== -1 ? parseInt(parts[eIndex+1], 10) || 1 : 1);
+            }
+            this.state.activeContent = { id, type, isAnime: false, season, episode };
+            this.state.partyRoomId = roomId;
+            this.setView('party');
         } else if (path.startsWith('search/')) {
             try {
                 this.state.searchQuery = decodeURIComponent(path.replace('search/', ''));
@@ -1119,6 +1137,11 @@ const Alexandria = {
         btn.textContent = bio.classList.contains('person-bio-collapsed') ? 'Read More' : 'Read Less';
     },
 
+    createWatchParty(id, type) {
+        const roomId = Math.random().toString(36).substring(2, 8);
+        window.location.hash = `#party/${roomId}/${type}/${id}`;
+    },
+
     playContent(id, type, isAnime = false) {
         if (type === 'movie') {
             window.location.hash = `#movie/${id}`;
@@ -1176,6 +1199,9 @@ const Alexandria = {
                                 <div class="details-actions">
                                     <button class="btn-primary play-btn" onclick="Alexandria.playContent(${id}, '${type}')">
                                         <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg> WATCH NOW
+                                    </button>
+                                    <button class="btn-secondary play-btn" onclick="Alexandria.createWatchParty(${id}, '${type}')" style="margin-left: 10px;">
+                                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg> WATCH PARTY
                                     </button>
                                     <button class="icon-btn log-btn ${inWatchlist ? 'active' : ''}" type="button" aria-label="${inWatchlist ? 'Remove from' : 'Add to'} watchlist" aria-pressed="${inWatchlist}" data-id="${Number(id)}" data-type="${type}" data-title="${this.escapeHtml(title)}" data-poster="${this.escapeHtml(data.poster_path || '')}">
                                         ${inWatchlist ? '✓' : '+'}
@@ -1433,6 +1459,153 @@ const Alexandria = {
     },
 
 
+
+    async renderParty() {
+        const { id, type, season, episode } = this.state.activeContent;
+        const roomId = this.state.partyRoomId;
+        const server = this.servers[this.state.activeServer];
+
+        let embedUrl = type === 'movie' ? server.getMovie(id) : server.getTv(id, season, episode);
+
+        this.main.innerHTML = `
+            <section class="party-layout" style="display: flex; gap: 20px; height: calc(100vh - 80px);">
+                <div class="player-main" style="flex: 1; display: flex; flex-direction: column;">
+                    <div class="party-header" style="display: flex; justify-content: space-between; align-items: center; padding: 10px; background: rgba(0,0,0,0.5); border-radius: 8px; margin-bottom: 15px;">
+                        <h2 style="margin: 0; font-family: var(--font-headline); color: var(--primary-accent);">WATCH PARTY: ${roomId}</h2>
+                        <span id="party-users-count" style="color: #aaa; font-size: 0.9em;">1 user connected</span>
+                        <button class="btn-secondary" onclick="Alexandria.copyPartyLink()">Copy Invite Link</button>
+                    </div>
+                    <div class="player-frame-container" style="flex: 1; position: relative;">
+                        <iframe id="embedmaster_iframe" title="Watch Party" src="${embedUrl}" width="100%" height="100%" style="position: absolute; top:0; left:0;" frameborder="0" scrolling="no" referrerpolicy="no-referrer" allow="autoplay; fullscreen; encrypted-media; picture-in-picture"></iframe>
+                    </div>
+                </div>
+                <div class="party-chat-sidebar" style="width: 300px; display: flex; flex-direction: column; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; overflow: hidden;">
+                    <div class="chat-header" style="padding: 15px; background: rgba(0,0,0,0.5); font-family: var(--font-headline); text-align: center; border-bottom: 1px solid rgba(255,255,255,0.1);">PARTY CHAT</div>
+                    <div class="chat-messages" id="party-chat-messages" style="flex: 1; overflow-y: auto; padding: 15px; display: flex; flex-direction: column; gap: 10px; font-size: 0.9em;">
+                        <div class="chat-msg system" style="color: #aaa; font-style: italic; text-align: center;">Welcome to Watch Party!</div>
+                    </div>
+                    <div class="chat-input-area" style="display: flex; padding: 10px; background: rgba(0,0,0,0.5); border-top: 1px solid rgba(255,255,255,0.1);">
+                        <input type="text" id="party-chat-input" placeholder="Type a message..." style="flex: 1; background: rgba(255,255,255,0.1); border: none; color: white; padding: 8px 12px; border-radius: 6px; outline: none; margin-right: 10px;" onkeypress="if(event.key === 'Enter') Alexandria.sendPartyChatMessage()">
+                        <button class="btn-primary" onclick="Alexandria.sendPartyChatMessage()" style="padding: 8px 15px;">Send</button>
+                    </div>
+                </div>
+            </section>`;
+
+        // Prompt for nickname if not set
+        if (!sessionStorage.getItem('alexandria_nickname')) {
+            const nickname = prompt("Enter a nickname for the Watch Party:") || ('Guest_' + Math.floor(Math.random()*1000));
+            sessionStorage.setItem('alexandria_nickname', nickname);
+        }
+
+        this.initPartySync(roomId);
+    },
+
+    initPartySync(roomId) {
+        if (!this.supabase) {
+            this.showToast('Supabase is not configured. Watch Party requires cloud sync.');
+            return;
+        }
+        
+        // Clean up previous channel
+        if (this.partyChannel) {
+            this.supabase.removeChannel(this.partyChannel);
+        }
+
+        this.isHost = false; 
+        const nickname = sessionStorage.getItem('alexandria_nickname');
+
+        this.partyChannel = this.supabase.channel(`party_${roomId}`, {
+            config: { presence: { key: nickname } }
+        });
+
+        this.partyChannel
+            .on('presence', { event: 'sync' }, () => {
+                const state = this.partyChannel.presenceState();
+                const users = Object.keys(state);
+                document.getElementById('party-users-count').textContent = `${users.length} user${users.length === 1 ? '' : 's'} connected`;
+                
+                // First person in the presence state array is deterministically the host.
+                if (users.length > 0) {
+                    const hostKey = users[0];
+                    this.isHost = (hostKey === nickname);
+                    if (this.isHost && !this.notifiedHost) {
+                        this.notifiedHost = true;
+                        this.appendChatMessage('System', 'You are the Host. You control playback.');
+                    }
+                }
+            })
+            .on('broadcast', { event: 'player_sync' }, (payload) => {
+                if (this.isHost) return; 
+                const { action, time } = payload.payload;
+                const frame = document.getElementById('embedmaster_iframe');
+                if (!frame) return;
+                
+                if (action === 'play') frame.contentWindow.postMessage({ source: 'embedmaster_player_command', command: 'play' }, '*');
+                if (action === 'pause') frame.contentWindow.postMessage({ source: 'embedmaster_player_command', command: 'pause' }, '*');
+                if (action === 'seek' && time) frame.contentWindow.postMessage({ source: 'embedmaster_player_command', command: 'seek', value: time }, '*');
+            })
+            .on('broadcast', { event: 'chat_msg' }, (payload) => {
+                this.appendChatMessage(payload.payload.sender, payload.payload.msg);
+            })
+            .subscribe(async (status) => {
+                if (status === 'SUBSCRIBED') {
+                    await this.partyChannel.track({ online_at: new Date().toISOString() });
+                }
+            });
+
+        // Listen to EmbedMaster events exactly once
+        if (!this._embedListener) {
+            this._embedListener = this.handleEmbedMasterMessage.bind(this);
+            window.addEventListener('message', this._embedListener);
+        }
+    },
+
+    handleEmbedMasterMessage(event) {
+        const data = event.data;
+        if (!data || data.source !== 'embedmaster_player' || !this.partyChannel) return;
+        
+        if (this.isHost) {
+            if (data.event === 'play' || data.event === 'pause' || data.event === 'seek') {
+                this.partyChannel.send({
+                    type: 'broadcast',
+                    event: 'player_sync',
+                    payload: { action: data.event, time: data.info?.time || 0 }
+                });
+            }
+        }
+    },
+
+    sendPartyChatMessage() {
+        const input = document.getElementById('party-chat-input');
+        const msg = input.value.trim();
+        if (!msg || !this.partyChannel) return;
+        
+        const nickname = sessionStorage.getItem('alexandria_nickname');
+        
+        this.partyChannel.send({
+            type: 'broadcast',
+            event: 'chat_msg',
+            payload: { sender: nickname, msg: msg }
+        });
+        
+        this.appendChatMessage(nickname, msg);
+        input.value = '';
+    },
+
+    appendChatMessage(sender, msg) {
+        const container = document.getElementById('party-chat-messages');
+        if (!container) return;
+        const div = document.createElement('div');
+        div.style.cssText = 'background: rgba(255,255,255,0.05); padding: 8px 12px; border-radius: 8px; line-height: 1.4;';
+        div.innerHTML = `<strong style="color: var(--primary-accent);">${this.escapeHtml(sender)}:</strong> ${this.escapeHtml(msg)}`;
+        container.appendChild(div);
+        container.scrollTop = container.scrollHeight;
+    },
+
+    copyPartyLink() {
+        navigator.clipboard.writeText(window.location.href);
+        this.showToast('Invite link copied to clipboard!');
+    },
 
     showToast(message) {
         const existing = document.querySelector('.alexandria-toast');
