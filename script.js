@@ -554,6 +554,7 @@ const Alexandria = {
         else if (this.state.view === 'player') this.renderPlayer();
         else if (this.state.view === 'details') this.renderDetails();
         else if (this.state.view === 'person') this.renderPerson();
+        else if (this.state.view === 'party') this.renderParty();
         
         else {
             this.state.view = 'home';
