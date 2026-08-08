@@ -83,6 +83,11 @@ const Alexandria = {
 
     // #region agent log
     _dbg(hypothesisId, location, message, data = {}) {
+        try {
+            if (localStorage.getItem('alexandria_debug') !== '1') return;
+        } catch {
+            return;
+        }
         const payload = {
             sessionId: '31a370',
             runId: this._dbgRunId || 'pre-fix',
@@ -97,15 +102,24 @@ const Alexandria = {
                 serverName: this.servers?.[this.state?.activeServer]?.name,
                 paused: !!this.isPartyPaused?.(),
                 lastTime: this._partyLastTime,
-                lastAction: this._partyLastAction
+                lastAction: this._partyLastAction,
+                pageOrigin: typeof location !== 'undefined' ? location.origin : null
             },
             timestamp: Date.now()
         };
         try { console.debug('[alexandria-dbg]', hypothesisId, message, payload.data); } catch { /* ignore */ }
+        const body = JSON.stringify(payload);
+        try {
+            fetch('/__dbg', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': '31a370' },
+                body
+            }).catch(() => {});
+        } catch { /* ignore */ }
         fetch('http://127.0.0.1:7625/ingest/4863abd6-2c9c-4516-9266-070a34aec91f', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': '31a370' },
-            body: JSON.stringify(payload)
+            body
         }).catch(() => {});
     },
     // #endregion
@@ -132,19 +146,36 @@ const Alexandria = {
     },
 
     async getJson(endpoint, options = {}) {
-        const useCache = !options.noCache;
+        const { noCache, ...fetchOptions } = options;
+        const useCache = !noCache;
         const now = Date.now();
         if (useCache && this._apiCache.has(endpoint)) {
             const hit = this._apiCache.get(endpoint);
             if (now - hit.at < this._CACHE_TTL_MS) return hit.data;
         }
 
-        const response = await fetch(`/api/proxy?endpoint=${encodeURIComponent(endpoint)}`, options);
+        const response = await fetch(`/api/proxy?endpoint=${encodeURIComponent(endpoint)}`, fetchOptions);
         let data;
         try {
             data = await response.json();
         } catch {
+            // #region agent log
+            this._dbg('E', 'script.js:getJson', 'unreadable proxy response', {
+                endpoint,
+                status: response.status,
+                contentType: response.headers.get('content-type')
+            });
+            // #endregion
             throw new Error('The archive returned an unreadable response.');
+        }
+        if (!response.ok) {
+            // #region agent log
+            this._dbg('E', 'script.js:getJson', 'proxy error', {
+                endpoint,
+                status: response.status,
+                error: data?.error || null
+            });
+            // #endregion
         }
         if (!response.ok || data?.success === false || data?.error) {
             throw new Error(data?.status_message || data?.error || `Archive request failed (${response.status}).`);
@@ -198,6 +229,9 @@ const Alexandria = {
 
     async init() {
         console.log("Alexandria Protocol: Initializing Handshake...");
+        // #region agent log
+        this._dbg('E', 'script.js:init', 'app boot', { href: typeof location !== 'undefined' ? location.href : null });
+        // #endregion
         this.main = document.getElementById('content');
         
         // Start loading sequence immediately
@@ -213,12 +247,12 @@ const Alexandria = {
         } catch { /* ignore */ }
 
         // Supabase is optional; used only for Watch Party Realtime.
-        this.initNetwork().catch(e => {
+        // Await alongside the loading screen so deep-linked #party/... never races ahead.
+        const networkPromise = this.initNetwork().catch(e => {
             console.error("Alexandria Protocol: Background Init Failed -", e);
         });
 
-        // Wait for loading bar to finish
-        await loadingPromise;
+        await Promise.all([loadingPromise, networkPromise]);
         
         this.bindEvents();
         window.addEventListener('hashchange', () => this.handleRouting());
@@ -261,25 +295,35 @@ const Alexandria = {
                 throw new Error('Invalid list file.');
             }
             const cleanWatchlist = data.watchlist
-                .filter(i => i && i.id && i.type && (i.type === 'movie' || i.type === 'tv'))
-                .map(i => ({
-                    id: String(i.id),
-                    type: i.type,
-                    title: String(i.title || 'Untitled'),
-                    poster_path: i.poster_path || ''
-                }));
+                .filter(i => i && i.id != null && i.type && (i.type === 'movie' || i.type === 'tv'))
+                .map(i => {
+                    const id = Number.parseInt(i.id, 10);
+                    if (!Number.isInteger(id) || id < 1) return null;
+                    return {
+                        id,
+                        type: i.type,
+                        title: String(i.title || 'Untitled').slice(0, 200),
+                        poster_path: typeof i.poster_path === 'string' ? i.poster_path : ''
+                    };
+                })
+                .filter(Boolean);
             const cleanHistory = data.history
-                .filter(i => i && i.id && i.type && (i.type === 'movie' || i.type === 'tv'))
-                .map(i => ({
-                    id: String(i.id),
-                    type: i.type,
-                    title: String(i.title || 'Untitled'),
-                    poster_path: i.poster_path || '',
-                    season: Number(i.season) || 1,
-                    episode: Number(i.episode) || 1,
-                    isAnime: !!i.isAnime,
-                    progress: typeof i.progress === 'number' ? i.progress : 0
-                }));
+                .filter(i => i && i.id != null && i.type && (i.type === 'movie' || i.type === 'tv'))
+                .map(i => {
+                    const id = Number.parseInt(i.id, 10);
+                    if (!Number.isInteger(id) || id < 1) return null;
+                    return {
+                        id,
+                        type: i.type,
+                        title: String(i.title || 'Untitled').slice(0, 200),
+                        poster_path: typeof i.poster_path === 'string' ? i.poster_path : '',
+                        season: Math.max(1, Number.parseInt(i.season, 10) || 1),
+                        episode: Math.max(1, Number.parseInt(i.episode, 10) || 1),
+                        isAnime: !!i.isAnime,
+                        progress: typeof i.progress === 'number' && Number.isFinite(i.progress) ? Math.max(0, i.progress) : 0
+                    };
+                })
+                .filter(Boolean);
             this.state.watchlist = cleanWatchlist;
             this.state.history = cleanHistory;
             this.writeLocalList('alexandria_watchlist', this.state.watchlist);
@@ -405,7 +449,10 @@ const Alexandria = {
             const roomId = parts[1];
             const type = parts[2];
             const id = Number.parseInt(parts[3], 10);
-            if (!roomId || !type || !Number.isInteger(id)) { this.setView('home'); return; }
+            if (!roomId || (type !== 'movie' && type !== 'tv') || !Number.isInteger(id) || id < 1) {
+                this.setView('home');
+                return;
+            }
             
             let season = 1;
             let episode = 1;
@@ -601,6 +648,7 @@ const Alexandria = {
         this._applyingRemoteSync = false;
         this._partyGuestUnlocked = false;
         this._pendingPartySync = null;
+        this._partyEpisodesLoadedKey = null;
         this.state.partyRoomId = null;
     },
 
@@ -715,6 +763,15 @@ const Alexandria = {
 
             const featured = mData.results?.[0];
             const last = this.state.history?.[0];
+            const lastId = Number.parseInt(last?.id, 10);
+            const lastOk = last && Number.isInteger(lastId) && lastId > 0 && (last.type === 'movie' || last.type === 'tv');
+            const lastSeason = Math.max(1, Number.parseInt(last?.season, 10) || 1);
+            const lastEpisode = Math.max(1, Number.parseInt(last?.episode, 10) || 1);
+            const resumeHash = lastOk
+                ? (last.type === 'tv'
+                    ? `#tv/${lastId}/s/${lastSeason}/e/${lastEpisode}`
+                    : `#movie/${lastId}`)
+                : '';
 
             if (!featured) throw new Error("No featured content found.");
 
@@ -725,10 +782,10 @@ const Alexandria = {
                             <span class="trending-badge">#1 TRENDING TODAY</span>
                             <h1>${this.escapeHtml(featured.title)}</h1>
                             <p>${this.escapeHtml(featured.overview || 'No overview is available yet.')}</p>
-                            <button class="btn-primary" onclick="Alexandria.playContent(${featured.id}, 'movie')">WATCH NOW</button>
+                            <button class="btn-primary" onclick="Alexandria.playContent(${Number(featured.id)}, 'movie')">WATCH NOW</button>
                         </div>
-                        ${last ? `<div class="resume-widget" role="link" tabindex="0" onclick="window.location.hash = '${last.type === 'tv' ? `#tv/${last.id}/s/${last.season || 1}/e/${last.episode || 1}` : `#movie/${last.id}`}'">
-                            <div class="resume-content"><span class="resume-label">CONTINUE WATCHING</span><h4>${this.escapeHtml(last.title)}</h4><p>${last.progress > 5 ? `Resume at ${this.formatTime(last.progress)}` : 'Resume playback'}</p></div>
+                        ${lastOk ? `<div class="resume-widget" role="link" tabindex="0" data-resume-hash="${this.escapeHtml(resumeHash)}" onclick="window.location.hash = this.dataset.resumeHash">
+                            <div class="resume-content"><span class="resume-label">CONTINUE WATCHING</span><h4>${this.escapeHtml(last.title || 'Untitled')}</h4><p>${last.progress > 5 ? `Resume at ${this.formatTime(last.progress)}` : 'Resume playback'}</p></div>
                         </div>` : ''}
                     </div>
                     <div id="continue-watching-section"></div>
@@ -952,6 +1009,34 @@ const Alexandria = {
 
 
     renderSearch() {
+        const discoverPanel = this.state.searchFilter === 'person' ? `
+                    <div class="placeholder-msg">Search for actors, directors, and creators above.</div>
+                ` : `
+                    <div class="discover-panel">
+                        <div class="filter-group">
+                            <label for="discover-genre">GENRE</label>
+                            <select id="discover-genre" onchange="Alexandria.executeDiscover()">
+                                ${this.genreOptionsHtml()}
+                            </select>
+                        </div>
+                        <div class="filter-group">
+                            <label for="discover-sort">SORT BY</label>
+                            <select id="discover-sort" onchange="Alexandria.executeDiscover()">
+                                <option value="popularity.desc">Most Popular</option>
+                                <option value="vote_average.desc">Highest Rated</option>
+                                <option value="${this.state.searchFilter === 'tv' ? 'first_air_date.desc' : 'primary_release_date.desc'}">Newest Releases</option>
+                            </select>
+                        </div>
+                        <div class="filter-group">
+                            <label for="discover-year">YEAR (OPTIONAL)</label>
+                            <input type="number" id="discover-year" placeholder="e.g. 2023" min="1900" max="2030" onchange="Alexandria.executeDiscover()">
+                        </div>
+                        <div class="filter-group">
+                            <button type="button" class="btn-secondary" onclick="Alexandria.surpriseMe()">SURPRISE ME</button>
+                        </div>
+                    </div>
+                `;
+
         this.main.innerHTML = `
             <section class="search-view modern-search">
                 <div class="search-header-sticky">
@@ -970,37 +1055,8 @@ const Alexandria = {
                         <button class="filter-btn ${this.state.searchFilter === 'person' ? 'active' : ''}" type="button" aria-pressed="${this.state.searchFilter === 'person'}" onclick="Alexandria.setSearchFilter('person')">People</button>
                     </div>
                 </div>
-                <div class="results-grid" id="search-results">
-                    <div class="search-empty-state" id="search-empty-state">
-                        ${this.state.searchFilter === 'person' ? `
-                        <div class="placeholder-msg">Search for actors, directors, and creators above.</div>
-                        ` : `
-                        <div class="discover-panel">
-                            <div class="filter-group">
-                                <label for="discover-genre">GENRE</label>
-                                <select id="discover-genre" onchange="Alexandria.executeDiscover()">
-                                    ${this.genreOptionsHtml()}
-                                </select>
-                            </div>
-                            <div class="filter-group">
-                                <label for="discover-sort">SORT BY</label>
-                                <select id="discover-sort" onchange="Alexandria.executeDiscover()">
-                                    <option value="popularity.desc">Most Popular</option>
-                                    <option value="vote_average.desc">Highest Rated</option>
-                                    <option value="${this.state.searchFilter === 'tv' ? 'first_air_date.desc' : 'primary_release_date.desc'}">Newest Releases</option>
-                                </select>
-                            </div>
-                            <div class="filter-group">
-                                <label for="discover-year">YEAR (OPTIONAL)</label>
-                                <input type="number" id="discover-year" placeholder="e.g. 2023" min="1900" max="2030" onchange="Alexandria.executeDiscover()">
-                            </div>
-                            <div class="filter-group">
-                                <button type="button" class="btn-secondary" onclick="Alexandria.surpriseMe()">SURPRISE ME</button>
-                            </div>
-                        </div>
-                        `}
-                    </div>
-                </div>
+                <div id="search-discover" class="search-discover">${discoverPanel}</div>
+                <div class="results-grid" id="search-results"></div>
             </section>
         `;
         
@@ -1013,39 +1069,42 @@ const Alexandria = {
         if (this.state.searchQuery) {
             searchInput.value = this.state.searchQuery;
             document.getElementById('clear-search-btn').style.display = 'block';
+            this.setDiscoverVisible(false);
             this.executeSearch(this.state.searchQuery);
         } else {
             setTimeout(() => searchInput.focus(), 100);
+            this.setDiscoverVisible(true);
             if (this.state.searchFilter !== 'person') {
                 setTimeout(() => this.executeDiscover(), 150);
             }
         }
     },
 
+    setDiscoverVisible(visible) {
+        const discover = document.getElementById('search-discover');
+        if (discover) discover.hidden = !visible;
+    },
+
     handleSearchInput() {
         const queryField = document.getElementById('tmdb-search');
         const clearBtn = document.getElementById('clear-search-btn');
         const query = queryField.value;
-        const emptyState = document.getElementById('search-empty-state');
 
         clearBtn.style.display = query.trim() ? 'block' : 'none';
-        if (emptyState) emptyState.style.display = query.trim() ? 'none' : 'block';
 
         if (this.state.searchTimeout) clearTimeout(this.state.searchTimeout);
 
         if (!query.trim()) {
             this.state.searchQuery = '';
-            if (this.state.searchFilter === 'person') {
-                document.getElementById('search-results').innerHTML = `
-                    <div class="search-empty-state" id="search-empty-state">
-                        <div class="placeholder-msg">Search for actors, directors, and creators above.</div>
-                    </div>`;
-            } else {
-                document.getElementById('search-results').innerHTML = '';
+            this.setDiscoverVisible(true);
+            const container = document.getElementById('search-results');
+            if (container) container.innerHTML = '';
+            if (this.state.searchFilter !== 'person') {
                 this.executeDiscover();
             }
         } else {
             this.state.searchQuery = query;
+            this.setDiscoverVisible(false);
             this.state.searchTimeout = setTimeout(() => {
                 this.executeSearch(query);
             }, 500);
@@ -1060,9 +1119,8 @@ const Alexandria = {
     async executeDiscover() {
         if (this.state.searchFilter === 'person') {
             const container = document.getElementById('search-results');
-            if (container) {
-                container.innerHTML = '<div class="placeholder-msg">Search for an actor or creator above.</div>';
-            }
+            if (container) container.innerHTML = '';
+            this.setDiscoverVisible(true);
             return;
         }
         const container = document.getElementById('search-results');
@@ -1075,6 +1133,7 @@ const Alexandria = {
         const year = document.getElementById('discover-year')?.value;
         const type = this.state.searchFilter === 'tv' ? 'tv' : 'movie';
 
+        this.setDiscoverVisible(true);
         container.innerHTML = '<div class="search-loading"><div class="elegant-spinner"></div></div>';
 
         try {
@@ -1122,6 +1181,7 @@ const Alexandria = {
         if (!container) return;
         const requestId = (this._searchRequestId || 0) + 1;
         this._searchRequestId = requestId;
+        this.setDiscoverVisible(false);
         container.innerHTML = '<div class="search-loading"><div class="elegant-spinner"></div></div>';
 
         try {
@@ -1197,7 +1257,9 @@ const Alexandria = {
                 : '';
             const target = isHistoryRow && type === 'tv' && item.season && item.episode
                 ? `#tv/${Number(item.id)}/s/${Number(item.season)}/e/${Number(item.episode)}`
-                : `#details/${type}/${Number(item.id)}`;
+                : isHistoryRow && type === 'movie'
+                    ? `#movie/${Number(item.id)}`
+                    : `#details/${type}/${Number(item.id)}`;
 
             return `
                 <article class="movie-card" data-id="${Number(item.id)}" data-type="${type}" data-title="${safeTitle}" data-is-anime="${isAnime}" ${dataAttributes}>
@@ -1239,8 +1301,9 @@ const Alexandria = {
         const roomId = Math.random().toString(36).substring(2, 8);
         sessionStorage.setItem('alexandria_party_creator_' + roomId, '1');
         if (type === 'tv') {
-            const season = this.state.activeContent?.season || 1;
-            const episode = this.state.activeContent?.episode || 1;
+            const saved = this.state.history.find(h => String(h.id) === String(id) && h.type === 'tv');
+            const season = Math.max(1, Number.parseInt(saved?.season, 10) || Number.parseInt(this.state.activeContent?.season, 10) || 1);
+            const episode = Math.max(1, Number.parseInt(saved?.episode, 10) || Number.parseInt(this.state.activeContent?.episode, 10) || 1);
             window.location.hash = `#party/${roomId}/${type}/${id}/s/${season}/e/${episode}`;
         } else {
             window.location.hash = `#party/${roomId}/${type}/${id}`;
@@ -1250,9 +1313,12 @@ const Alexandria = {
     playContent(id, type, isAnime = false) {
         if (type === 'movie') {
             window.location.hash = `#movie/${id}`;
-        } else {
-            window.location.hash = `#tv/${id}/s/1/e/1`;
+            return;
         }
+        const saved = this.state.history.find(h => String(h.id) === String(id) && h.type === 'tv');
+        const season = Math.max(1, Number.parseInt(saved?.season, 10) || 1);
+        const episode = Math.max(1, Number.parseInt(saved?.episode, 10) || 1);
+        window.location.hash = `#tv/${id}/s/${season}/e/${episode}`;
     },
 
     async renderDetails() {
@@ -1517,7 +1583,7 @@ const Alexandria = {
                         <span id="server-status" class="server-status" aria-live="polite">Connecting to ${this.escapeHtml(server.name)}…</span>
                     </div>
                     <div class="player-frame-container">
-                        <iframe id="video-iframe" title="Alexandria video player" src="${embedUrl}" width="100%" height="100%" scrolling="no" referrerpolicy="no-referrer" allow="autoplay; fullscreen; encrypted-media; picture-in-picture"></iframe>
+                        <iframe id="video-iframe" title="Alexandria video player" src="${embedUrl}" width="100%" height="100%" scrolling="no" referrerpolicy="strict-origin-when-cross-origin" allow="autoplay; fullscreen; encrypted-media; picture-in-picture"></iframe>
                     </div>
                 </div>
                 ${type === 'tv' ? `
@@ -2135,7 +2201,7 @@ const Alexandria = {
                     </header>
 
                     <div class="party-screen">
-                        <iframe id="embedmaster_iframe" title="Watch Party" src="${embedUrl}" allow="autoplay *; fullscreen *; picture-in-picture *; encrypted-media *" allowfullscreen referrerpolicy="no-referrer"></iframe>
+                        <iframe id="embedmaster_iframe" title="Watch Party" src="${embedUrl}" allow="autoplay *; fullscreen *; picture-in-picture *; encrypted-media *" allowfullscreen referrerpolicy="strict-origin-when-cross-origin"></iframe>
                         <div id="party-spectate-veil" class="party-hint" style="display: ${this.isHost ? 'none' : 'block'};">
                             Hit <strong>Play Now</strong> in the player, then Sync if needed
                         </div>
@@ -2218,6 +2284,7 @@ const Alexandria = {
     },
 
     async loadPartyEpisodes(id, season, activeEpisode) {
+        this._partyEpisodesLoadedKey = `${id}|${season || 1}|${activeEpisode || 1}`;
         try {
             const data = await this.getJson('tv/' + id + '/season/' + season);
             const container = document.getElementById('party-episodes');
@@ -2414,7 +2481,13 @@ const Alexandria = {
         if (guestClock) guestClock.style.display = this.isHost ? 'none' : 'inline-flex';
 
         const { id, type, season, episode } = this.state.activeContent;
-        if (type === 'tv' && id) this.loadPartyEpisodes(id, season, episode);
+        if (type === 'tv' && id) {
+            const key = `${id}|${season || 1}|${episode || 1}`;
+            if (this._partyEpisodesLoadedKey !== key) {
+                this._partyEpisodesLoadedKey = key;
+                this.loadPartyEpisodes(id, season, episode);
+            }
+        }
     },
 
     partyHostCommand(action) {
@@ -2877,6 +2950,18 @@ const Alexandria = {
             clearTimeout(this._partyApplyLockTimer);
             this._partyApplyLockTimer = setTimeout(() => {
                 this._applyingRemoteSync = false;
+                // Flush the newest host sync that arrived while we were locked.
+                if (this.isHost || this.state.view !== 'party') return;
+                const pending = this._pendingPartySync;
+                const last = this._lastAppliedPartySync;
+                if (!pending || !pending.action) return;
+                if (last && last.action === pending.action && Math.abs((last.time || 0) - (pending.time || 0)) < 0.5) {
+                    return;
+                }
+                this.applyRemotePlayerAction(pending.action, pending.time, {
+                    force: true,
+                    clock: pending.clock
+                });
             }, 800);
         };
 
@@ -3038,6 +3123,7 @@ const Alexandria = {
         this._suppressHostBroadcastUntil = 0;
         this._partyFrameReloading = false;
         this._partyEmbedHealthy = false;
+        this._partyEpisodesLoadedKey = null;
         this.clearPartyEmbedWatch();
         this.clearHostPartyResyncTimers();
         this.clearGuestPartyResyncTimers();
@@ -3109,7 +3195,7 @@ const Alexandria = {
                 }
             })
             .on('broadcast', { event: 'player_sync' }, (payload) => {
-                if (this.isHost || this._applyingRemoteSync) return;
+                if (this.isHost) return;
                 const { action, time, paused, force, noSeek, clock } = payload.payload || {};
                 if (typeof paused === 'boolean') this._partyRemotePaused = paused;
                 if (action === 'pause') this._partyRemotePaused = true;
@@ -3127,8 +3213,8 @@ const Alexandria = {
                     at: Date.now()
                 };
                 this.tickPartyClock();
-                // Don't postMessage into a dying/reloading iframe — queue until ready/load retries.
-                if (this._partyFrameReloading) return;
+                // Queue while applying or reloading — finish() / ready flush will catch up.
+                if (this._applyingRemoteSync || this._partyFrameReloading) return;
                 this.applyRemotePlayerAction(action, time, {
                     force: !!force,
                     noSeek: !!noSeek,

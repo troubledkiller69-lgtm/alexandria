@@ -10,17 +10,25 @@ Supabase is optional and used only for Watch Party Realtime (presence + playback
 npx vercel dev
 ```
 
-Copy `.env.example` to `.env.local` and set `TMDB_API_KEY`. Optional: `OMDB_API_KEY` for IMDb scores on detail pages, and Supabase vars for Watch Party.
+Copy `.env.example` to `.env.local` and set `TMDB_API_KEY`. Optional: Supabase vars for Watch Party.
+
+For a static local shell with API shims (no Vercel CLI), you can also run:
+
+```powershell
+python debug_server.py
+```
+
+Then open `http://127.0.0.1:5500`.
 
 ## Deploy
 
-Deploy the folder to Vercel and configure `TMDB_API_KEY`. For IMDb ratings, also set `OMDB_API_KEY` (free from [omdbapi.com](https://www.omdbapi.com/apikey.aspx)). To enable Watch Party, set `SUPABASE_URL` and `SUPABASE_ANON_KEY`.
+Deploy the folder to Vercel and configure `TMDB_API_KEY`. To enable Watch Party, set `SUPABASE_URL` and `SUPABASE_ANON_KEY`.
 
 The Supabase anon key is returned to the browser for Realtime only. Never expose a service-role key.
 
 ## Notes
 
 - TMDB provides catalog metadata and artwork via `/api/proxy`.
-- OMDb provides IMDb ratings via `/api/omdb` when `OMDB_API_KEY` is set.
-- Playback is embedded from EmbedMaster; availability varies by provider and region.
+- Playback is embedded from EmbedMaster (Alexandria private player + public mirror) plus VidSrc / EmbedSU fallbacks.
 - Lists work fully offline from the browser even without Supabase.
+- `embedmaster_verify.txt` is the public domain-verification file for EmbedMaster — keep it at the site root.
