@@ -50,10 +50,12 @@ const Alexandria = {
     _apiCache: new Map(),
     _CACHE_TTL_MS: 10 * 60 * 1000,
     _EMBED_ORIGIN: 'https://embedmaster.link',
-    _FAILOVER_MS: 10000,
+    _FAILOVER_MS: 15000,
+    _FAILOVER_GRACE_MS: 12000,
     _failoverTimer: null,
     _serverHealthy: false,
     _triedServers: null,
+    _failoverGraceUsed: false,
     _resumeSeekDone: false,
     _pendingResumeTime: 0,
     _resumeIgnoreUntil: 0,
@@ -1649,6 +1651,7 @@ const Alexandria = {
     armFailoverWatch(server) {
         this.clearFailoverWatch();
         this._serverHealthy = false;
+        this._failoverGraceUsed = false;
         const name = server?.name || 'server';
         this.setServerStatus(`Connecting to ${name}…`);
 
@@ -1660,6 +1663,20 @@ const Alexandria = {
                 // Non-API mirrors: do not auto-failover on load (error pages can still load).
             }, { once: true });
             return;
+        }
+
+        // EmbedMaster shell can load before postMessage "ready" — give one grace window.
+        if (iframe && server?.supportsApi) {
+            iframe.addEventListener('load', () => {
+                if (this.state.view !== 'player' || this._serverHealthy || this._failoverGraceUsed) return;
+                this._failoverGraceUsed = true;
+                this.setServerStatus(`Loaded · ${name} · waiting for stream…`);
+                this.clearFailoverWatch();
+                this._failoverTimer = setTimeout(() => {
+                    if (this.state.view !== 'player' || this._serverHealthy) return;
+                    this.failoverToNextServer(false);
+                }, this._FAILOVER_GRACE_MS);
+            }, { once: true });
         }
 
         this._failoverTimer = setTimeout(() => {
@@ -1686,22 +1703,35 @@ const Alexandria = {
             return;
         }
 
+        // Auto-timeout stays on EmbedMaster mirrors only (supportsApi).
+        // Manual NEXT SERVER can still hop to VidSrc / EmbedSU.
+        const preferApiOnly = !manual;
         let next = (this.state.activeServer + 1) % total;
         let hops = 0;
-        while (this._triedServers.has(next) && hops < total) {
+        while (hops < total) {
+            const candidate = this.servers[next];
+            const allowed = !preferApiOnly || candidate?.supportsApi;
+            if (allowed && !this._triedServers.has(next)) break;
             next = (next + 1) % total;
             hops += 1;
         }
 
-        if (this._triedServers.has(next) && this._triedServers.size >= total) {
+        const nextServer = this.servers[next];
+        const nextAllowed = !preferApiOnly || nextServer?.supportsApi;
+        if (!nextAllowed || this._triedServers.has(next) || hops >= total) {
             this.clearFailoverWatch();
-            this.setServerStatus('All servers tried. Pick one manually.');
-            this.showToast('All mirrors were tried. Choose a server from the list.');
+            if (preferApiOnly) {
+                this.setServerStatus('EmbedMaster mirrors timed out. Pick a server manually.');
+                this.showToast('Alexandria / EmbedMaster timed out. Use NEXT SERVER or pick a mirror.');
+            } else {
+                this.setServerStatus('All servers tried. Pick one manually.');
+                this.showToast('All mirrors were tried. Choose a server from the list.');
+            }
             this._triedServers = new Set();
             return;
         }
 
-        const label = this.servers[next]?.name || `Server ${next + 1}`;
+        const label = nextServer?.name || `Server ${next + 1}`;
         this.showToast(manual ? `Switching to ${label}…` : `${this.servers[this.state.activeServer]?.name || 'Server'} timed out. Trying ${label}…`);
         this.applyServer(next, { resetTried: false });
     },
