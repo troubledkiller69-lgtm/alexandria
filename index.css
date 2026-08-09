@@ -79,6 +79,18 @@ body.sidebar-open { overflow: hidden; }
     outline-offset: 2px;
 }
 
+/* Poster hit-target links keep focus after click — don't draw a white frame around art. */
+.card-open:focus,
+.card-open:focus-visible,
+.movie-card:focus,
+.movie-card:focus-visible {
+    outline: none;
+}
+
+.movie-card:has(.card-open:focus-visible) .poster-wrapper {
+    box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.28);
+}
+
 /* Native selects: keep option lists readable (Windows paints light popups otherwise) */
 select {
     color-scheme: dark;
@@ -481,11 +493,14 @@ h1, h2, h3, h4 {
 .carousel-container {
     position: relative;
     width: 100%;
+    /* Room for hover scale so posters don't get a hard clip "border" */
+    padding-top: 0.65rem;
+    margin-top: -0.65rem;
 }
 
 .carousel-arrow {
     position: absolute;
-    top: 0;
+    top: 0.65rem;
     bottom: 2rem; /* above scrollbar padding */
     width: 50px;
     background: rgba(0,0,0,0.5);
@@ -544,7 +559,7 @@ h1, h2, h3, h4 {
 
 .movie-card:focus-visible {
     transform: translateY(-4px);
-    box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.4), 0 18px 36px rgba(0, 0, 0, 0.5);
+    box-shadow: none;
 }
 
 .poster-wrapper {
@@ -552,8 +567,10 @@ h1, h2, h3, h4 {
     border-radius: 8px;
     overflow: hidden;
     aspect-ratio: 2/3;
-    background: #111;
+    background: #050505;
     z-index: 1;
+    border: 0;
+    box-shadow: none;
 }
 
 /* Soft edge vignette on the poster only — keeps the title clean */
