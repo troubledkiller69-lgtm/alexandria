@@ -1656,32 +1656,16 @@ const Alexandria = {
         this.setServerStatus(`Connecting to ${name}…`);
 
         const iframe = document.getElementById('video-iframe');
-        if (iframe && !server?.supportsApi) {
-            iframe.addEventListener('load', () => {
-                if (this.state.view !== 'player' || this._serverHealthy) return;
-                this.setServerStatus(`Loaded · ${name} · use NEXT if blank`);
-                // Non-API mirrors: do not auto-failover on load (error pages can still load).
-            }, { once: true });
-            return;
-        }
-
-        // EmbedMaster: once the shell loads, kill auto-failover.
-        // Playback can work without postMessage "ready", and a second timer was
-        // yanking people mid-watch onto EmbedMaster Public / other mirrors.
-        if (iframe && server?.supportsApi) {
+        if (iframe) {
             iframe.addEventListener('load', () => {
                 if (this.state.view !== 'player' || this._serverHealthy) return;
                 this._failoverGraceUsed = true;
-                this.clearFailoverWatch();
                 this.setServerStatus(`Loaded · ${name} · use NEXT if blank`);
             }, { once: true });
         }
 
-        // Only auto-hop if the iframe never loads at all.
-        this._failoverTimer = setTimeout(() => {
-            if (this.state.view !== 'player' || this._serverHealthy || this._failoverGraceUsed) return;
-            this.failoverToNextServer(false);
-        }, this._FAILOVER_MS);
+        // Auto-failover disabled. It was yanking working Alexandria streams mid-watch
+        // whenever EmbedMaster skipped postMessage "ready". Manual NEXT SERVER only.
     },
 
     markServerHealthy() {
