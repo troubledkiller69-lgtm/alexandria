@@ -1681,7 +1681,7 @@ h1, h2, h3, h4 {
     .resume-widget { right: 2rem; bottom: 2rem; }
     .view-section, .modern-search .results-grid { padding-left: 2rem; padding-right: 2rem; }
     .search-header-sticky, .view-header { padding-left: 2rem; padding-right: 2rem; }
-    .search-discover { padding-left: 2rem; padding-right: 2rem; }
+    .search-discover { padding-left: 0; padding-right: 0; }
     .movie-card { min-width: 190px; width: 190px; }
     .hero-details { padding: 3rem 2rem; }
     .details-content-wrapper { gap: 2rem; align-items: center; }
@@ -1716,7 +1716,7 @@ h1, h2, h3, h4 {
     .view-section, .modern-search .results-grid { padding-left: 1.25rem; padding-right: 1.25rem; }
     .view-section { padding-top: 1.5rem; }
     .search-header-sticky, .view-header { top: 59px; padding: 1.25rem; }
-    .search-discover { padding-left: 1.25rem; padding-right: 1.25rem; }
+    .search-discover { padding-left: 0; padding-right: 0; }
     .search-input-container { padding: 0 1rem; width: 100%; max-width: none; }
     .search-input-container input { min-width: 0; padding: 1rem 0; font-size: 1rem; }
     .search-filters {
