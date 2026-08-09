@@ -1067,18 +1067,17 @@ h1, h2, h3, h4 {
 /* Modern Search */
 .modern-search {
     padding: 0;
-    display: flex;
-    flex-direction: column;
-    min-height: 100vh;
+    display: block;
 }
 
 .search-header-sticky {
     position: sticky;
-    top: 60px; /* Below navbar */
-    background: rgba(10, 10, 15, 0.95);
+    top: 69px;
+    background: rgba(10, 10, 15, 0.97);
     backdrop-filter: blur(12px);
-    z-index: 50;
-    padding: 2rem 5rem 1rem;
+    -webkit-backdrop-filter: blur(12px);
+    z-index: 40;
+    padding: 1.25rem 5rem 1rem;
     border-bottom: 1px solid rgba(255,255,255,0.05);
 }
 
@@ -1173,20 +1172,24 @@ h1, h2, h3, h4 {
 }
 
 .modern-search .results-grid {
-    padding: 2rem 5rem 5rem;
-    flex: 1;
+    padding: 1.5rem 5rem 5rem;
 }
-.modern-search .movie-card { scroll-margin-top: 220px; }
+.modern-search .movie-card { scroll-margin-top: 280px; }
 
 .search-discover {
-    padding: 1.25rem 5rem 0;
+    padding: 1rem 0 0;
 }
 .search-discover[hidden] {
     display: none !important;
 }
 .search-discover .placeholder-msg {
-    padding: 3rem 0;
-    text-align: center;
+    min-height: 0;
+    padding: 1rem 0 0.25rem;
+    text-align: left;
+    justify-content: flex-start;
+}
+.search-discover .discover-panel {
+    margin-bottom: 0;
 }
 
 .search-empty-state {

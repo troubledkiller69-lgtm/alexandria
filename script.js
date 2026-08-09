@@ -1035,8 +1035,8 @@ const Alexandria = {
                         <button class="filter-btn ${this.state.searchFilter === 'tv' ? 'active' : ''}" type="button" aria-pressed="${this.state.searchFilter === 'tv'}" onclick="Alexandria.setSearchFilter('tv')">TV Shows</button>
                         <button class="filter-btn ${this.state.searchFilter === 'person' ? 'active' : ''}" type="button" aria-pressed="${this.state.searchFilter === 'person'}" onclick="Alexandria.setSearchFilter('person')">People</button>
                     </div>
+                    <div id="search-discover" class="search-discover">${discoverPanel}</div>
                 </div>
-                <div id="search-discover" class="search-discover">${discoverPanel}</div>
                 <div class="results-grid" id="search-results"></div>
             </section>
         `;
