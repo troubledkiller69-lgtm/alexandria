@@ -1665,22 +1665,21 @@ const Alexandria = {
             return;
         }
 
-        // EmbedMaster shell can load before postMessage "ready" — give one grace window.
+        // EmbedMaster: once the shell loads, kill auto-failover.
+        // Playback can work without postMessage "ready", and a second timer was
+        // yanking people mid-watch onto EmbedMaster Public / other mirrors.
         if (iframe && server?.supportsApi) {
             iframe.addEventListener('load', () => {
-                if (this.state.view !== 'player' || this._serverHealthy || this._failoverGraceUsed) return;
+                if (this.state.view !== 'player' || this._serverHealthy) return;
                 this._failoverGraceUsed = true;
-                this.setServerStatus(`Loaded · ${name} · waiting for stream…`);
                 this.clearFailoverWatch();
-                this._failoverTimer = setTimeout(() => {
-                    if (this.state.view !== 'player' || this._serverHealthy) return;
-                    this.failoverToNextServer(false);
-                }, this._FAILOVER_GRACE_MS);
+                this.setServerStatus(`Loaded · ${name} · use NEXT if blank`);
             }, { once: true });
         }
 
+        // Only auto-hop if the iframe never loads at all.
         this._failoverTimer = setTimeout(() => {
-            if (this.state.view !== 'player' || this._serverHealthy) return;
+            if (this.state.view !== 'player' || this._serverHealthy || this._failoverGraceUsed) return;
             this.failoverToNextServer(false);
         }, this._FAILOVER_MS);
     },
@@ -2068,12 +2067,18 @@ const Alexandria = {
     bindSoloPlayerEvents() {
         if (this._soloEmbedListener) return;
         this._soloEmbedListener = (event) => {
-            if (!this.isTrustedEmbedOrigin(event.origin)) return;
-            const data = event.data;
-            if (!data || data.source !== 'embedmaster_player') return;
             if (this.state.view !== 'player') return;
+            const data = event.data;
+            if (!data || typeof data !== 'object') return;
+
+            const originOk = this.isTrustedEmbedOrigin(event.origin);
+            const looksLikeEmbedMaster = data.source === 'embedmaster_player';
+            // Private player sometimes posts from a sibling host; still accept its payload.
+            const looksLikePlayerJs = originOk && data.answer !== undefined;
+            if (!looksLikeEmbedMaster && !looksLikePlayerJs) return;
 
             this.markServerHealthy();
+            if (!looksLikeEmbedMaster) return;
 
             if (data.event === 'ready') {
                 this.themeEmbedPlayer(document.getElementById('video-iframe'));
