@@ -18,30 +18,6 @@ const Alexandria = {
             supportsApi: true,
             getMovie: id => `https://embedmaster.link/9gis39azyhxlvq5t/movie/${id}`,
             getTv: (id, s, e) => `https://embedmaster.link/9gis39azyhxlvq5t/tv/${id}/${s}/${e}`
-        },
-        {
-            name: 'EmbedMaster Public',
-            supportsApi: true,
-            getMovie: id => `https://embedmaster.link/movie/${id}`,
-            getTv: (id, s, e) => `https://embedmaster.link/tv/${id}/${s}/${e}`
-        },
-        {
-            name: 'VidSrc',
-            supportsApi: false,
-            getMovie: id => `https://vidsrc.cc/v2/embed/movie/${id}`,
-            getTv: (id, s, e) => `https://vidsrc.cc/v2/embed/tv/${id}/${s}/${e}`
-        },
-        {
-            name: 'VidSrc TO',
-            supportsApi: false,
-            getMovie: id => `https://vidsrc.to/embed/movie/${id}`,
-            getTv: (id, s, e) => `https://vidsrc.to/embed/tv/${id}/${s}/${e}`
-        },
-        {
-            name: 'EmbedSU',
-            supportsApi: false,
-            getMovie: id => `https://embed.su/embed/movie/${id}`,
-            getTv: (id, s, e) => `https://embed.su/embed/tv/${id}/${s}/${e}`
         }
     ],
 
@@ -245,6 +221,9 @@ const Alexandria = {
             const savedServer = Number.parseInt(localStorage.getItem('alexandria_activeServer'), 10);
             if (Number.isInteger(savedServer) && this.servers[savedServer]) {
                 this.state.activeServer = savedServer;
+            } else {
+                this.state.activeServer = 0;
+                localStorage.setItem('alexandria_activeServer', '0');
             }
         } catch { /* ignore */ }
 
@@ -1581,7 +1560,6 @@ const Alexandria = {
                         <select id="server-selector" class="server-select-dropdown" onchange="Alexandria.handleServerChange(this.value)">
                             ${this.servers.map((s, i) => `<option value="${i}" ${i === this.state.activeServer ? 'selected' : ''}>${s.name}</option>`).join('')}
                         </select>
-                        <button type="button" class="btn-secondary server-next-btn" onclick="Alexandria.failoverToNextServer(true)" title="Try the next mirror">NEXT SERVER</button>
                         <span id="server-status" class="server-status" aria-live="polite">Connecting to ${this.escapeHtml(server.name)}…</span>
                     </div>
                     <div class="player-frame-container">
@@ -2184,8 +2162,7 @@ const Alexandria = {
         // Prefer an API-capable EmbedMaster mirror so play/pause can sync.
         if (!this.servers[this.state.activeServer]?.supportsApi) {
             const alexIdx = this.servers.findIndex(s => s.name === 'Alexandria' && s.supportsApi);
-            const publicIdx = this.servers.findIndex(s => s.name === 'EmbedMaster Public');
-            this.state.activeServer = alexIdx !== -1 ? alexIdx : (publicIdx !== -1 ? publicIdx : Math.max(0, this.servers.findIndex(s => s.supportsApi)));
+            this.state.activeServer = alexIdx !== -1 ? alexIdx : Math.max(0, this.servers.findIndex(s => s.supportsApi));
         }
         const embedUrl = this.buildEmbedUrl(this.state.activeServer);
         const apiServerOptions = this.servers
