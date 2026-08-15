@@ -15,7 +15,31 @@ const Alexandria = {
 
     servers: [
         {
-            name: 'Alexandria',
+            name: 'VidLink (Sub & Dub 1080p)',
+            supportsApi: false,
+            getMovie: id => `https://vidlink.pro/movie/${id}`,
+            getTv: (id, s, e) => `https://vidlink.pro/tv/${id}/${s}/${e}`
+        },
+        {
+            name: 'VidSrc (Sub & Dub HD)',
+            supportsApi: false,
+            getMovie: id => `https://vidsrc.cc/v2/embed/movie/${id}`,
+            getTv: (id, s, e) => `https://vidsrc.cc/v2/embed/tv/${id}/${s}/${e}`
+        },
+        {
+            name: 'AutoEmbed (Sub & Dub)',
+            supportsApi: false,
+            getMovie: id => `https://player.autoembed.cc/embed/movie/${id}`,
+            getTv: (id, s, e) => `https://player.autoembed.cc/embed/tv/${id}/${s}/${e}`
+        },
+        {
+            name: 'EmbedSU (Sub & Dub 1080p)',
+            supportsApi: false,
+            getMovie: id => `https://embed.su/embed/movie/${id}`,
+            getTv: (id, s, e) => `https://embed.su/embed/tv/${id}/${s}/${e}`
+        },
+        {
+            name: 'EmbedMaster (Default)',
             supportsApi: true,
             getMovie: id => `https://embedmaster.link/9gis39azyhxlvq5t/movie/${id}`,
             getTv: (id, s, e) => `https://embedmaster.link/9gis39azyhxlvq5t/tv/${id}/${s}/${e}`
@@ -106,7 +130,9 @@ const Alexandria = {
     isTrustedEmbedOrigin(origin) {
         try {
             const host = new URL(origin).hostname;
-            return host === 'embedmaster.link' || host.endsWith('.embedmaster.link');
+            return host === 'embedmaster.link' || host.endsWith('.embedmaster.link') ||
+                   host.includes('vidlink.pro') || host.includes('vidsrc') ||
+                   host.includes('autoembed') || host.includes('embed.su');
         } catch {
             return false;
         }
