@@ -467,7 +467,7 @@ const Alexandria = {
             this.state.activeContent = { id, type: 'person' };
             this.setView('person');
         } else {
-            const allowedViews = new Set(['home', 'movies', 'tv', 'anime', 'franchises', 'search']);
+            const allowedViews = new Set(['home', 'movies', 'tv', 'anime', 'franchises', 'search', 'history', 'watchlist']);
             this.setView(allowedViews.has(path) ? path : 'home');
         }
     },
@@ -716,6 +716,8 @@ const Alexandria = {
         else if (this.state.view === 'anime') this.renderAnime();
         else if (this.state.view === 'franchises') this.renderFranchises();
         else if (this.state.view === 'search') this.renderSearch();
+        else if (this.state.view === 'history') this.renderHistoryPage();
+        else if (this.state.view === 'watchlist') this.renderWatchlistPage();
         else if (this.state.view === 'player') this.renderPlayer();
         else if (this.state.view === 'details') this.renderDetails();
         else if (this.state.view === 'person') this.renderPerson();
@@ -782,6 +784,68 @@ const Alexandria = {
                 grid.innerHTML = '<div class="placeholder-msg">Failed to load titles</div>';
             }
         }
+    },
+
+    renderHistoryPage() {
+        const history = this.state.history || [];
+        this.main.innerHTML = `
+            <section class="filtered-view">
+                <div class="view-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
+                    <h2>Watch History</h2>
+                    ${history.length > 0 ? `
+                        <button type="button" class="btn-secondary" onclick="Alexandria.clearWatchHistory()">Clear History</button>
+                    ` : ''}
+                </div>
+                <div class="view-section">
+                    ${history.length > 0 ? `
+                        <div class="results-grid" id="history-page-grid"></div>
+                    ` : `
+                        <div class="placeholder-msg">Your watch history is empty. Titles you watch will appear here.</div>
+                    `}
+                </div>
+            </section>
+        `;
+        if (history.length > 0) {
+            this.renderResults(history, 'history-page-grid', true);
+        }
+    },
+
+    clearWatchHistory() {
+        this.state.history = [];
+        this.writeLocalList('alexandria_history', []);
+        this.renderHistoryPage();
+        this.showToast('Watch history cleared.');
+    },
+
+    renderWatchlistPage() {
+        const watchlist = this.state.watchlist || [];
+        this.main.innerHTML = `
+            <section class="filtered-view">
+                <div class="view-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
+                    <h2>My Watchlist</h2>
+                    ${watchlist.length > 0 ? `
+                        <button type="button" class="btn-secondary" onclick="Alexandria.clearWatchlistPage()">Clear Watchlist</button>
+                    ` : ''}
+                </div>
+                <div class="view-section">
+                    ${watchlist.length > 0 ? `
+                        <div class="results-grid" id="watchlist-page-grid"></div>
+                    ` : `
+                        <div class="placeholder-msg">Your watchlist is empty. Add titles to save them for later.</div>
+                    `}
+                </div>
+            </section>
+        `;
+        if (watchlist.length > 0) {
+            this.renderResults(watchlist, 'watchlist-page-grid');
+        }
+    },
+
+    clearWatchlistPage() {
+        this.state.watchlist = [];
+        this.writeLocalList('alexandria_watchlist', []);
+        this.renderWatchlistPage();
+        this.showToast('Watchlist cleared.');
     },
 
     async renderHome() {

@@ -492,10 +492,22 @@ h1, h2, h3, h4 {
 }
 
 .view-section h3 {
-    font-size: 1.25rem;
-    font-weight: 500;
+    font-size: 1.35rem;
+    font-weight: 700;
     color: var(--text-primary);
-    margin-bottom: 1rem;
+    margin-bottom: 1.25rem;
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+}
+
+.view-section h3::before {
+    content: '|';
+    color: #ef4444;
+    font-weight: 800;
+    font-size: 1.5rem;
+    line-height: 1;
+    margin-right: 0.15rem;
 }
 
 .carousel-container {
