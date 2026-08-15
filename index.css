@@ -491,7 +491,7 @@ h1, h2, h3, h4 {
     padding: 2rem 5rem 1rem;
 }
 
-.view-section h3 {
+.view-section > h3 {
     font-size: 1.35rem;
     font-weight: 700;
     color: var(--text-primary);
@@ -501,13 +501,17 @@ h1, h2, h3, h4 {
     gap: 0.35rem;
 }
 
-.view-section h3::before {
+.view-section > h3::before {
     content: '|';
     color: #ef4444;
     font-weight: 800;
     font-size: 1.5rem;
     line-height: 1;
     margin-right: 0.15rem;
+}
+
+.movie-info h3::before {
+    content: none;
 }
 
 .carousel-container {
