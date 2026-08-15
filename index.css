@@ -15,8 +15,9 @@
     --glass-border: 1px solid rgba(255, 255, 255, 0.08);
     --glass-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.5);
     
-    --font-display: 'Rajdhani', 'Arial Narrow', system-ui, sans-serif;
+    --font-display: 'Plus Jakarta Sans', 'Outfit', system-ui, -apple-system, sans-serif;
     --font-body: 'Outfit', system-ui, -apple-system, sans-serif;
+    --font-headline: 'Plus Jakarta Sans', 'Outfit', system-ui, -apple-system, sans-serif;
     
     --sidebar-width: 280px;
 }
@@ -1424,14 +1425,19 @@ h1, h2, h3, h4 {
     box-shadow: 0 30px 60px rgba(0,0,0,0.6);
 }
 .details-info h1 {
-    font-size: 3.5rem;
-    font-weight: 300;
-    line-height: 1.1;
-    margin-bottom: 1rem;
+    font-family: var(--font-display);
+    font-size: clamp(2.4rem, 4.5vw, 3.6rem);
+    font-weight: 800;
+    line-height: 1.08;
+    letter-spacing: -0.02em;
+    margin-bottom: 0.85rem;
+    color: #ffffff;
 }
 .year-span {
-    font-weight: 300;
-    color: var(--text-secondary);
+    font-weight: 500;
+    font-size: 0.82em;
+    color: rgba(248, 250, 252, 0.55);
+    margin-left: 0.25rem;
 }
 .details-meta {
     display: flex;
