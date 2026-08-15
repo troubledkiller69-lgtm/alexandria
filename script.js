@@ -22,18 +22,7 @@ const Alexandria = {
         }
     ],
 
-    sportsServers: [
-        {
-            name: 'VidSrc Sports Network (Primary)',
-            supportsApi: false,
-            getStream: (id, league) => `https://vidsrcme.ru/embed/sports/${(league || id || 'nba').toLowerCase()}`
-        },
-        {
-            name: 'VSEmbed Sports Server (Backup)',
-            supportsApi: false,
-            getStream: (id, league) => `https://vsembed.ru/embed/sports/${(league || id || 'nba').toLowerCase()}`
-        }
-    ],
+
 
     supabase: null,
     _renderToken: 0,
@@ -502,7 +491,7 @@ const Alexandria = {
             this.state.activeContent = { id, type: 'person' };
             this.setView('person');
         } else {
-            const allowedViews = new Set(['home', 'movies', 'tv', 'anime', 'sports', 'franchises', 'search', 'history', 'watchlist']);
+            const allowedViews = new Set(['home', 'movies', 'tv', 'anime', 'franchises', 'search', 'history', 'watchlist']);
             this.setView(allowedViews.has(path) ? path : 'home');
         }
     },
@@ -749,7 +738,6 @@ const Alexandria = {
         else if (this.state.view === 'movies') this.renderFiltered('movie');
         else if (this.state.view === 'tv') this.renderFiltered('tv');
         else if (this.state.view === 'anime') this.renderAnime();
-        else if (this.state.view === 'sports') this.renderSports();
         else if (this.state.view === 'franchises') this.renderFranchises();
         else if (this.state.view === 'search') this.renderSearch();
         else if (this.state.view === 'history') this.renderHistoryPage();
@@ -922,145 +910,7 @@ const Alexandria = {
         }
     },
 
-    SPORTS_EVENTS: [
-        {
-            id: 'nba',
-            league: 'NBA',
-            title: 'Boston Celtics vs. Dallas Mavericks',
-            category: 'Basketball',
-            status: 'LIVE NOW',
-            time: 'Q4 • 3:45',
-            backdrop: 'https://images.unsplash.com/photo-1546519638-68e109498ffc?q=80&w=1200&auto=format&fit=crop',
-            overview: 'Game 5 of the NBA Finals. Celtics look to secure the championship trophy at home.'
-        },
-        {
-            id: 'ufc',
-            league: 'UFC',
-            title: 'UFC 305: Main Fight Card',
-            category: 'MMA',
-            status: 'LIVE NOW',
-            time: 'Main Event',
-            backdrop: 'https://images.unsplash.com/photo-1517649763962-0c623266fec0?q=80&w=1200&auto=format&fit=crop',
-            overview: 'World Championship Title Fight live from the arena. Full 5-round main event.'
-        },
-        {
-            id: 'wnba',
-            league: 'WNBA',
-            title: 'Indiana Fever vs. New York Liberty',
-            category: 'Basketball',
-            status: 'UPCOMING',
-            time: '8:00 PM ET',
-            backdrop: 'https://images.unsplash.com/photo-1519766304817-4f37bda74a29?q=80&w=1200&auto=format&fit=crop',
-            overview: 'Eastern Conference rivalry showdown featuring top draft picks and All-Star starters.'
-        },
-        {
-            id: 'mlb',
-            league: 'MLB',
-            title: 'New York Yankees vs. Los Angeles Dodgers',
-            category: 'Baseball',
-            status: 'UPCOMING',
-            time: '7:05 PM ET',
-            backdrop: 'https://images.unsplash.com/photo-1562077772-3bd90403f7f0?q=80&w=1200&auto=format&fit=crop',
-            overview: 'Interleague marquee series at Yankee Stadium. Ace starting pitchers taking the mound.'
-        },
-        {
-            id: 'nfl',
-            league: 'NFL',
-            title: 'Kansas City Chiefs vs. San Francisco 49ers',
-            category: 'Football',
-            status: 'UPCOMING',
-            time: '8:15 PM ET',
-            backdrop: 'https://images.unsplash.com/photo-1566577739112-5180d4bf9390?q=80&w=1200&auto=format&fit=crop',
-            overview: 'Super Bowl rematch under the Monday Night Football lights.'
-        },
-        {
-            id: 'soccer',
-            league: 'Soccer',
-            title: 'Real Madrid vs. Barcelona',
-            category: 'Soccer',
-            status: 'UPCOMING',
-            time: 'Tomorrow • 3:00 PM ET',
-            backdrop: 'https://images.unsplash.com/photo-1508098682722-e99c43a406b2?q=80&w=1200&auto=format&fit=crop',
-            overview: 'El Clasico derby showdown. World-class talent battle for Spanish league supremacy.'
-        }
-    ],
 
-    renderSports(activeFilter = 'all') {
-        const events = this.SPORTS_EVENTS;
-        const filtered = activeFilter === 'all'
-            ? events
-            : events.filter(e => e.league.toLowerCase() === activeFilter.toLowerCase());
-
-        const featured = events[0];
-
-        this.main.innerHTML = `
-            <section class="filtered-view">
-                <div class="hero-featured" style="--hero-image: url('${featured.backdrop}')">
-                    <div class="featured-content">
-                        <span class="trending-badge">${featured.status}</span>
-                        <h1>${this.escapeHtml(featured.title)}</h1>
-                        <p>${this.escapeHtml(featured.overview)}</p>
-                        <div class="category-hero-actions">
-                            <button class="btn-primary" onclick="Alexandria.playSportsEvent('${featured.id}')">
-                                <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg> WATCH LIVE
-                            </button>
-                        </div>
-                    </div>
-                    <div class="sector-widget">
-                        <div class="sector-widget-content">
-                            <span class="sector-label">LIVE SPORTS</span>
-                            <h4>NBA, WNBA, MLB & UFC</h4>
-                            <p>Live streams & match coverage</p>
-                        </div>
-                    </div>
-                </div>
-                <div class="view-section">
-                    <h3>Live & Upcoming Events</h3>
-                    <div class="sports-filter-bar">
-                        ${['all', 'nba', 'wnba', 'mlb', 'ufc', 'nfl', 'soccer'].map(l => `
-                            <button class="filter-btn ${activeFilter === l ? 'active' : ''}" type="button" onclick="Alexandria.renderSports('${l}')">${l.toUpperCase()}</button>
-                        `).join('')}
-                    </div>
-                    <div class="sports-grid">
-                        ${filtered.map(e => `
-                            <div class="sports-card">
-                                <div class="sports-card-thumb" style="background-image: url('${e.backdrop}')">
-                                    <div class="sports-card-overlay"></div>
-                                    <span class="sports-live-tag ${e.status === 'LIVE NOW' ? '' : 'upcoming'}">${e.status}</span>
-                                    <span class="sports-league-tag">${e.league}</span>
-                                </div>
-                                <div class="sports-card-body">
-                                    <h4>${this.escapeHtml(e.title)}</h4>
-                                    <p>${this.escapeHtml(e.overview)}</p>
-                                    <div class="sports-card-footer">
-                                        <span class="sports-card-time">${e.time}</span>
-                                        <button class="btn-primary" style="padding: 0.4rem 0.85rem; font-size: 0.8rem;" onclick="Alexandria.playSportsEvent('${e.id}')">WATCH LIVE</button>
-                                    </div>
-                                </div>
-                            </div>
-                        `).join('')}
-                    </div>
-                </div>
-            </section>
-        `;
-    },
-
-    playSportsEvent(eventId) {
-        const ev = this.SPORTS_EVENTS.find(e => e.id === eventId) || this.SPORTS_EVENTS[0];
-        this.state.activeContent = { id: ev.id, type: 'sports', league: ev.league, title: ev.title, season: 1, episode: 1 };
-        this.setView('player');
-    },
-
-    loadCustomSportsStream() {
-        const input = document.getElementById('custom-stream-input');
-        const url = input?.value?.trim();
-        if (!url) return;
-        const iframe = document.getElementById('video-iframe');
-        if (iframe) {
-            iframe.src = url;
-            this.showToast('Loading custom stream URL...');
-        }
-    },
 
     async renderHome() {
         const token = this._renderToken;
@@ -1933,9 +1783,8 @@ const Alexandria = {
 
     async renderPlayer() {
         const { id, type, season, episode, isAnime } = this.state.activeContent;
-        const serverList = type === 'sports' ? this.sportsServers : this.servers;
-        if (!serverList[this.state.activeServer]) this.state.activeServer = 0;
-        const server = serverList[this.state.activeServer];
+        if (!this.servers[this.state.activeServer]) this.state.activeServer = 0;
+        const server = this.servers[this.state.activeServer];
         const embedUrl = this.buildEmbedUrl(this.state.activeServer);
 
         this._triedServers = new Set([this.state.activeServer]);
@@ -1945,18 +1794,12 @@ const Alexandria = {
         this.main.innerHTML = `
             <section class="player-layout">
                 <div class="player-main">
-                    <div class="server-controls" style="flex-wrap:wrap;">
+                    <div class="server-controls">
                         <label class="server-label" for="server-selector">SERVER <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"></polyline></svg></label>
                         <select id="server-selector" class="server-select-dropdown" onchange="Alexandria.handleServerChange(this.value)">
-                            ${serverList.map((s, i) => `<option value="${i}" ${i === this.state.activeServer ? 'selected' : ''}>${s.name}</option>`).join('')}
+                            ${this.servers.map((s, i) => `<option value="${i}" ${i === this.state.activeServer ? 'selected' : ''}>${s.name}</option>`).join('')}
                         </select>
                         <span id="server-status" class="server-status" aria-live="polite">Connecting to ${this.escapeHtml(server.name)}…</span>
-                        ${type === 'sports' ? `
-                            <div class="custom-stream-bar" style="display:flex; gap:0.5rem; width:100%; margin-top:0.5rem;">
-                                <input type="text" id="custom-stream-input" class="compact-input" placeholder="Paste custom live stream URL or embed link..." style="flex:1;">
-                                <button class="btn-primary" type="button" style="padding:0.45rem 1rem; font-size:0.8rem;" onclick="Alexandria.loadCustomSportsStream()">PLAY STREAM</button>
-                            </div>
-                        ` : ''}
                     </div>
                     <div class="player-frame-container">
                         <iframe id="video-iframe" title="Alexandria video player" src="${embedUrl}" width="100%" height="100%" scrolling="no" allowfullscreen allow="autoplay *; fullscreen *; picture-in-picture *; encrypted-media *" referrerpolicy="strict-origin-when-cross-origin"></iframe>
@@ -2116,16 +1959,10 @@ const Alexandria = {
 
     // Host + guest must share the exact same embed URL for a given content + serverIndex.
     buildEmbedUrl(serverIndex = this.state.activeServer, content = this.state.activeContent) {
-        const { id, type, league } = content || {};
-        if (type === 'sports') {
-            const list = this.sportsServers || [];
-            const idx = (Number.isInteger(Number(serverIndex)) && list[Number(serverIndex)]) ? Number(serverIndex) : 0;
-            const leagueKey = (league || id || 'nba').toLowerCase();
-            return list[idx] ? list[idx].getStream(id, leagueKey) : `https://vidsrcme.ru/embed/sports/${leagueKey}`;
-        }
         const idx = this.normalizeServerIndex(serverIndex);
         const server = this.servers[idx != null ? idx : this.state.activeServer];
-        if (!server || id == null) return '';
+        if (!server || content?.id == null) return '';
+        const { id, type, season, episode } = content;
         return type === 'movie'
             ? server.getMovie(id)
             : server.getTv(id, season || 1, episode || 1);
