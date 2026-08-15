@@ -641,6 +641,21 @@ const Alexandria = {
         window.scrollTo({ top: 0, behavior: 'auto' });
     },
 
+    dedupeItems(list) {
+        if (!Array.isArray(list)) return [];
+        const seen = new Set();
+        const result = [];
+        for (const item of list) {
+            if (!item || item.id == null || !item.type) continue;
+            const key = `${String(item.id)}_${item.type}`;
+            if (!seen.has(key)) {
+                seen.add(key);
+                result.push(item);
+            }
+        }
+        return result;
+    },
+
     async syncFromCloud() {
         try {
             let localWatchlist = JSON.parse(localStorage.getItem('alexandria_watchlist')) || [];
@@ -648,6 +663,9 @@ const Alexandria = {
             let cleanHistory = Array.isArray(rawHistory)
                 ? rawHistory.filter(i => i && i.id != null && i.type !== 'sports' && String(i.id).match(/^\d+$/))
                 : [];
+            
+            localWatchlist = this.dedupeItems(localWatchlist);
+            cleanHistory = this.dedupeItems(cleanHistory);
 
             if (this.supabase && this.state.authUser) {
                 const uid = this.state.authUser.id;
@@ -663,13 +681,7 @@ const Alexandria = {
                             title: w.title,
                             poster_path: w.poster_path
                         }));
-                        const combined = [...cloudList];
-                        for (const loc of localWatchlist) {
-                            if (!combined.some(c => String(c.id) === String(loc.id) && c.type === loc.type)) {
-                                combined.push(loc);
-                            }
-                        }
-                        localWatchlist = combined;
+                        localWatchlist = this.dedupeItems([...cloudList, ...localWatchlist]);
                     }
 
                     const { data: dbHistory } = await this.supabase
@@ -685,21 +697,15 @@ const Alexandria = {
                             title: h.title,
                             poster_path: h.poster_path
                         }));
-                        const combined = [...cloudHist];
-                        for (const loc of cleanHistory) {
-                            if (!combined.some(c => String(c.id) === String(loc.id) && c.type === loc.type)) {
-                                combined.push(loc);
-                            }
-                        }
-                        cleanHistory = combined;
+                        cleanHistory = this.dedupeItems([...cloudHist, ...cleanHistory]);
                     }
                 } catch (err) {
                     console.warn("Alexandria: Cloud sync warning:", err);
                 }
             }
 
-            this.state.watchlist = localWatchlist;
-            this.state.history = cleanHistory;
+            this.state.watchlist = this.dedupeItems(localWatchlist);
+            this.state.history = this.dedupeItems(cleanHistory);
             this.writeLocalList('alexandria_watchlist', this.state.watchlist);
             this.writeLocalList('alexandria_history', this.state.history);
         } catch {
@@ -753,8 +759,8 @@ const Alexandria = {
     },
 
     async addToHistory(item) {
-        this.state.history = this.state.history.filter(i => !(String(i.id) === String(item.id) && i.type === item.type));
-        this.state.history.unshift(item);
+        if (!item || item.id == null || !item.type) return;
+        this.state.history = this.dedupeItems([item, ...this.state.history]);
         if (this.state.history.length > 20) this.state.history.pop();
         this.writeLocalList('alexandria_history', this.state.history);
 
@@ -765,7 +771,7 @@ const Alexandria = {
                 type: item.type,
                 title: item.title,
                 poster_path: item.poster_path
-            }).then();
+            }, { onConflict: 'user_id, content_id, type' }).then();
         }
     },
 
