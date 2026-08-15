@@ -223,14 +223,12 @@ h1, h2, h3, h4 {
 .sidebar-overlay {
     position: fixed;
     inset: 0;
-    background: rgba(0,0,0,0.7);
-    backdrop-filter: blur(5px);
-    -webkit-backdrop-filter: blur(5px);
+    background: rgba(0, 0, 0, 0.78);
     z-index: 90;
     opacity: 0;
     pointer-events: none;
     will-change: opacity;
-    transition: opacity 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+    transition: opacity 0.22s cubic-bezier(0, 0, 0.2, 1);
 }
 
 .sidebar-overlay.active {
@@ -238,28 +236,26 @@ h1, h2, h3, h4 {
     pointer-events: auto;
 }
 
-/* Sidebar - Frosted Glass */
+/* Sidebar - Fast GPU Accelerated Surface */
 .cyber-sidebar {
     width: var(--sidebar-width);
-    background: var(--bg-panel);
-    backdrop-filter: blur(20px);
-    -webkit-backdrop-filter: blur(20px);
-    border-right: var(--glass-border);
+    background: #0b0c10;
+    border-right: 1px solid rgba(255, 255, 255, 0.08);
     display: flex;
     flex-direction: column;
     position: fixed;
     height: 100vh;
     left: 0; top: 0;
     z-index: 100;
-    transform: translateX(-100%);
+    transform: translate3d(-100%, 0, 0);
     will-change: transform;
     backface-visibility: hidden;
     -webkit-backface-visibility: hidden;
-    transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+    transition: transform 0.22s cubic-bezier(0, 0, 0.2, 1);
 }
 
 .cyber-sidebar.open {
-    transform: translateX(0);
+    transform: translate3d(0, 0, 0);
 }
 
 .sidebar-header {
