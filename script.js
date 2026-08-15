@@ -24,14 +24,14 @@ const Alexandria = {
 
     sportsServers: [
         {
-            name: 'YouTube Live Sports Feed',
+            name: 'VidSrc Sports Network (Primary)',
             supportsApi: false,
-            getStream: id => id.startsWith('http') ? id : `https://www.youtube.com/embed/${id}?autoplay=1`
+            getStream: (id, league) => `https://vidsrcme.ru/embed/sports/${(league || id || 'nba').toLowerCase()}`
         },
         {
-            name: 'Custom Live Stream URL',
+            name: 'VSEmbed Sports Server (Backup)',
             supportsApi: false,
-            getStream: id => id.startsWith('http') ? id : `https://www.youtube.com/embed/${id}?autoplay=1`
+            getStream: (id, league) => `https://vsembed.ru/embed/sports/${(league || id || 'nba').toLowerCase()}`
         }
     ],
 
@@ -119,10 +119,10 @@ const Alexandria = {
     isTrustedEmbedOrigin(origin) {
         try {
             const host = new URL(origin).hostname;
-            return host === 'embedmaster.link' || host.endsWith('.embedmaster.link') ||
-                   host.includes('embdmstrplayer.com') ||
-                   host.includes('vidlink.pro') || host.includes('vidsrc') ||
-                   host.includes('autoembed') || host.includes('embed.su');
+            return host.includes('embedmaster.link') || host.includes('embdmstrplayer.com') ||
+                   host.includes('vidsrcme.ru') || host.includes('vsembed.ru') ||
+                   host.includes('vidsrc') || host.includes('vsrc.su') ||
+                   host.includes('vidlink.pro') || host.includes('autoembed') || host.includes('embed.su');
         } catch {
             return false;
         }
@@ -924,7 +924,7 @@ const Alexandria = {
 
     SPORTS_EVENTS: [
         {
-            id: 'jfKfPfyJRdk',
+            id: 'nba',
             league: 'NBA',
             title: 'Boston Celtics vs. Dallas Mavericks',
             category: 'Basketball',
@@ -934,7 +934,7 @@ const Alexandria = {
             overview: 'Game 5 of the NBA Finals. Celtics look to secure the championship trophy at home.'
         },
         {
-            id: 'L_LUpnjgPso',
+            id: 'ufc',
             league: 'UFC',
             title: 'UFC 305: Main Fight Card',
             category: 'MMA',
@@ -944,7 +944,7 @@ const Alexandria = {
             overview: 'World Championship Title Fight live from the arena. Full 5-round main event.'
         },
         {
-            id: '3JZ_D3ELwOQ',
+            id: 'wnba',
             league: 'WNBA',
             title: 'Indiana Fever vs. New York Liberty',
             category: 'Basketball',
@@ -954,7 +954,7 @@ const Alexandria = {
             overview: 'Eastern Conference rivalry showdown featuring top draft picks and All-Star starters.'
         },
         {
-            id: '2Vv-BfVoq4g',
+            id: 'mlb',
             league: 'MLB',
             title: 'New York Yankees vs. Los Angeles Dodgers',
             category: 'Baseball',
@@ -964,7 +964,7 @@ const Alexandria = {
             overview: 'Interleague marquee series at Yankee Stadium. Ace starting pitchers taking the mound.'
         },
         {
-            id: 'fJ9rUzIMcZQ',
+            id: 'nfl',
             league: 'NFL',
             title: 'Kansas City Chiefs vs. San Francisco 49ers',
             category: 'Football',
@@ -974,7 +974,7 @@ const Alexandria = {
             overview: 'Super Bowl rematch under the Monday Night Football lights.'
         },
         {
-            id: 'YZ4gJ8dO10E',
+            id: 'soccer',
             league: 'Soccer',
             title: 'Real Madrid vs. Barcelona',
             category: 'Soccer',
@@ -1047,7 +1047,7 @@ const Alexandria = {
 
     playSportsEvent(eventId) {
         const ev = this.SPORTS_EVENTS.find(e => e.id === eventId) || this.SPORTS_EVENTS[0];
-        this.state.activeContent = { id: ev.id, type: 'sports', title: ev.title, season: 1, episode: 1 };
+        this.state.activeContent = { id: ev.id, type: 'sports', league: ev.league, title: ev.title, season: 1, episode: 1 };
         this.setView('player');
     },
 
@@ -2116,11 +2116,12 @@ const Alexandria = {
 
     // Host + guest must share the exact same embed URL for a given content + serverIndex.
     buildEmbedUrl(serverIndex = this.state.activeServer, content = this.state.activeContent) {
-        const { id, type, season, episode } = content || {};
+        const { id, type, league } = content || {};
         if (type === 'sports') {
             const list = this.sportsServers || [];
             const idx = (Number.isInteger(Number(serverIndex)) && list[Number(serverIndex)]) ? Number(serverIndex) : 0;
-            return list[idx] ? list[idx].getStream(id || 'jfKfPfyJRdk') : `https://www.youtube.com/embed/${id || 'jfKfPfyJRdk'}?autoplay=1`;
+            const leagueKey = (league || id || 'nba').toLowerCase();
+            return list[idx] ? list[idx].getStream(id, leagueKey) : `https://vidsrcme.ru/embed/sports/${leagueKey}`;
         }
         const idx = this.normalizeServerIndex(serverIndex);
         const server = this.servers[idx != null ? idx : this.state.activeServer];
