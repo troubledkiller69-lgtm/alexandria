@@ -1134,6 +1134,7 @@ h1, h2, h3, h4 {
     z-index: 70;
     padding: 1.25rem 5rem 1rem;
     border-bottom: 1px solid rgba(255,255,255,0.05);
+    margin-bottom: 1.5rem;
 }
 
 .search-input-container {
@@ -1356,9 +1357,9 @@ h1, h2, h3, h4 {
 }
 
 .modern-search .results-grid {
-    padding: 2.5rem 5rem 5rem;
+    padding: 3.5rem 5rem 5rem;
 }
-.modern-search .movie-card { scroll-margin-top: 240px; }
+.modern-search .movie-card { scroll-margin-top: 260px; }
 
 .search-discover {
     padding: 1rem 0 0;
