@@ -1871,33 +1871,37 @@ const Alexandria = {
         this._currentSeasonEpisodes = [];
 
         this.main.innerHTML = `
-            <section class="player-layout">
-                <div class="player-main">
-                    <div class="server-controls">
-                        <label class="server-label" for="server-selector">SERVER <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"></polyline></svg></label>
-                        <select id="server-selector" class="server-select-dropdown" onchange="Alexandria.handleServerChange(this.value)">
-                            ${this.servers.map((s, i) => `<option value="${i}" ${i === this.state.activeServer ? 'selected' : ''}>${s.name}</option>`).join('')}
-                        </select>
-                        <span id="server-status" class="server-status" aria-live="polite">Connecting to ${this.escapeHtml(server.name)}…</span>
+            <section class="player-page-container">
+                <div class="player-stage-grid ${type === 'tv' ? 'has-sidebar' : 'no-sidebar'}">
+                    <div class="player-main">
+                        <div class="server-controls">
+                            <label class="server-label" for="server-selector">SERVER <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"></polyline></svg></label>
+                            <select id="server-selector" class="server-select-dropdown" onchange="Alexandria.handleServerChange(this.value)">
+                                ${this.servers.map((s, i) => `<option value="${i}" ${i === this.state.activeServer ? 'selected' : ''}>${s.name}</option>`).join('')}
+                            </select>
+                            <span id="server-status" class="server-status" aria-live="polite">Connecting to ${this.escapeHtml(server.name)}…</span>
+                        </div>
+                        <div class="player-frame-container">
+                            <iframe id="video-iframe" title="Alexandria video player" src="${embedUrl}" width="100%" height="100%" scrolling="no" allowfullscreen allow="autoplay *; fullscreen *; picture-in-picture *; encrypted-media *" referrerpolicy="strict-origin-when-cross-origin"></iframe>
+                        </div>
                     </div>
-                    <div class="player-frame-container">
-                        <iframe id="video-iframe" title="Alexandria video player" src="${embedUrl}" width="100%" height="100%" scrolling="no" allowfullscreen allow="autoplay *; fullscreen *; picture-in-picture *; encrypted-media *" referrerpolicy="strict-origin-when-cross-origin"></iframe>
-                    </div>
-                </div>
-                ${type === 'tv' ? `
-                    <div class="episode-sidebar">
-                        <div class="sidebar-top">
-                            <h3 id="sidebar-title">DATA LINK</h3>
-                            <div class="season-picker" id="season-picker">
-                                <button type="button" id="season-selector-btn" class="season-select" aria-haspopup="listbox" aria-expanded="false" aria-controls="season-menu" onclick="Alexandria.toggleSeasonMenu(event)">SEASON 1</button>
-                                <ul id="season-menu" class="season-menu" role="listbox" hidden></ul>
+                    ${type === 'tv' ? `
+                        <div class="episode-sidebar">
+                            <div class="sidebar-top">
+                                <h3 id="sidebar-title">DATA LINK</h3>
+                                <div class="season-picker" id="season-picker">
+                                    <button type="button" id="season-selector-btn" class="season-select" aria-haspopup="listbox" aria-expanded="false" aria-controls="season-menu" onclick="Alexandria.toggleSeasonMenu(event)">SEASON 1</button>
+                                    <ul id="season-menu" class="season-menu" role="listbox" hidden></ul>
+                                </div>
                             </div>
-                        </div>
-                        <div class="episode-list" id="sidebar-episodes">
-                            <div class="placeholder-msg">DECRYPTING EPISODES...</div>
-                        </div>
-                    </div>` : ''}
-                <section class="comments-section-container" id="comments-section-container"></section>
+                            <div class="episode-list" id="sidebar-episodes">
+                                <div class="placeholder-msg">DECRYPTING EPISODES...</div>
+                            </div>
+                        </div>` : ''}
+                </div>
+                <div class="player-below-stage">
+                    <section class="comments-section-container" id="comments-section-container"></section>
+                </div>
             </section>`;
 
         this.bindSoloPlayerEvents();
