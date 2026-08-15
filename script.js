@@ -24,19 +24,14 @@ const Alexandria = {
 
     sportsServers: [
         {
-            name: 'Alexandria Sports Stream (Default)',
-            supportsApi: true,
-            getStream: id => `https://embedmaster.link/9gis39azyhxlvq5t/movie/${id}`
+            name: 'YouTube Live Sports Feed',
+            supportsApi: false,
+            getStream: id => id.startsWith('http') ? id : `https://www.youtube.com/embed/${id}?autoplay=1`
         },
         {
-            name: 'VidSrc Sports Stream (HD)',
+            name: 'Custom Live Stream URL',
             supportsApi: false,
-            getStream: id => `https://vidsrc.cc/v2/embed/movie/${id}`
-        },
-        {
-            name: 'EmbedSU Sports Stream (1080p)',
-            supportsApi: false,
-            getStream: id => `https://embed.su/embed/movie/${id}`
+            getStream: id => id.startsWith('http') ? id : `https://www.youtube.com/embed/${id}?autoplay=1`
         }
     ],
 
@@ -929,7 +924,7 @@ const Alexandria = {
 
     SPORTS_EVENTS: [
         {
-            id: '550',
+            id: 'jfKfPfyJRdk',
             league: 'NBA',
             title: 'Boston Celtics vs. Dallas Mavericks',
             category: 'Basketball',
@@ -939,7 +934,7 @@ const Alexandria = {
             overview: 'Game 5 of the NBA Finals. Celtics look to secure the championship trophy at home.'
         },
         {
-            id: '62286',
+            id: 'L_LUpnjgPso',
             league: 'UFC',
             title: 'UFC 305: Main Fight Card',
             category: 'MMA',
@@ -949,7 +944,7 @@ const Alexandria = {
             overview: 'World Championship Title Fight live from the arena. Full 5-round main event.'
         },
         {
-            id: '94305',
+            id: '3JZ_D3ELwOQ',
             league: 'WNBA',
             title: 'Indiana Fever vs. New York Liberty',
             category: 'Basketball',
@@ -959,7 +954,7 @@ const Alexandria = {
             overview: 'Eastern Conference rivalry showdown featuring top draft picks and All-Star starters.'
         },
         {
-            id: '1402',
+            id: '2Vv-BfVoq4g',
             league: 'MLB',
             title: 'New York Yankees vs. Los Angeles Dodgers',
             category: 'Baseball',
@@ -969,7 +964,7 @@ const Alexandria = {
             overview: 'Interleague marquee series at Yankee Stadium. Ace starting pitchers taking the mound.'
         },
         {
-            id: '194583',
+            id: 'fJ9rUzIMcZQ',
             league: 'NFL',
             title: 'Kansas City Chiefs vs. San Francisco 49ers',
             category: 'Football',
@@ -979,7 +974,7 @@ const Alexandria = {
             overview: 'Super Bowl rematch under the Monday Night Football lights.'
         },
         {
-            id: '206586',
+            id: 'YZ4gJ8dO10E',
             league: 'Soccer',
             title: 'Real Madrid vs. Barcelona',
             category: 'Soccer',
@@ -1054,6 +1049,17 @@ const Alexandria = {
         const ev = this.SPORTS_EVENTS.find(e => e.id === eventId) || this.SPORTS_EVENTS[0];
         this.state.activeContent = { id: ev.id, type: 'sports', title: ev.title, season: 1, episode: 1 };
         this.setView('player');
+    },
+
+    loadCustomSportsStream() {
+        const input = document.getElementById('custom-stream-input');
+        const url = input?.value?.trim();
+        if (!url) return;
+        const iframe = document.getElementById('video-iframe');
+        if (iframe) {
+            iframe.src = url;
+            this.showToast('Loading custom stream URL...');
+        }
     },
 
     async renderHome() {
@@ -1939,12 +1945,18 @@ const Alexandria = {
         this.main.innerHTML = `
             <section class="player-layout">
                 <div class="player-main">
-                    <div class="server-controls">
+                    <div class="server-controls" style="flex-wrap:wrap;">
                         <label class="server-label" for="server-selector">SERVER <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"></polyline></svg></label>
                         <select id="server-selector" class="server-select-dropdown" onchange="Alexandria.handleServerChange(this.value)">
                             ${serverList.map((s, i) => `<option value="${i}" ${i === this.state.activeServer ? 'selected' : ''}>${s.name}</option>`).join('')}
                         </select>
                         <span id="server-status" class="server-status" aria-live="polite">Connecting to ${this.escapeHtml(server.name)}…</span>
+                        ${type === 'sports' ? `
+                            <div class="custom-stream-bar" style="display:flex; gap:0.5rem; width:100%; margin-top:0.5rem;">
+                                <input type="text" id="custom-stream-input" class="compact-input" placeholder="Paste custom live stream URL or embed link..." style="flex:1;">
+                                <button class="btn-primary" type="button" style="padding:0.45rem 1rem; font-size:0.8rem;" onclick="Alexandria.loadCustomSportsStream()">PLAY STREAM</button>
+                            </div>
+                        ` : ''}
                     </div>
                     <div class="player-frame-container">
                         <iframe id="video-iframe" title="Alexandria video player" src="${embedUrl}" width="100%" height="100%" scrolling="no" allowfullscreen allow="autoplay *; fullscreen *; picture-in-picture *; encrypted-media *" referrerpolicy="strict-origin-when-cross-origin"></iframe>
@@ -2106,10 +2118,9 @@ const Alexandria = {
     buildEmbedUrl(serverIndex = this.state.activeServer, content = this.state.activeContent) {
         const { id, type, season, episode } = content || {};
         if (type === 'sports') {
-            const numericId = (id != null && String(id).match(/^\d+$/)) ? String(id) : '550';
             const list = this.sportsServers || [];
             const idx = (Number.isInteger(Number(serverIndex)) && list[Number(serverIndex)]) ? Number(serverIndex) : 0;
-            return list[idx] ? list[idx].getStream(numericId) : `https://embedmaster.link/9gis39azyhxlvq5t/movie/${numericId}`;
+            return list[idx] ? list[idx].getStream(id || 'jfKfPfyJRdk') : `https://www.youtube.com/embed/${id || 'jfKfPfyJRdk'}?autoplay=1`;
         }
         const idx = this.normalizeServerIndex(serverIndex);
         const server = this.servers[idx != null ? idx : this.state.activeServer];
