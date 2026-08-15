@@ -1259,7 +1259,13 @@ h1, h2, h3, h4 {
 .results-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
-    gap: 2rem;
+    gap: 2rem 1.5rem;
+}
+
+.results-grid .movie-card,
+.person-credits-grid .movie-card {
+    width: 100%;
+    min-width: 0;
 }
 
 /* Auth View */
@@ -1543,8 +1549,8 @@ h1, h2, h3, h4 {
 }
 .person-credits-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-    gap: 1.5rem;
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: 2rem 1.5rem;
 }
 
 
