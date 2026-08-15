@@ -832,26 +832,25 @@ const Alexandria = {
 
             const featured = popData.results?.[0];
             const heroBackdrop = featured?.backdrop_path ? this.imageUrl(featured.backdrop_path, 'original') : '';
-            const titleName = type === 'movie' ? 'CINEMATIC MOVIES' : 'TELEVISION SERIES';
-            const badgeText = type === 'movie' ? 'FEATURED ARCHIVE' : 'FEATURED SERIES';
+            const isMovie = type === 'movie';
 
             this.main.innerHTML = `
                 <section class="filtered-view">
-                    <div class="category-hero-banner" style="--hero-backdrop: url('${heroBackdrop}')">
-                        <div class="category-hero-overlay">
-                            <div class="category-hero-content">
-                                <span class="category-badge">${badgeText}</span>
-                                <h1>${titleName}</h1>
-                                ${featured ? `
-                                    <p class="category-subtitle">${this.escapeHtml(featured.title || featured.name || '')} • Rated ${featured.vote_average ? featured.vote_average.toFixed(1) : '8.5'}</p>
-                                    <p class="category-desc">${this.escapeHtml(featured.overview || 'Explore popular archives across all categories.')}</p>
-                                    <div class="category-hero-actions">
-                                        <button class="btn-primary" onclick="Alexandria.playContent(${featured.id}, '${type}')">
-                                            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg> WATCH FEATURED
-                                        </button>
-                                        <button class="btn-secondary" onclick="window.location.hash = '#details/${type}/${featured.id}'">DETAILS</button>
-                                    </div>
-                                ` : ''}
+                    <div class="hero-featured" style="--hero-image: url('${heroBackdrop}')">
+                        <div class="featured-content">
+                            <span class="trending-badge">${isMovie ? '#1 MOVIES ARCHIVE' : '#1 TELEVISION SERIES'}</span>
+                            <h1>${this.escapeHtml(featured ? (featured.title || featured.name) : (isMovie ? 'MOVIES' : 'TV SHOWS'))}</h1>
+                            <p>${this.escapeHtml(featured?.overview || 'Explore popular archives across all categories.')}</p>
+                            <div class="category-hero-actions">
+                                ${featured ? `<button class="btn-primary" onclick="Alexandria.playContent(${featured.id}, '${type}')"><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg> WATCH NOW</button>
+                                <button class="btn-secondary" onclick="window.location.hash = '#details/${type}/${featured.id}'">DETAILS</button>` : ''}
+                            </div>
+                        </div>
+                        <div class="sector-widget">
+                            <div class="sector-widget-content">
+                                <span class="sector-label">${isMovie ? 'SECTOR // MOVIES' : 'SECTOR // TELEVISION'}</span>
+                                <h4>${isMovie ? '5,000+ Titles Cataloged' : '1,200+ Series Scanned'}</h4>
+                                <p>${isMovie ? 'Blockbusters, Classics & Indies' : 'Full Seasons & Episode Data'}</p>
                             </div>
                         </div>
                     </div>
@@ -890,21 +889,21 @@ const Alexandria = {
 
             this.main.innerHTML = `
                 <section class="filtered-view">
-                    <div class="category-hero-banner" style="--hero-backdrop: url('${heroBackdrop}')">
-                        <div class="category-hero-overlay">
-                            <div class="category-hero-content">
-                                <span class="category-badge">SUBBED & DUBBED ARCHIVE</span>
-                                <h1>ANIME VAULT</h1>
-                                ${featured ? `
-                                    <p class="category-subtitle">${this.escapeHtml(featured.name || featured.title || '')} • Top Recommendation</p>
-                                    <p class="category-desc">${this.escapeHtml(featured.overview || 'Explore Japanese animation, fantasy sagas, and action series.')}</p>
-                                    <div class="category-hero-actions">
-                                        <button class="btn-primary" onclick="Alexandria.playContent(${featured.id}, 'tv')">
-                                            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg> WATCH FEATURED
-                                        </button>
-                                        <button class="btn-secondary" onclick="window.location.hash = '#details/tv/${featured.id}'">DETAILS</button>
-                                    </div>
-                                ` : ''}
+                    <div class="hero-featured" style="--hero-image: url('${heroBackdrop}')">
+                        <div class="featured-content">
+                            <span class="trending-badge">SECTOR // ANIME VAULT</span>
+                            <h1>${this.escapeHtml(featured ? (featured.name || featured.title) : 'ANIME VAULT')}</h1>
+                            <p>${this.escapeHtml(featured?.overview || 'Explore Japanese animation, fantasy sagas, and action series.')}</p>
+                            <div class="category-hero-actions">
+                                ${featured ? `<button class="btn-primary" onclick="Alexandria.playContent(${featured.id}, 'tv')"><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg> WATCH NOW</button>
+                                <button class="btn-secondary" onclick="window.location.hash = '#details/tv/${featured.id}'">DETAILS</button>` : ''}
+                            </div>
+                        </div>
+                        <div class="sector-widget">
+                            <div class="sector-widget-content">
+                                <span class="sector-label">ANIME VAULT</span>
+                                <h4>Subbed & Dubbed Sagas</h4>
+                                <p>Top Rated Animations & Shonen</p>
                             </div>
                         </div>
                     </div>
