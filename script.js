@@ -1349,7 +1349,7 @@ const Alexandria = {
         this.main.innerHTML = '<div class="placeholder-msg">DECRYPTING ARCHIVE...</div>';
         
         try {
-            const endpoint = `${type}/${id}?append_to_response=credits,aggregate_credits,similar,videos,watch/providers`;
+            const endpoint = `${type}/${id}?append_to_response=credits,aggregate_credits,similar,videos`;
             const data = await this.getJson(endpoint);
             if (token !== this._renderToken) return;
             
@@ -1375,28 +1375,6 @@ const Alexandria = {
                     </div>
                 </article>
             `).join('') || '<div class="placeholder-msg">NO CAST DATA</div>';
-
-            const usProviders = data['watch/providers']?.results?.US || {};
-            const providerBuckets = [
-                ['Stream', usProviders.flatrate],
-                ['Rent', usProviders.rent],
-                ['Buy', usProviders.buy]
-            ].filter(([, list]) => Array.isArray(list) && list.length);
-            const providersHtml = providerBuckets.length
-                ? providerBuckets.map(([label, list]) => `
-                    <div class="provider-row">
-                        <span class="provider-label">${label}</span>
-                        <div class="provider-logos">
-                            ${list.slice(0, 8).map(p => `
-                                <span class="provider-chip" title="${this.escapeHtml(p.provider_name)}">
-                                    ${p.logo_path
-                                        ? `<img src="${this.imageUrl(p.logo_path, 'w92')}" alt="${this.escapeHtml(p.provider_name)}">`
-                                        : this.escapeHtml(p.provider_name)}
-                                </span>
-                            `).join('')}
-                        </div>
-                    </div>`).join('')
-                : '<p class="provider-empty">No US watch providers listed on TMDB.</p>';
 
             this.main.innerHTML = `
                 <section class="details-layout">
@@ -1425,12 +1403,6 @@ const Alexandria = {
                                 </div>
                             </div>
                         </div>
-                    </div>
-
-                    <div class="view-section">
-                        <h3>WHERE TO WATCH</h3>
-                        <div class="providers-panel">${providersHtml}</div>
-                        <p class="provider-note">Provider data via TMDB / JustWatch · US region</p>
                     </div>
                     
                     <div class="view-section">
