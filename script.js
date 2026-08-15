@@ -1611,6 +1611,11 @@ const Alexandria = {
     },
 
     createWatchParty(id, type) {
+        if (!this.state.authUser) {
+            this.showToast('Please sign in or create an account to start a Watch Party.');
+            this.toggleAuthModal(true, 'signup');
+            return;
+        }
         const roomId = Math.random().toString(36).substring(2, 8);
         sessionStorage.setItem('alexandria_party_creator_' + roomId, '1');
         if (type === 'tv') {
@@ -2535,6 +2540,11 @@ const Alexandria = {
     },
 
     addComment() {
+        if (!this.state.authUser) {
+            this.showToast('Please sign in or create an account to post comments.');
+            this.toggleAuthModal(true, 'signup');
+            return;
+        }
         const input = document.getElementById('comment-input');
         const text = input?.value?.trim();
         if (!text) return;
@@ -2543,13 +2553,8 @@ const Alexandria = {
         const key = this.getCommentKey(content);
         if (!key) return;
 
-        let nickname = sessionStorage.getItem('alexandria_nickname') || localStorage.getItem('alexandria_username');
-        if (!nickname) {
-            nickname = prompt('Enter a nickname for your comment:') || '';
-            if (!nickname.trim()) nickname = 'User_' + Math.floor(Math.random() * 1000);
-            nickname = nickname.trim().slice(0, 24);
-            sessionStorage.setItem('alexandria_nickname', nickname);
-        }
+        const u = this.state.authUser;
+        const nickname = u.user_metadata?.username || u.email?.split('@')[0] || sessionStorage.getItem('alexandria_nickname') || 'Member';
 
         const commentObj = {
             id: 'c_' + Date.now() + '_' + Math.random().toString(36).substring(2, 6),
@@ -2590,7 +2595,10 @@ const Alexandria = {
 
         const key = this.getCommentKey(content);
         const comments = this.getComments(key);
-        const nickname = sessionStorage.getItem('alexandria_nickname') || localStorage.getItem('alexandria_username') || 'Guest';
+        const isLoggedIn = !!this.state.authUser;
+        const nickname = this.state.authUser?.user_metadata?.username
+            || sessionStorage.getItem('alexandria_nickname')
+            || 'Member';
         const scopeBadge = content.type === 'tv'
             ? `S${content.season || 1}:E${content.episode || 1}`
             : 'MOVIE';
@@ -2599,19 +2607,33 @@ const Alexandria = {
             <div class="comments-widget">
                 <div class="comments-header">
                     <h3>DISCUSSION & REVIEWS (${comments.length}) <span class="comments-scope-badge">${scopeBadge}</span></h3>
-                    <div class="comments-user-badge">
-                        <span>Posting as <strong>${this.escapeHtml(nickname)}</strong></span>
-                        <button type="button" class="btn-text-link" onclick="Alexandria.editNickname()">Change Name</button>
-                    </div>
+                    ${isLoggedIn ? `
+                        <div class="comments-user-badge">
+                            <span>Posting as <strong>${this.escapeHtml(nickname)}</strong></span>
+                        </div>
+                    ` : ''}
                 </div>
                 
-                <div class="comments-composer">
-                    <textarea id="comment-input" placeholder="Share your thoughts on this episode or movie..." maxlength="500" rows="3"></textarea>
-                    <div class="comments-composer-footer">
-                        <span class="char-count">Up to 500 characters</span>
-                        <button type="button" class="btn-primary" onclick="Alexandria.addComment()">POST COMMENT</button>
+                ${isLoggedIn ? `
+                    <div class="comments-composer">
+                        <textarea id="comment-input" placeholder="Share your thoughts on this episode or movie..." maxlength="500" rows="3"></textarea>
+                        <div class="comments-composer-footer">
+                            <span class="char-count">Up to 500 characters</span>
+                            <button type="button" class="btn-primary" onclick="Alexandria.addComment()">POST COMMENT</button>
+                        </div>
                     </div>
-                </div>
+                ` : `
+                    <div class="comments-locked-banner">
+                        <div class="comments-locked-content">
+                            <span class="comments-locked-icon">🔒</span>
+                            <div class="comments-locked-text">
+                                <strong>Join the Discussion</strong>
+                                <p>Sign in or create a free account to post comments on this ${content.type === 'tv' ? 'episode' : 'movie'}.</p>
+                            </div>
+                        </div>
+                        <button type="button" class="btn-primary" onclick="Alexandria.toggleAuthModal(true, 'signup')">CREATE ACCOUNT / SIGN IN</button>
+                    </div>
+                `}
 
                 <div class="comments-list">
                     ${comments.length > 0 ? comments.map(c => {
@@ -2904,6 +2926,12 @@ const Alexandria = {
     },
 
     async renderParty() {
+        if (!this.state.authUser) {
+            this.showToast('Watch Party requires an account. Please sign in or create an account.');
+            window.location.hash = '#home';
+            this.toggleAuthModal(true, 'signup');
+            return;
+        }
         const { id, type, season, episode } = this.state.activeContent;
         const roomId = this.state.partyRoomId;
         const sameRoom = this.partyChannel && this.state.partyRoomId === roomId;
