@@ -798,10 +798,10 @@ const Alexandria = {
         if (!container) return;
         
         if (this.state.watchlist.length > 0) {
-            container.innerHTML = `<div class="view-section"><h3>SURVIVAL CACHE</h3><div class="carousel-container"><button class="carousel-arrow left" onclick="Alexandria.scrollCarousel(this, -800)">&#10094;</button><div class="carousel-wrapper"><div class="carousel-grid" id="watchlist-results"></div></div><button class="carousel-arrow right" onclick="Alexandria.scrollCarousel(this, 800)">&#10095;</button></div></div>`;
+            container.innerHTML = `<div class="view-section"><h3>MY WATCHLIST</h3><div class="carousel-container"><button class="carousel-arrow left" onclick="Alexandria.scrollCarousel(this, -800)">&#10094;</button><div class="carousel-wrapper"><div class="carousel-grid" id="watchlist-results"></div></div><button class="carousel-arrow right" onclick="Alexandria.scrollCarousel(this, 800)">&#10095;</button></div></div>`;
             this.renderResults(this.state.watchlist, 'watchlist-results');
         } else {
-            container.innerHTML = '<div class="view-section"><h3>SURVIVAL CACHE</h3><div class="placeholder-msg">Your cache is empty. Time to scavenge for new supplies.</div></div>';
+            container.innerHTML = '<div class="view-section"><h3>MY WATCHLIST</h3><div class="placeholder-msg">Your watchlist is empty. Save movies and TV shows here to watch later.</div></div>';
         }
     },
 
@@ -819,7 +819,7 @@ const Alexandria = {
 
     async renderFiltered(type) {
         const token = this._renderToken;
-        this.main.innerHTML = '<div class="placeholder-msg">SCANNING SECTORS...</div>';
+        this.main.innerHTML = '<div class="placeholder-msg">LOADING SECTORS...</div>';
         try {
             const [popData, topData, actData, horData, sciData] = await Promise.all([
                 this.getJson(type + '/popular'),
@@ -838,9 +838,9 @@ const Alexandria = {
                 <section class="filtered-view">
                     <div class="hero-featured" style="--hero-image: url('${heroBackdrop}')">
                         <div class="featured-content">
-                            <span class="trending-badge">${isMovie ? '#1 MOVIES ARCHIVE' : '#1 TELEVISION SERIES'}</span>
+                            <span class="trending-badge">${isMovie ? 'FEATURED MOVIE' : 'FEATURED SHOW'}</span>
                             <h1>${this.escapeHtml(featured ? (featured.title || featured.name) : (isMovie ? 'MOVIES' : 'TV SHOWS'))}</h1>
-                            <p>${this.escapeHtml(featured?.overview || 'Explore popular archives across all categories.')}</p>
+                            <p>${this.escapeHtml(featured?.overview || 'Explore popular movies and TV shows.')}</p>
                             <div class="category-hero-actions">
                                 ${featured ? `<button class="btn-primary" onclick="Alexandria.playContent(${featured.id}, '${type}')"><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg> WATCH NOW</button>
                                 <button class="btn-secondary" onclick="window.location.hash = '#details/${type}/${featured.id}'">DETAILS</button>` : ''}
@@ -848,9 +848,9 @@ const Alexandria = {
                         </div>
                         <div class="sector-widget">
                             <div class="sector-widget-content">
-                                <span class="sector-label">${isMovie ? 'SECTOR // MOVIES' : 'SECTOR // TELEVISION'}</span>
-                                <h4>${isMovie ? '5,000+ Titles Cataloged' : '1,200+ Series Scanned'}</h4>
-                                <p>${isMovie ? 'Blockbusters, Classics & Indies' : 'Full Seasons & Episode Data'}</p>
+                                <span class="sector-label">${isMovie ? 'POPULAR MOVIES' : 'POPULAR SHOWS'}</span>
+                                <h4>${isMovie ? 'Browse Movies' : 'Browse TV Shows'}</h4>
+                                <p>${isMovie ? 'Blockbusters, Classics & Indies' : 'Full Seasons & Popular Series'}</p>
                             </div>
                         </div>
                     </div>
@@ -891,7 +891,7 @@ const Alexandria = {
                 <section class="filtered-view">
                     <div class="hero-featured" style="--hero-image: url('${heroBackdrop}')">
                         <div class="featured-content">
-                            <span class="trending-badge">SECTOR // ANIME VAULT</span>
+                            <span class="trending-badge">FEATURED ANIME</span>
                             <h1>${this.escapeHtml(featured ? (featured.name || featured.title) : 'ANIME VAULT')}</h1>
                             <p>${this.escapeHtml(featured?.overview || 'Explore Japanese animation, fantasy sagas, and action series.')}</p>
                             <div class="category-hero-actions">
@@ -902,8 +902,8 @@ const Alexandria = {
                         <div class="sector-widget">
                             <div class="sector-widget-content">
                                 <span class="sector-label">ANIME VAULT</span>
-                                <h4>Subbed & Dubbed Sagas</h4>
-                                <p>Top Rated Animations & Shonen</p>
+                                <h4>Browse Anime</h4>
+                                <p>Subbed & Dubbed Series</p>
                             </div>
                         </div>
                     </div>
