@@ -1212,6 +1212,7 @@ const Alexandria = {
 
         const franchises = [
             { name: 'Marvel Cinematic Universe', movieIds: [1726, 1724, 10138, 10195, 1771, 24428, 68721, 76338, 100402, 118340, 99861, 102899, 271110, 284052, 283995, 315635, 284053, 284054, 299536, 363088, 299537, 299534, 429617, 497698, 566525, 524434, 634649, 453395, 616037, 505642, 640146, 447365, 609681, 533535], accent: '#e23636', subtitle: 'The Infinity Saga & Beyond' },
+            { name: 'Transformers', movieIds: [1858, 8373, 38356, 91314, 335988, 424783, 667538, 698687], accent: '#0070f3', subtitle: 'More Than Meets the Eye' },
             { name: 'Star Wars', collectionId: 10, accent: '#FFE81F', subtitle: 'A Galaxy Far, Far Away' },
             { name: 'Harry Potter', collectionId: 1241, accent: '#946B2D', subtitle: 'The Wizarding World' },
             { name: 'The Lord of the Rings', collectionId: 119, accent: '#C9A84C', subtitle: 'One Ring to Rule Them All' },
@@ -1224,7 +1225,7 @@ const Alexandria = {
         ];
 
         try {
-            const FRANCHISE_CACHE_KEY = 'alexandria_franchise_cache_v1';
+            const FRANCHISE_CACHE_KEY = 'alexandria_franchise_cache_v2';
             let cached = null;
             try {
                 cached = JSON.parse(sessionStorage.getItem(FRANCHISE_CACHE_KEY));
