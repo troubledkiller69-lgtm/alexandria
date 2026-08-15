@@ -4018,9 +4018,7 @@ const Alexandria = {
         if (this.state.view !== 'party' || !this.partyChannel) return;
 
         const originOk = this.isTrustedEmbedOrigin(event.origin);
-        const looksLikeEmbedMaster = event.data?.source === 'embedmaster_player';
-        const looksLikePlayerJsReply = event.data?.answer !== undefined;
-        if (!originOk && !looksLikeEmbedMaster && !looksLikePlayerJsReply) return;
+        if (!originOk) return;
 
         // Always harvest timestamps from any player traffic — don’t depend on one event shape.
         if (this.isHost) {
