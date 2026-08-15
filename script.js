@@ -1466,8 +1466,14 @@ const Alexandria = {
                 : `<div class="person-bio">${bioHtml || 'No biography available.'}</div>`;
 
             // Categorize credits
+            const seenCast = new Set();
             const castCredits = (data.combined_credits?.cast || [])
-                .filter(c => c.poster_path)
+                .filter(c => {
+                    if (!c.poster_path) return false;
+                    if (seenCast.has(c.id)) return false;
+                    seenCast.add(c.id);
+                    return true;
+                })
                 .sort((a, b) => b.popularity - a.popularity);
             const crewCredits = (data.combined_credits?.crew || [])
                 .filter(c => c.poster_path && ['Director', 'Executive Producer', 'Producer', 'Writer', 'Screenplay', 'Creator'].includes(c.job))
