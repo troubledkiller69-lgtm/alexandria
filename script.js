@@ -7,6 +7,7 @@ const Alexandria = {
         searchQuery: '',
         searchFilter: 'multi',
         activeServer: 0,
+        activeGenreId: 35,
         watchlist: [],
         history: [],
         partyRoomId: null
@@ -513,6 +514,13 @@ const Alexandria = {
             button.addEventListener('click', () => { window.location.hash = '#home'; });
         });
 
+        document.addEventListener('click', (e) => {
+            const wrapper = document.getElementById('genre-dropdown-wrapper');
+            if (wrapper && !wrapper.contains(e.target)) {
+                wrapper.classList.remove('open');
+            }
+        });
+
         document.addEventListener('keydown', event => {
             if (event.key === 'Escape' && sidebar?.classList.contains('open')) toggleSidebar(false);
             if ((event.key === 'Enter' || event.key === ' ') && event.target.matches('.cast-card, .episode-item, .resume-widget, .person-result-card')) {
@@ -719,18 +727,79 @@ const Alexandria = {
         }
     },
 
+    GENRES: [
+        { id: 35, name: 'Comedy', icon: '😄' },
+        { id: 28, name: 'Action', icon: '⚡' },
+        { id: 18, name: 'Drama', icon: '🎭' },
+        { id: 27, name: 'Horror', icon: '👻' },
+        { id: 10749, name: 'Romance', icon: '💖' },
+        { id: 12, name: 'Adventure', icon: '🧭' },
+        { id: 878, name: 'Science Fiction', icon: '🚀' },
+        { id: 53, name: 'Thriller', icon: '🔥' },
+        { id: 16, name: 'Animation', icon: '✨' },
+        { id: 80, name: 'Crime', icon: '🔍' },
+        { id: 14, name: 'Fantasy', icon: '🪄' },
+        { id: 9648, name: 'Mystery', icon: '🕵️' },
+        { id: 99, name: 'Documentary', icon: '📷' },
+        { id: 10751, name: 'Family', icon: '👥' },
+        { id: 36, name: 'History', icon: '🏛️' },
+        { id: 10402, name: 'Music', icon: '🎵' },
+        { id: 10752, name: 'War', icon: '🛡️' },
+        { id: 37, name: 'Western', icon: '🤠' }
+    ],
+
+    toggleGenreMenu(e) {
+        if (e) e.stopPropagation();
+        const wrapper = document.getElementById('genre-dropdown-wrapper');
+        if (wrapper) wrapper.classList.toggle('open');
+    },
+
+    async selectGenre(genreId) {
+        const genre = this.GENRES.find(g => g.id === genreId) || this.GENRES[0];
+        this.state.activeGenreId = genre.id;
+        
+        const wrapper = document.getElementById('genre-dropdown-wrapper');
+        if (wrapper) wrapper.classList.remove('open');
+
+        const titleEl = document.getElementById('current-genre-title');
+        if (titleEl) titleEl.textContent = genre.name;
+
+        document.querySelectorAll('.genre-popover-item').forEach(item => {
+            if (Number(item.dataset.genreId) === genre.id) {
+                item.classList.add('active');
+            } else {
+                item.classList.remove('active');
+            }
+        });
+
+        const grid = document.getElementById('genre-explorer-grid');
+        if (grid) {
+            grid.innerHTML = '<div class="placeholder-msg">Loading ' + this.escapeHtml(genre.name) + '...</div>';
+            try {
+                const data = await this.getJson(`discover/movie?with_genres=${genre.id}&sort_by=popularity.desc`);
+                this.renderResults(data.results, 'genre-explorer-grid');
+            } catch (err) {
+                console.error("Genre fetch failed:", err);
+                grid.innerHTML = '<div class="placeholder-msg">Failed to load titles</div>';
+            }
+        }
+    },
+
     async renderHome() {
         const token = this._renderToken;
         this.main.innerHTML = '<div class="placeholder-msg"><span class="pulse-dot"></span> LOADING SECTORS...</div>';
         
         try {
+            const currentGenre = this.GENRES.find(g => g.id === (this.state.activeGenreId || 35)) || this.GENRES[0];
+
             // Sector 1: Core Content Scans
-            const [mData, tData, nData, aData, uData] = await Promise.all([
+            const [mData, tData, nData, aData, uData, genreData] = await Promise.all([
                 this.getJson('trending/movie/day'),
                 this.getJson('trending/tv/day'),
                 this.getJson('discover/movie?with_watch_providers=8&watch_region=US'),
                 this.getJson('discover/movie?with_genres=28'),
-                this.getJson('movie/upcoming')
+                this.getJson('movie/upcoming'),
+                this.getJson(`discover/movie?with_genres=${currentGenre.id}&sort_by=popularity.desc`).catch(() => ({ results: [] }))
             ]);
             
             // Sector 2: Alexandria's specials, using verified TMDB IDs.
@@ -771,6 +840,28 @@ const Alexandria = {
                     </div>
                     <div id="continue-watching-section"></div>
                     <div id="priority-archive-section"></div>
+                    <div class="view-section">
+                        <div class="genre-dropdown-wrapper" id="genre-dropdown-wrapper">
+                            <button type="button" class="genre-dropdown-trigger" onclick="Alexandria.toggleGenreMenu(event)">
+                                <span class="genre-red-bar">|</span>
+                                <span id="current-genre-title">${this.escapeHtml(currentGenre.name)}</span>
+                                <svg class="genre-arrow-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                            </button>
+                            <div class="genre-dropdown-popover">
+                                ${this.GENRES.map(g => `
+                                    <div class="genre-popover-item ${g.id === currentGenre.id ? 'active' : ''}" data-genre-id="${g.id}" onclick="Alexandria.selectGenre(${g.id})">
+                                        <div class="genre-popover-icon">${g.icon}</div>
+                                        <span class="genre-popover-text">${this.escapeHtml(g.name)}</span>
+                                    </div>
+                                `).join('')}
+                            </div>
+                        </div>
+                        <div class="carousel-container">
+                            <button class="carousel-arrow left" onclick="Alexandria.scrollCarousel(this, -800)">&#10094;</button>
+                            <div class="carousel-wrapper"><div class="carousel-grid" id="genre-explorer-grid"></div></div>
+                            <button class="carousel-arrow right" onclick="Alexandria.scrollCarousel(this, 800)">&#10095;</button>
+                        </div>
+                    </div>
                     <div class="view-section"><h3>ALEXANDRIA'S SPECIALS</h3><div class="carousel-container"><button class="carousel-arrow left" onclick="Alexandria.scrollCarousel(this, -800)">&#10094;</button><div class="carousel-wrapper"><div class="carousel-grid" id="alexandria-specials"></div></div><button class="carousel-arrow right" onclick="Alexandria.scrollCarousel(this, 800)">&#10095;</button></div></div>
                     <div class="view-section"><h3>Trending Movies</h3><div class="carousel-container"><button class="carousel-arrow left" onclick="Alexandria.scrollCarousel(this, -800)">&#10094;</button><div class="carousel-wrapper"><div class="carousel-grid" id="trending-movies"></div></div><button class="carousel-arrow right" onclick="Alexandria.scrollCarousel(this, 800)">&#10095;</button></div></div>
                     <div class="view-section"><h3>Netflix Originals</h3><div class="carousel-container"><button class="carousel-arrow left" onclick="Alexandria.scrollCarousel(this, -800)">&#10094;</button><div class="carousel-wrapper"><div class="carousel-grid" id="netflix-hits"></div></div><button class="carousel-arrow right" onclick="Alexandria.scrollCarousel(this, 800)">&#10095;</button></div></div>
@@ -781,6 +872,7 @@ const Alexandria = {
             
             this.renderHistory();
             this.renderWatchlist();
+            this.renderResults(genreData.results, 'genre-explorer-grid');
             this.renderResults(specialsData, 'alexandria-specials');
             this.renderResults(mData.results, 'trending-movies');
             this.renderResults(tData.results, 'trending-tv');
