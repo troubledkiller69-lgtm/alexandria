@@ -24,14 +24,14 @@ const Alexandria = {
 
     sportsServers: [
         {
-            name: 'Alexandria Sports Stream 1 (HD)',
+            name: 'VidLink Sports Stream (HD)',
             supportsApi: false,
-            getStream: id => `https://embedmaster.link/9gis39azyhxlvq5t/sports/${id}`
+            getStream: id => `https://vidlink.pro/movie/${id}`
         },
         {
-            name: 'Alexandria Sports Stream 2 (Backup)',
-            supportsApi: false,
-            getStream: id => `https://vidsrc.cc/v2/embed/sports/${id}`
+            name: 'Alexandria Sports Stream (Default)',
+            supportsApi: true,
+            getStream: id => `https://embedmaster.link/9gis39azyhxlvq5t/movie/${id}`
         }
     ],
 
@@ -923,7 +923,7 @@ const Alexandria = {
 
     SPORTS_EVENTS: [
         {
-            id: 'nba-1',
+            id: '550',
             league: 'NBA',
             title: 'Boston Celtics vs. Dallas Mavericks',
             category: 'Basketball',
@@ -933,7 +933,7 @@ const Alexandria = {
             overview: 'Game 5 of the NBA Finals. Celtics look to secure the championship trophy at home.'
         },
         {
-            id: 'ufc-1',
+            id: '62286',
             league: 'UFC',
             title: 'UFC 305: Main Fight Card',
             category: 'MMA',
@@ -943,7 +943,7 @@ const Alexandria = {
             overview: 'World Championship Title Fight live from the arena. Full 5-round main event.'
         },
         {
-            id: 'wnba-1',
+            id: '94305',
             league: 'WNBA',
             title: 'Indiana Fever vs. New York Liberty',
             category: 'Basketball',
@@ -953,7 +953,7 @@ const Alexandria = {
             overview: 'Eastern Conference rivalry showdown featuring top draft picks and All-Star starters.'
         },
         {
-            id: 'mlb-1',
+            id: '1402',
             league: 'MLB',
             title: 'New York Yankees vs. Los Angeles Dodgers',
             category: 'Baseball',
@@ -963,7 +963,7 @@ const Alexandria = {
             overview: 'Interleague marquee series at Yankee Stadium. Ace starting pitchers taking the mound.'
         },
         {
-            id: 'nfl-1',
+            id: '194583',
             league: 'NFL',
             title: 'Kansas City Chiefs vs. San Francisco 49ers',
             category: 'Football',
@@ -973,7 +973,7 @@ const Alexandria = {
             overview: 'Super Bowl rematch under the Monday Night Football lights.'
         },
         {
-            id: 'soccer-1',
+            id: '206586',
             league: 'Soccer',
             title: 'Real Madrid vs. Barcelona',
             category: 'Soccer',
