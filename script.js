@@ -2752,10 +2752,12 @@ const Alexandria = {
 
         if (this.supabase) {
             try {
+                const redirectUrl = window.location.origin + window.location.pathname;
                 const { data, error } = await this.supabase.auth.signUp({
                     email,
                     password,
                     options: {
+                        emailRedirectTo: redirectUrl,
                         data: { username }
                     }
                 });
@@ -2765,21 +2767,20 @@ const Alexandria = {
                     return;
                 }
 
-                if (data?.user) {
-                    await this.supabase.from('profiles').upsert({
-                        id: data.user.id,
-                        username: username,
-                        username_lower: username.toLowerCase(),
-                        created_at: new Date().toISOString()
-                    });
+                if (data?.session && data?.user) {
+                    // Email verification disabled or auto-confirmed
+                    await this.ensureUserProfile(data.user, username);
+                    sessionStorage.setItem('alexandria_nickname', username);
+                    localStorage.setItem('alexandria_username', username);
+                    this.state.authUser = data.user;
+                    this.updateAuthUI();
+                    this.toggleAuthModal(false);
+                    this.showToast(`Account created! Welcome, ${username}.`);
+                } else if (data?.user) {
+                    // Email verification required by Supabase settings
+                    this.toggleAuthModal(false);
+                    this.showToast("Account created! Please check your email to verify your account.");
                 }
-
-                sessionStorage.setItem('alexandria_nickname', username);
-                localStorage.setItem('alexandria_username', username);
-                this.state.authUser = data.user;
-                this.updateAuthUI();
-                this.toggleAuthModal(false);
-                this.showToast(`Account created! Welcome, ${username}.`);
             } catch (err) {
                 console.error("Sign up error:", err);
                 this.showToast("Registration error. Check network connection.");
@@ -2853,6 +2854,21 @@ const Alexandria = {
         }
     },
 
+    async ensureUserProfile(user, preferredUsername) {
+        if (!this.supabase || !user) return;
+        try {
+            const username = preferredUsername || user.user_metadata?.username || user.email?.split('@')[0] || 'User';
+            await this.supabase.from('profiles').upsert({
+                id: user.id,
+                username: username,
+                username_lower: username.toLowerCase(),
+                created_at: new Date().toISOString()
+            }, { onConflict: 'id' });
+        } catch (err) {
+            console.warn("Profile sync note:", err);
+        }
+    },
+
     bindAuthListeners() {
         if (!this.supabase) return;
         this.supabase.auth.getSession().then(({ data }) => {
@@ -2863,6 +2879,7 @@ const Alexandria = {
                     sessionStorage.setItem('alexandria_nickname', username);
                     localStorage.setItem('alexandria_username', username);
                 }
+                this.ensureUserProfile(data.session.user, username);
                 this.updateAuthUI();
             }
         });
@@ -2874,6 +2891,10 @@ const Alexandria = {
                 if (username) {
                     sessionStorage.setItem('alexandria_nickname', username);
                     localStorage.setItem('alexandria_username', username);
+                }
+                this.ensureUserProfile(session.user, username);
+                if (event === 'SIGNED_IN') {
+                    this.showToast(`Welcome back, ${username || 'user'}!`);
                 }
             } else {
                 this.state.authUser = null;
