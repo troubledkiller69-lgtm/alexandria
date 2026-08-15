@@ -1652,6 +1652,131 @@ h1, h2, h3, h4 {
 .view-header h2 { font-size: clamp(2.5rem, 6vw, 5rem); text-transform: uppercase; }
 .filtered-view { padding-top: 0; }
 
+/* Genre Explorer Dropdown (Cineby Style) */
+.genre-dropdown-wrapper {
+    position: relative;
+    display: inline-block;
+}
+
+.genre-dropdown-trigger {
+    background: transparent;
+    border: none;
+    padding: 0;
+    font-family: var(--font-display);
+    font-size: 1.45rem;
+    font-weight: 700;
+    color: #ffffff;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    user-select: none;
+    transition: opacity 0.2s ease;
+}
+
+.genre-dropdown-trigger:hover {
+    opacity: 0.9;
+}
+
+.genre-red-bar {
+    color: #ef4444;
+    font-weight: 800;
+    font-size: 1.5rem;
+    margin-right: 0.15rem;
+}
+
+.genre-arrow-icon {
+    width: 18px;
+    height: 18px;
+    color: #ef4444;
+    transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.genre-dropdown-wrapper.open .genre-arrow-icon {
+    transform: rotate(180deg);
+}
+
+.genre-dropdown-popover {
+    position: absolute;
+    top: calc(100% + 10px);
+    left: 0;
+    z-index: 120;
+    width: 250px;
+    max-height: 380px;
+    overflow-y: auto;
+    background: #0d0f15;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 16px;
+    box-shadow: 0 20px 48px rgba(0, 0, 0, 0.85);
+    padding: 0.5rem;
+    display: none;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
+}
+
+.genre-dropdown-popover::-webkit-scrollbar {
+    width: 5px;
+}
+.genre-dropdown-popover::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 4px;
+}
+
+.genre-dropdown-wrapper.open .genre-dropdown-popover {
+    display: block;
+    animation: genrePopIn 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes genrePopIn {
+    from { opacity: 0; transform: translateY(-8px) scale(0.97); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.genre-popover-item {
+    display: flex;
+    align-items: center;
+    gap: 0.85rem;
+    padding: 0.6rem 0.85rem;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: background 0.15s ease, color 0.15s ease;
+    user-select: none;
+}
+
+.genre-popover-item:hover {
+    background: rgba(255, 255, 255, 0.08);
+}
+
+.genre-popover-item.active {
+    background: rgba(239, 68, 68, 0.12);
+}
+
+.genre-popover-icon {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.06);
+    display: grid;
+    place-items: center;
+    font-size: 0.95rem;
+    flex-shrink: 0;
+}
+
+.genre-popover-item.active .genre-popover-icon {
+    background: rgba(239, 68, 68, 0.2);
+}
+
+.genre-popover-text {
+    font-size: 0.92rem;
+    font-weight: 600;
+    color: #e2e8f0;
+}
+
+.genre-popover-item.active .genre-popover-text {
+    color: #ef4444;
+    font-weight: 700;
+}
+
 /* Category Hero Banner (Movies, TV, Anime) */
 .category-hero-banner {
     position: relative;
