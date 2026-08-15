@@ -125,6 +125,7 @@ const Alexandria = {
         try {
             const host = new URL(origin).hostname;
             return host === 'embedmaster.link' || host.endsWith('.embedmaster.link') ||
+                   host.includes('embdmstrplayer.com') ||
                    host.includes('vidlink.pro') || host.includes('vidsrc') ||
                    host.includes('autoembed') || host.includes('embed.su');
         } catch {
