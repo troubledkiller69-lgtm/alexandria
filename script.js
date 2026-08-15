@@ -684,12 +684,64 @@ const Alexandria = {
 
     async syncFromCloud() {
         try {
-            this.state.watchlist = JSON.parse(localStorage.getItem('alexandria_watchlist')) || [];
-            const rawHistory = JSON.parse(localStorage.getItem('alexandria_history')) || [];
-            // Clean out legacy sports items and invalid entries
-            this.state.history = Array.isArray(rawHistory)
+            let localWatchlist = JSON.parse(localStorage.getItem('alexandria_watchlist')) || [];
+            let rawHistory = JSON.parse(localStorage.getItem('alexandria_history')) || [];
+            let cleanHistory = Array.isArray(rawHistory)
                 ? rawHistory.filter(i => i && i.id != null && i.type !== 'sports' && String(i.id).match(/^\d+$/))
                 : [];
+
+            if (this.supabase && this.state.authUser) {
+                const uid = this.state.authUser.id;
+                try {
+                    const { data: dbWatchlist } = await this.supabase
+                        .from('survival_cache')
+                        .select('*')
+                        .eq('user_id', uid);
+                    if (Array.isArray(dbWatchlist) && dbWatchlist.length > 0) {
+                        const cloudList = dbWatchlist.map(w => ({
+                            id: w.tmdb_id,
+                            type: w.media_type,
+                            title: w.title,
+                            poster_path: w.poster_path
+                        }));
+                        const combined = [...cloudList];
+                        for (const loc of localWatchlist) {
+                            if (!combined.some(c => String(c.id) === String(loc.id) && c.type === loc.type)) {
+                                combined.push(loc);
+                            }
+                        }
+                        localWatchlist = combined;
+                    }
+
+                    const { data: dbHistory } = await this.supabase
+                        .from('history')
+                        .select('*')
+                        .eq('user_id', uid)
+                        .order('created_at', { ascending: false });
+
+                    if (Array.isArray(dbHistory) && dbHistory.length > 0) {
+                        const cloudHist = dbHistory.map(h => ({
+                            id: h.content_id,
+                            type: h.type,
+                            title: h.title,
+                            poster_path: h.poster_path
+                        }));
+                        const combined = [...cloudHist];
+                        for (const loc of cleanHistory) {
+                            if (!combined.some(c => String(c.id) === String(loc.id) && c.type === loc.type)) {
+                                combined.push(loc);
+                            }
+                        }
+                        cleanHistory = combined;
+                    }
+                } catch (err) {
+                    console.warn("Alexandria: Cloud sync warning:", err);
+                }
+            }
+
+            this.state.watchlist = localWatchlist;
+            this.state.history = cleanHistory;
+            this.writeLocalList('alexandria_watchlist', this.state.watchlist);
             this.writeLocalList('alexandria_history', this.state.history);
         } catch {
             this.state.watchlist = [];
@@ -718,6 +770,26 @@ const Alexandria = {
         this.writeLocalList('alexandria_watchlist', this.state.watchlist);
         this.showToast(index === -1 ? 'Added to your watchlist.' : 'Removed from your watchlist.');
 
+        if (this.supabase && this.state.authUser && String(item.id).match(/^\d+$/)) {
+            const uid = this.state.authUser.id;
+            if (index === -1) {
+                this.supabase.from('survival_cache').upsert({
+                    user_id: uid,
+                    tmdb_id: Number(item.id),
+                    media_type: item.type,
+                    title: item.title,
+                    poster_path: item.poster_path
+                }).then();
+            } else {
+                this.supabase.from('survival_cache')
+                    .delete()
+                    .eq('user_id', uid)
+                    .eq('tmdb_id', Number(item.id))
+                    .eq('media_type', item.type)
+                    .then();
+            }
+        }
+
         if (this.state.view === 'home') this.renderWatchlist();
     },
 
@@ -726,6 +798,16 @@ const Alexandria = {
         this.state.history.unshift(item);
         if (this.state.history.length > 20) this.state.history.pop();
         this.writeLocalList('alexandria_history', this.state.history);
+
+        if (this.supabase && this.state.authUser && String(item.id).match(/^\d+$/)) {
+            this.supabase.from('history').upsert({
+                user_id: this.state.authUser.id,
+                content_id: Number(item.id),
+                type: item.type,
+                title: item.title,
+                poster_path: item.poster_path
+            }).then();
+        }
     },
 
     render() {
