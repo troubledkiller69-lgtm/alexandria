@@ -22,6 +22,19 @@ const Alexandria = {
         }
     ],
 
+    sportsServers: [
+        {
+            name: 'Alexandria Sports Stream 1 (HD)',
+            supportsApi: false,
+            getStream: id => `https://embedmaster.link/9gis39azyhxlvq5t/sports/${id}`
+        },
+        {
+            name: 'Alexandria Sports Stream 2 (Backup)',
+            supportsApi: false,
+            getStream: id => `https://vidsrc.cc/v2/embed/sports/${id}`
+        }
+    ],
+
     supabase: null,
     _renderToken: 0,
     _apiCache: new Map(),
@@ -1908,8 +1921,9 @@ const Alexandria = {
 
     async renderPlayer() {
         const { id, type, season, episode, isAnime } = this.state.activeContent;
-        if (!this.servers[this.state.activeServer]) this.state.activeServer = 0;
-        const server = this.servers[this.state.activeServer];
+        const serverList = type === 'sports' ? this.sportsServers : this.servers;
+        if (!serverList[this.state.activeServer]) this.state.activeServer = 0;
+        const server = serverList[this.state.activeServer];
         const embedUrl = this.buildEmbedUrl(this.state.activeServer);
 
         this._triedServers = new Set([this.state.activeServer]);
@@ -1922,7 +1936,7 @@ const Alexandria = {
                     <div class="server-controls">
                         <label class="server-label" for="server-selector">SERVER <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"></polyline></svg></label>
                         <select id="server-selector" class="server-select-dropdown" onchange="Alexandria.handleServerChange(this.value)">
-                            ${this.servers.map((s, i) => `<option value="${i}" ${i === this.state.activeServer ? 'selected' : ''}>${s.name}</option>`).join('')}
+                            ${serverList.map((s, i) => `<option value="${i}" ${i === this.state.activeServer ? 'selected' : ''}>${s.name}</option>`).join('')}
                         </select>
                         <span id="server-status" class="server-status" aria-live="polite">Connecting to ${this.escapeHtml(server.name)}…</span>
                     </div>
@@ -1949,6 +1963,21 @@ const Alexandria = {
         this.prepareResumeSeek();
         this.armFailoverWatch(server);
         this.scheduleEmbedTheme(document.getElementById('video-iframe'));
+
+        if (type === 'sports') {
+            const ev = this.SPORTS_EVENTS.find(e => e.id === id) || this.SPORTS_EVENTS[0];
+            this.addToHistory({
+                id: ev.id,
+                type: 'sports',
+                title: ev.title,
+                poster_path: ev.backdrop,
+                season: 1,
+                episode: 1,
+                isAnime: false,
+                progress: 0
+            });
+            return;
+        }
 
         try {
             const data = await this.getJson(type + '/' + id);
@@ -2069,10 +2098,15 @@ const Alexandria = {
 
     // Host + guest must share the exact same embed URL for a given content + serverIndex.
     buildEmbedUrl(serverIndex = this.state.activeServer, content = this.state.activeContent) {
+        const { id, type, season, episode } = content || {};
+        if (type === 'sports') {
+            const list = this.sportsServers || [];
+            const idx = Number.isInteger(serverIndex) && list[serverIndex] ? serverIndex : 0;
+            return list[idx] ? list[idx].getStream(id) : `https://embedmaster.link/9gis39azyhxlvq5t/sports/${id}`;
+        }
         const idx = this.normalizeServerIndex(serverIndex);
         const server = this.servers[idx != null ? idx : this.state.activeServer];
-        if (!server || content?.id == null) return '';
-        const { id, type, season, episode } = content;
+        if (!server || id == null) return '';
         return type === 'movie'
             ? server.getMovie(id)
             : server.getTv(id, season || 1, episode || 1);
