@@ -788,15 +788,37 @@ const Alexandria = {
 
     renderHistoryPage() {
         const history = this.state.history || [];
+        const featured = history[0];
+        const heroBackdrop = featured?.backdrop_path ? this.imageUrl(featured.backdrop_path, 'original') : (featured?.poster_path ? this.imageUrl(featured.poster_path, 'original') : '');
+
         this.main.innerHTML = `
             <section class="filtered-view">
-                <div class="view-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
-                    <h2>Watch History</h2>
-                    ${history.length > 0 ? `
-                        <button type="button" class="btn-secondary" onclick="Alexandria.clearWatchHistory()">Clear History</button>
-                    ` : ''}
+                <div class="hero-featured" style="--hero-image: url('${heroBackdrop}')">
+                    <div class="featured-content">
+                        <span class="trending-badge">LAST WATCHED</span>
+                        <h1>${this.escapeHtml(featured ? (featured.title || featured.name) : 'WATCH HISTORY')}</h1>
+                        <p>${this.escapeHtml(featured?.overview || 'Your playback history across movies and television series.')}</p>
+                        <div class="category-hero-actions">
+                            ${featured ? `
+                                <button class="btn-primary" onclick="Alexandria.playContent(${featured.id}, '${featured.type || 'movie'}', ${featured.season || 1}, ${featured.episode || 1})">
+                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg> RESUME PLAYBACK
+                                </button>
+                            ` : ''}
+                            ${history.length > 0 ? `
+                                <button class="btn-secondary" onclick="Alexandria.clearWatchHistory()">CLEAR HISTORY</button>
+                            ` : ''}
+                        </div>
+                    </div>
+                    <div class="sector-widget">
+                        <div class="sector-widget-content">
+                            <span class="sector-label">WATCH HISTORY</span>
+                            <h4>${history.length} ${history.length === 1 ? 'Title' : 'Titles'} Logged</h4>
+                            <p>Recent playback history</p>
+                        </div>
+                    </div>
                 </div>
                 <div class="view-section">
+                    <h3>Watch History Archive</h3>
                     ${history.length > 0 ? `
                         <div class="results-grid" id="history-page-grid"></div>
                     ` : `
@@ -819,15 +841,38 @@ const Alexandria = {
 
     renderWatchlistPage() {
         const watchlist = this.state.watchlist || [];
+        const featured = watchlist[0];
+        const heroBackdrop = featured?.backdrop_path ? this.imageUrl(featured.backdrop_path, 'original') : (featured?.poster_path ? this.imageUrl(featured.poster_path, 'original') : '');
+
         this.main.innerHTML = `
             <section class="filtered-view">
-                <div class="view-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
-                    <h2>My Watchlist</h2>
-                    ${watchlist.length > 0 ? `
-                        <button type="button" class="btn-secondary" onclick="Alexandria.clearWatchlistPage()">Clear Watchlist</button>
-                    ` : ''}
+                <div class="hero-featured" style="--hero-image: url('${heroBackdrop}')">
+                    <div class="featured-content">
+                        <span class="trending-badge">SAVED WATCHLIST</span>
+                        <h1>${this.escapeHtml(featured ? (featured.title || featured.name) : 'MY WATCHLIST')}</h1>
+                        <p>${this.escapeHtml(featured?.overview || 'Your saved collection of movies and television series.')}</p>
+                        <div class="category-hero-actions">
+                            ${featured ? `
+                                <button class="btn-primary" onclick="Alexandria.playContent(${featured.id}, '${featured.type || 'movie'}')">
+                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg> WATCH NOW
+                                </button>
+                                <button class="btn-secondary" onclick="window.location.hash = '#details/${featured.type || 'movie'}/${featured.id}'">DETAILS</button>
+                            ` : ''}
+                            ${watchlist.length > 0 ? `
+                                <button class="btn-secondary" onclick="Alexandria.clearWatchlistPage()">CLEAR WATCHLIST</button>
+                            ` : ''}
+                        </div>
+                    </div>
+                    <div class="sector-widget">
+                        <div class="sector-widget-content">
+                            <span class="sector-label">MY WATCHLIST</span>
+                            <h4>${watchlist.length} ${watchlist.length === 1 ? 'Title' : 'Titles'} Saved</h4>
+                            <p>Personal bookmarked titles</p>
+                        </div>
+                    </div>
                 </div>
                 <div class="view-section">
+                    <h3>Saved Titles</h3>
                     ${watchlist.length > 0 ? `
                         <div class="results-grid" id="watchlist-page-grid"></div>
                     ` : `
