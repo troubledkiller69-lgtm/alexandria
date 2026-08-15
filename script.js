@@ -343,7 +343,7 @@ const Alexandria = {
             if (!window.supabase?.createClient) throw new Error('Realtime client failed to load.');
             this.supabase = window.supabase.createClient(config.supabaseUrl, config.supabaseAnonKey);
             this.updateSyncIndicator('GUEST');
-            this.bindAuthListeners();
+            await this.bindAuthListeners();
         } catch (e) {
             console.error("Alexandria Protocol: Handshake Failure -", e);
             this.updateSyncIndicator('OFFLINE');
@@ -2857,19 +2857,25 @@ const Alexandria = {
         }
         this.state.authUser = null;
         sessionStorage.removeItem('alexandria_nickname');
+        localStorage.removeItem('alexandria_username');
         this.updateAuthUI();
         this.toggleAuthModal(false);
+        if (this.state.view === 'details' || this.state.view === 'player') {
+            this.renderComments();
+        }
         this.showToast("Logged out successfully.");
     },
 
     updateAuthUI() {
         const btnLabel = document.getElementById('auth-btn-label');
         if (!btnLabel) return;
-        const name = this.state.authUser?.user_metadata?.username
-            || sessionStorage.getItem('alexandria_nickname')
-            || localStorage.getItem('alexandria_username');
         
-        if (name) {
+        if (this.state.authUser) {
+            const name = this.state.authUser.user_metadata?.username
+                || sessionStorage.getItem('alexandria_nickname')
+                || localStorage.getItem('alexandria_username')
+                || this.state.authUser.email?.split('@')[0]
+                || 'Account';
             btnLabel.textContent = name;
         } else {
             btnLabel.textContent = 'Account';
@@ -2891,25 +2897,32 @@ const Alexandria = {
         }
     },
 
-    bindAuthListeners() {
+    async bindAuthListeners() {
         if (!this.supabase) return;
-        this.supabase.auth.getSession().then(({ data }) => {
+        try {
+            const { data } = await this.supabase.auth.getSession();
             if (data?.session?.user) {
                 this.state.authUser = data.session.user;
-                const username = data.session.user.user_metadata?.username;
+                const username = data.session.user.user_metadata?.username || data.session.user.email?.split('@')[0];
                 if (username) {
                     sessionStorage.setItem('alexandria_nickname', username);
                     localStorage.setItem('alexandria_username', username);
                 }
                 this.ensureUserProfile(data.session.user, username);
-                this.updateAuthUI();
+            } else {
+                this.state.authUser = null;
             }
-        });
+        } catch (err) {
+            console.warn("Session restore note:", err);
+            this.state.authUser = null;
+        }
 
-        this.supabase.auth.onAuthStateChange((event, session) => {
+        this.updateAuthUI();
+
+        this.supabase.auth.onAuthStateChange(async (event, session) => {
             if (session?.user) {
                 this.state.authUser = session.user;
-                const username = session.user.user_metadata?.username;
+                const username = session.user.user_metadata?.username || session.user.email?.split('@')[0];
                 if (username) {
                     sessionStorage.setItem('alexandria_nickname', username);
                     localStorage.setItem('alexandria_username', username);
@@ -2920,8 +2933,14 @@ const Alexandria = {
                 }
             } else {
                 this.state.authUser = null;
+                sessionStorage.removeItem('alexandria_nickname');
+                localStorage.removeItem('alexandria_username');
             }
             this.updateAuthUI();
+            await this.syncFromCloud();
+            if (this.state.view === 'details' || this.state.view === 'player') {
+                this.renderComments();
+            }
         });
     },
 
