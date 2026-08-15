@@ -64,55 +64,14 @@ const Alexandria = {
     },
 
     // #region agent log
-    _dbg(hypothesisId, location, message, data = {}) {
-        try {
-            if (localStorage.getItem('alexandria_debug') !== '1') return;
-        } catch {
-            return;
-        }
-        const payload = {
-            sessionId: '31a370',
-            runId: this._dbgRunId || 'pre-fix',
-            hypothesisId,
-            location,
-            message,
-            data: {
-                ...data,
-                isHost: !!this.isHost,
-                view: this.state?.view,
-                activeServer: this.state?.activeServer,
-                serverName: this.servers?.[this.state?.activeServer]?.name,
-                paused: !!this.isPartyPaused?.(),
-                lastTime: this._partyLastTime,
-                lastAction: this._partyLastAction,
-                pageOrigin: typeof location !== 'undefined' ? location.origin : null
-            },
-            timestamp: Date.now()
-        };
-        try { console.debug('[alexandria-dbg]', hypothesisId, message, payload.data); } catch { /* ignore */ }
-        const body = JSON.stringify(payload);
-        try {
-            fetch('/__dbg', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': '31a370' },
-                body
-            }).catch(() => {});
-        } catch { /* ignore */ }
-        fetch('http://127.0.0.1:7625/ingest/4863abd6-2c9c-4516-9266-070a34aec91f', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': '31a370' },
-            body
-        }).catch(() => {});
-    },
+    _dbg() { /* production: telemetry disabled */ },
     // #endregion
 
     isTrustedEmbedOrigin(origin) {
         try {
             const host = new URL(origin).hostname;
-            return host.includes('embedmaster.link') || host.includes('embdmstrplayer.com') ||
-                   host.includes('vidsrcme.ru') || host.includes('vsembed.ru') ||
-                   host.includes('vidsrc') || host.includes('vsrc.su') ||
-                   host.includes('vidlink.pro') || host.includes('autoembed') || host.includes('embed.su');
+            const trusted = ['embedmaster.link', 'embdmstrplayer.com', 'vidsrcme.ru', 'vsembed.ru', 'vidsrc.cc', 'vidsrc.me', 'vsrc.su', 'vidlink.pro', 'autoembed.co', 'embed.su'];
+            return trusted.some(d => host === d || host.endsWith('.' + d));
         } catch {
             return false;
         }
