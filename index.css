@@ -713,6 +713,34 @@ h1, h2, h3, h4 {
     color: var(--bg-base);
 }
 
+.card-overlay .remove-history-btn {
+    position: absolute;
+    top: 0.7rem;
+    left: 0.7rem;
+    background: rgba(18, 18, 24, 0.75);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    color: rgba(255, 255, 255, 0.85);
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    cursor: pointer;
+    transition: background 0.2s ease, border-color 0.2s ease, color 0.2s ease, transform 0.2s ease;
+    display: grid;
+    place-items: center;
+    z-index: 15;
+    padding: 0;
+    margin: 0;
+}
+
+.card-overlay .remove-history-btn:hover {
+    background: rgba(239, 68, 68, 0.9);
+    border-color: #ef4444;
+    color: #ffffff;
+    transform: scale(1.1);
+}
+
 .overlay-play {
     position: absolute;
     inset: 50% auto auto 50%;
