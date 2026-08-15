@@ -830,9 +830,31 @@ const Alexandria = {
             ]);
             if (token !== this._renderToken) return;
 
+            const featured = popData.results?.[0];
+            const heroBackdrop = featured?.backdrop_path ? this.imageUrl(featured.backdrop_path, 'original') : '';
+            const titleName = type === 'movie' ? 'CINEMATIC MOVIES' : 'TELEVISION SERIES';
+            const badgeText = type === 'movie' ? 'FEATURED ARCHIVE' : 'FEATURED SERIES';
+
             this.main.innerHTML = `
                 <section class="filtered-view">
-                    <div class="view-header"><h2>${type === 'movie' ? 'Movies' : 'TV Shows'}</h2></div>
+                    <div class="category-hero-banner" style="--hero-backdrop: url('${heroBackdrop}')">
+                        <div class="category-hero-overlay">
+                            <div class="category-hero-content">
+                                <span class="category-badge">${badgeText}</span>
+                                <h1>${titleName}</h1>
+                                ${featured ? `
+                                    <p class="category-subtitle">${this.escapeHtml(featured.title || featured.name || '')} • Rated ${featured.vote_average ? featured.vote_average.toFixed(1) : '8.5'}</p>
+                                    <p class="category-desc">${this.escapeHtml(featured.overview || 'Explore popular archives across all categories.')}</p>
+                                    <div class="category-hero-actions">
+                                        <button class="btn-primary" onclick="Alexandria.playContent(${featured.id}, '${type}')">
+                                            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg> WATCH FEATURED
+                                        </button>
+                                        <button class="btn-secondary" onclick="window.location.hash = '#details/${type}/${featured.id}'">DETAILS</button>
+                                    </div>
+                                ` : ''}
+                            </div>
+                        </div>
+                    </div>
                     <div class="view-section"><h3>Popular Now</h3><div class="carousel-container"><button class="carousel-arrow left" onclick="Alexandria.scrollCarousel(this, -800)">&#10094;</button><div class="carousel-wrapper"><div class="carousel-grid" id="pop-results"></div></div><button class="carousel-arrow right" onclick="Alexandria.scrollCarousel(this, 800)">&#10095;</button></div></div>
                     <div class="view-section"><h3>Top Rated</h3><div class="carousel-container"><button class="carousel-arrow left" onclick="Alexandria.scrollCarousel(this, -800)">&#10094;</button><div class="carousel-wrapper"><div class="carousel-grid" id="top-results"></div></div><button class="carousel-arrow right" onclick="Alexandria.scrollCarousel(this, 800)">&#10095;</button></div></div>
                     <div class="view-section"><h3>Action & Adventure</h3><div class="carousel-container"><button class="carousel-arrow left" onclick="Alexandria.scrollCarousel(this, -800)">&#10094;</button><div class="carousel-wrapper"><div class="carousel-grid" id="action-results"></div></div><button class="carousel-arrow right" onclick="Alexandria.scrollCarousel(this, 800)">&#10095;</button></div></div>
@@ -863,9 +885,29 @@ const Alexandria = {
             ]);
             if (token !== this._renderToken) return;
 
+            const featured = sData.results?.[0];
+            const heroBackdrop = featured?.backdrop_path ? this.imageUrl(featured.backdrop_path, 'original') : '';
+
             this.main.innerHTML = `
                 <section class="filtered-view">
-                    <div class="view-header"><h2>Anime Hub</h2></div>
+                    <div class="category-hero-banner" style="--hero-backdrop: url('${heroBackdrop}')">
+                        <div class="category-hero-overlay">
+                            <div class="category-hero-content">
+                                <span class="category-badge">SUBBED & DUBBED ARCHIVE</span>
+                                <h1>ANIME VAULT</h1>
+                                ${featured ? `
+                                    <p class="category-subtitle">${this.escapeHtml(featured.name || featured.title || '')} • Top Recommendation</p>
+                                    <p class="category-desc">${this.escapeHtml(featured.overview || 'Explore Japanese animation, fantasy sagas, and action series.')}</p>
+                                    <div class="category-hero-actions">
+                                        <button class="btn-primary" onclick="Alexandria.playContent(${featured.id}, 'tv')">
+                                            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg> WATCH FEATURED
+                                        </button>
+                                        <button class="btn-secondary" onclick="window.location.hash = '#details/tv/${featured.id}'">DETAILS</button>
+                                    </div>
+                                ` : ''}
+                            </div>
+                        </div>
+                    </div>
                     <div class="view-section"><h3>Trending Anime</h3><div class="carousel-container"><button class="carousel-arrow left" onclick="Alexandria.scrollCarousel(this, -800)">&#10094;</button><div class="carousel-wrapper"><div class="carousel-grid" id="anime-trending"></div></div><button class="carousel-arrow right" onclick="Alexandria.scrollCarousel(this, 800)">&#10095;</button></div></div>
                     <div class="view-section"><h3>Top Rated Masterpieces</h3><div class="carousel-container"><button class="carousel-arrow left" onclick="Alexandria.scrollCarousel(this, -800)">&#10094;</button><div class="carousel-wrapper"><div class="carousel-grid" id="anime-top"></div></div><button class="carousel-arrow right" onclick="Alexandria.scrollCarousel(this, 800)">&#10095;</button></div></div>
                     <div class="view-section"><h3>Epic Fantasy Anime</h3><div class="carousel-container"><button class="carousel-arrow left" onclick="Alexandria.scrollCarousel(this, -800)">&#10094;</button><div class="carousel-wrapper"><div class="carousel-grid" id="anime-fantasy"></div></div><button class="carousel-arrow right" onclick="Alexandria.scrollCarousel(this, 800)">&#10095;</button></div></div>
