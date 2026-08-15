@@ -15,31 +15,7 @@ const Alexandria = {
 
     servers: [
         {
-            name: 'VidLink (Sub & Dub 1080p)',
-            supportsApi: false,
-            getMovie: id => `https://vidlink.pro/movie/${id}`,
-            getTv: (id, s, e) => `https://vidlink.pro/tv/${id}/${s}/${e}`
-        },
-        {
-            name: 'VidSrc (Sub & Dub HD)',
-            supportsApi: false,
-            getMovie: id => `https://vidsrc.cc/v2/embed/movie/${id}`,
-            getTv: (id, s, e) => `https://vidsrc.cc/v2/embed/tv/${id}/${s}/${e}`
-        },
-        {
-            name: 'AutoEmbed (Sub & Dub)',
-            supportsApi: false,
-            getMovie: id => `https://player.autoembed.cc/embed/movie/${id}`,
-            getTv: (id, s, e) => `https://player.autoembed.cc/embed/tv/${id}/${s}/${e}`
-        },
-        {
-            name: 'EmbedSU (Sub & Dub 1080p)',
-            supportsApi: false,
-            getMovie: id => `https://embed.su/embed/movie/${id}`,
-            getTv: (id, s, e) => `https://embed.su/embed/tv/${id}/${s}/${e}`
-        },
-        {
-            name: 'EmbedMaster (Default)',
+            name: 'Alexandria',
             supportsApi: true,
             getMovie: id => `https://embedmaster.link/9gis39azyhxlvq5t/movie/${id}`,
             getTv: (id, s, e) => `https://embedmaster.link/9gis39azyhxlvq5t/tv/${id}/${s}/${e}`
