@@ -1004,7 +1004,8 @@ h1, h2, h3, h4 {
 }
 
 .player-frame-container {
-    flex-grow: 1;
+    width: 100%;
+    aspect-ratio: 16 / 9;
     position: relative;
     background: #000;
 }
