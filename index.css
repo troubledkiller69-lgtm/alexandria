@@ -15,9 +15,9 @@
     --glass-border: 1px solid rgba(255, 255, 255, 0.08);
     --glass-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.5);
     
-    --font-display: 'Plus Jakarta Sans', 'Outfit', system-ui, -apple-system, sans-serif;
-    --font-body: 'Outfit', system-ui, -apple-system, sans-serif;
-    --font-headline: 'Plus Jakarta Sans', 'Outfit', system-ui, -apple-system, sans-serif;
+    --font-display: 'Inter', system-ui, -apple-system, sans-serif;
+    --font-body: 'Inter', system-ui, -apple-system, sans-serif;
+    --font-headline: 'Inter', system-ui, -apple-system, sans-serif;
     
     --sidebar-width: 280px;
 }
