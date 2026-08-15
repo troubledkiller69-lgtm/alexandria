@@ -1231,29 +1231,29 @@ const Alexandria = {
 
     renderSearch() {
         const discoverPanel = this.state.searchFilter === 'person' ? `
-                    <div class="placeholder-msg">Search for actors, directors, and creators above.</div>
+                    <div class="placeholder-msg" style="padding: 0.5rem 0; min-height: 0;">Search actors, directors, and creators above.</div>
                 ` : `
-                    <div class="discover-panel">
+                    <div class="discover-panel minimalist-discover">
                         <div class="filter-group">
-                            <label for="discover-genre">GENRE</label>
-                            <select id="discover-genre" onchange="Alexandria.executeDiscover()">
+                            <label class="sr-only" for="discover-genre">Genre</label>
+                            <select id="discover-genre" class="compact-select" onchange="Alexandria.executeDiscover()">
                                 ${this.genreOptionsHtml()}
                             </select>
                         </div>
                         <div class="filter-group">
-                            <label for="discover-sort">SORT BY</label>
-                            <select id="discover-sort" onchange="Alexandria.executeDiscover()">
+                            <label class="sr-only" for="discover-sort">Sort By</label>
+                            <select id="discover-sort" class="compact-select" onchange="Alexandria.executeDiscover()">
                                 <option value="popularity.desc">Most Popular</option>
                                 <option value="vote_average.desc">Highest Rated</option>
                                 <option value="${this.state.searchFilter === 'tv' ? 'first_air_date.desc' : 'primary_release_date.desc'}">Newest Releases</option>
                             </select>
                         </div>
                         <div class="filter-group">
-                            <label for="discover-year">YEAR (OPTIONAL)</label>
-                            <input type="number" id="discover-year" placeholder="e.g. 2023" min="1900" max="2030" onchange="Alexandria.executeDiscover()">
+                            <label class="sr-only" for="discover-year">Year</label>
+                            <input type="number" id="discover-year" class="compact-input" placeholder="Year (e.g. 2024)" min="1900" max="2030" onchange="Alexandria.executeDiscover()">
                         </div>
                         <div class="filter-group">
-                            <button type="button" class="btn-secondary" onclick="Alexandria.surpriseMe()">SURPRISE ME</button>
+                            <button type="button" class="compact-btn" onclick="Alexandria.surpriseMe()">Surprise Me</button>
                         </div>
                     </div>
                 `;
@@ -1262,20 +1262,22 @@ const Alexandria = {
             <section class="search-view modern-search">
                 <div class="search-header-sticky">
                     <div class="search-input-container">
-                        <svg class="search-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
-                        <label class="sr-only" for="tmdb-search">Search movies and TV shows</label>
-                        <input type="search" id="tmdb-search" placeholder="What are you looking for, survivor?" autocomplete="off">
+                        <svg class="search-icon" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+                        <label class="sr-only" for="tmdb-search">Search titles, actors, genres</label>
+                        <input type="search" id="tmdb-search" placeholder="Search titles, actors, genres..." autocomplete="off">
                         <button class="clear-search" id="clear-search-btn" type="button" aria-label="Clear search" style="display:none" onclick="document.getElementById('tmdb-search').value=''; Alexandria.handleSearchInput();">
                             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
                         </button>
                     </div>
-                    <div class="search-filters" aria-label="Search type">
-                        <button class="filter-btn ${this.state.searchFilter === 'multi' ? 'active' : ''}" type="button" aria-pressed="${this.state.searchFilter === 'multi'}" onclick="Alexandria.setSearchFilter('multi')">All</button>
-                        <button class="filter-btn ${this.state.searchFilter === 'movie' ? 'active' : ''}" type="button" aria-pressed="${this.state.searchFilter === 'movie'}" onclick="Alexandria.setSearchFilter('movie')">Movies</button>
-                        <button class="filter-btn ${this.state.searchFilter === 'tv' ? 'active' : ''}" type="button" aria-pressed="${this.state.searchFilter === 'tv'}" onclick="Alexandria.setSearchFilter('tv')">TV Shows</button>
-                        <button class="filter-btn ${this.state.searchFilter === 'person' ? 'active' : ''}" type="button" aria-pressed="${this.state.searchFilter === 'person'}" onclick="Alexandria.setSearchFilter('person')">People</button>
+                    <div class="search-toolbar-row">
+                        <div class="search-filters" aria-label="Search type">
+                            <button class="filter-btn ${this.state.searchFilter === 'multi' ? 'active' : ''}" type="button" aria-pressed="${this.state.searchFilter === 'multi'}" onclick="Alexandria.setSearchFilter('multi')">All</button>
+                            <button class="filter-btn ${this.state.searchFilter === 'movie' ? 'active' : ''}" type="button" aria-pressed="${this.state.searchFilter === 'movie'}" onclick="Alexandria.setSearchFilter('movie')">Movies</button>
+                            <button class="filter-btn ${this.state.searchFilter === 'tv' ? 'active' : ''}" type="button" aria-pressed="${this.state.searchFilter === 'tv'}" onclick="Alexandria.setSearchFilter('tv')">TV Shows</button>
+                            <button class="filter-btn ${this.state.searchFilter === 'person' ? 'active' : ''}" type="button" aria-pressed="${this.state.searchFilter === 'person'}" onclick="Alexandria.setSearchFilter('person')">People</button>
+                        </div>
+                        <div id="search-discover" class="search-discover">${discoverPanel}</div>
                     </div>
-                    <div id="search-discover" class="search-discover">${discoverPanel}</div>
                 </div>
                 <div class="results-grid" id="search-results"></div>
             </section>
@@ -1283,8 +1285,8 @@ const Alexandria = {
         
         const searchInput = document.getElementById('tmdb-search');
         searchInput.placeholder = this.state.searchFilter === 'person'
-            ? 'Search people in the archive…'
-            : 'What are you looking for, survivor?';
+            ? 'Search actors, directors, creators...'
+            : 'Search titles, actors, genres...';
         searchInput.addEventListener('input', () => this.handleSearchInput());
         
         if (this.state.searchQuery) {
