@@ -1234,12 +1234,43 @@ h1, h2, h3, h4 {
     gap: 0;
 }
 
-.compact-select, .compact-input, .compact-btn {
+.compact-select {
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    appearance: none;
     height: 38px;
+    padding: 0 2.2rem 0 0.85rem;
+    font-family: var(--font-body);
+    font-size: 0.85rem;
+    font-weight: 500;
+    line-height: 36px;
+    color: var(--text-secondary);
+    background-color: rgba(255, 255, 255, 0.05);
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='rgba(255,255,255,0.6)' stroke-width='2.5'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 0.75rem center;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 6px;
+    transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+    outline: none;
+    box-sizing: border-box;
+    cursor: pointer;
+}
+
+.compact-select option {
+    background: #0d0f15;
+    color: #fff;
+    padding: 0.5rem;
+}
+
+.compact-input {
+    height: 38px;
+    width: 140px;
     padding: 0 0.85rem;
     font-family: var(--font-body);
     font-size: 0.85rem;
     font-weight: 500;
+    line-height: 36px;
     color: var(--text-secondary);
     background: rgba(255, 255, 255, 0.05);
     border: 1px solid rgba(255, 255, 255, 0.15);
@@ -1247,17 +1278,35 @@ h1, h2, h3, h4 {
     transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
     outline: none;
     box-sizing: border-box;
-    display: inline-flex;
-    align-items: center;
 }
 
-.compact-select option {
-    background: #0d0f15;
+.compact-input::placeholder {
+    color: var(--text-muted);
+}
+
+.compact-btn {
+    height: 38px;
+    padding: 0 1rem;
+    font-family: var(--font-body);
+    font-size: 0.85rem;
+    font-weight: 500;
+    line-height: 36px;
     color: #fff;
+    background: rgba(138, 3, 3, 0.25);
+    border: 1px solid rgba(138, 3, 3, 0.5);
+    border-radius: 6px;
+    cursor: pointer;
+    white-space: nowrap;
+    outline: none;
+    box-sizing: border-box;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .compact-select:hover, .compact-input:hover, .compact-btn:hover {
-    background: rgba(255, 255, 255, 0.08);
+    background-color: rgba(255, 255, 255, 0.08);
     border-color: rgba(255, 255, 255, 0.25);
     color: var(--text-primary);
 }
@@ -1267,24 +1316,8 @@ h1, h2, h3, h4 {
     color: #fff;
 }
 
-.compact-input {
-    width: 135px;
-}
-
-.compact-input::placeholder {
-    color: var(--text-muted);
-}
-
-.compact-btn {
-    cursor: pointer;
-    background: rgba(138, 3, 3, 0.25);
-    border-color: rgba(138, 3, 3, 0.5);
-    color: #fff;
-    white-space: nowrap;
-}
-
 .compact-btn:hover {
-    background: var(--primary-accent);
+    background-color: var(--primary-accent);
     border-color: var(--primary-accent);
 }
 
