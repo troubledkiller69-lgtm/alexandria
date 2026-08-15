@@ -1196,11 +1196,91 @@ h1, h2, h3, h4 {
     color: var(--text-primary);
 }
 
+.search-toolbar-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    margin-top: 1rem;
+    max-width: 900px;
+}
+
 .search-filters {
     display: flex;
-    gap: 1rem;
-    margin-top: 1.5rem;
-    max-width: 800px;
+    gap: 0.5rem;
+    margin-top: 0;
+}
+
+.search-discover {
+    padding: 0;
+}
+
+.minimalist-discover {
+    background: transparent !important;
+    border: none !important;
+    padding: 0 !important;
+    margin-bottom: 0 !important;
+    gap: 0.5rem !important;
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+.minimalist-discover .filter-group {
+    display: flex;
+    flex-direction: row;
+    gap: 0;
+}
+
+.compact-select, .compact-input, .compact-btn {
+    height: 34px;
+    padding: 0 0.85rem;
+    font-family: var(--font-body);
+    font-size: 0.85rem;
+    font-weight: 500;
+    color: var(--text-secondary);
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 6px;
+    transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+    outline: none;
+}
+
+.compact-select option {
+    background: #0d0f15;
+    color: #fff;
+}
+
+.compact-select:hover, .compact-input:hover, .compact-btn:hover {
+    background: rgba(255, 255, 255, 0.08);
+    border-color: rgba(255, 255, 255, 0.25);
+    color: var(--text-primary);
+}
+
+.compact-select:focus, .compact-input:focus {
+    border-color: var(--primary-accent);
+    color: #fff;
+}
+
+.compact-input {
+    width: 120px;
+}
+
+.compact-input::placeholder {
+    color: var(--text-muted);
+}
+
+.compact-btn {
+    cursor: pointer;
+    background: rgba(138, 3, 3, 0.2);
+    border-color: rgba(138, 3, 3, 0.5);
+    color: #fff;
+}
+
+.compact-btn:hover {
+    background: var(--primary-accent);
+    border-color: var(--primary-accent);
 }
 
 .filter-btn {
