@@ -1,7 +1,18 @@
 create table if not exists public.profiles (
   id uuid primary key references auth.users(id) on delete cascade,
   email text,
+  username text unique,
+  username_lower text unique,
   avatar_id text,
+  created_at timestamptz not null default now()
+);
+
+create table if not exists public.comments (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid references auth.users(id) on delete set null,
+  comment_key text not null,
+  author text not null,
+  content text not null,
   created_at timestamptz not null default now()
 );
 
@@ -28,26 +39,21 @@ create table if not exists public.history (
 );
 
 alter table public.profiles enable row level security;
+alter table public.comments enable row level security;
 alter table public.survival_cache enable row level security;
 alter table public.history enable row level security;
 
-create policy "Users can read their own profile" on public.profiles
-  for select using (auth.uid() = id);
-create policy "Users can create their own profile" on public.profiles
-  for insert with check (auth.uid() = id);
-create policy "Users can update their own profile" on public.profiles
-  for update using (auth.uid() = id) with check (auth.uid() = id);
+create policy "Public read profiles" on public.profiles for select using (true);
+create policy "Users can manage profile" on public.profiles for all using (auth.uid() = id);
 
-create policy "Users can read their own watchlist" on public.survival_cache
-  for select using (auth.uid() = user_id);
-create policy "Users can add to their own watchlist" on public.survival_cache
-  for insert with check (auth.uid() = user_id);
-create policy "Users can delete from their own watchlist" on public.survival_cache
-  for delete using (auth.uid() = user_id);
+create policy "Public read comments" on public.comments for select using (true);
+create policy "Anyone can post comments" on public.comments for insert with check (true);
+create policy "Users can delete own comments" on public.comments for delete using (auth.uid() = user_id);
 
-create policy "Users can read their own history" on public.history
-  for select using (auth.uid() = user_id);
-create policy "Users can add to their own history" on public.history
-  for insert with check (auth.uid() = user_id);
-create policy "Users can delete from their own history" on public.history
-  for delete using (auth.uid() = user_id);
+create policy "Users can read watchlist" on public.survival_cache for select using (auth.uid() = user_id);
+create policy "Users can add to watchlist" on public.survival_cache for insert with check (auth.uid() = user_id);
+create policy "Users can delete from watchlist" on public.survival_cache for delete using (auth.uid() = user_id);
+
+create policy "Users can read history" on public.history for select using (auth.uid() = user_id);
+create policy "Users can add to history" on public.history for insert with check (auth.uid() = user_id);
+create policy "Users can delete from history" on public.history for delete using (auth.uid() = user_id);
