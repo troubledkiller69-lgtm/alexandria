@@ -2100,9 +2100,10 @@ const Alexandria = {
     buildEmbedUrl(serverIndex = this.state.activeServer, content = this.state.activeContent) {
         const { id, type, season, episode } = content || {};
         if (type === 'sports') {
+            const numericId = (id != null && String(id).match(/^\d+$/)) ? String(id) : '550';
             const list = this.sportsServers || [];
-            const idx = Number.isInteger(serverIndex) && list[serverIndex] ? serverIndex : 0;
-            return list[idx] ? list[idx].getStream(id) : `https://embedmaster.link/9gis39azyhxlvq5t/sports/${id}`;
+            const idx = (Number.isInteger(Number(serverIndex)) && list[Number(serverIndex)]) ? Number(serverIndex) : 0;
+            return list[idx] ? list[idx].getStream(numericId) : `https://embedmaster.link/9gis39azyhxlvq5t/movie/${numericId}`;
         }
         const idx = this.normalizeServerIndex(serverIndex);
         const server = this.servers[idx != null ? idx : this.state.activeServer];
