@@ -24,14 +24,19 @@ const Alexandria = {
 
     sportsServers: [
         {
-            name: 'VidLink Sports Stream (HD)',
-            supportsApi: false,
-            getStream: id => `https://vidlink.pro/movie/${id}`
-        },
-        {
             name: 'Alexandria Sports Stream (Default)',
             supportsApi: true,
             getStream: id => `https://embedmaster.link/9gis39azyhxlvq5t/movie/${id}`
+        },
+        {
+            name: 'VidSrc Sports Stream (HD)',
+            supportsApi: false,
+            getStream: id => `https://vidsrc.cc/v2/embed/movie/${id}`
+        },
+        {
+            name: 'EmbedSU Sports Stream (1080p)',
+            supportsApi: false,
+            getStream: id => `https://embed.su/embed/movie/${id}`
         }
     ],
 
