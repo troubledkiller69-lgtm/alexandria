@@ -2779,11 +2779,51 @@ h1, h2, h3, h4 {
     color: var(--text-muted);
     display: flex;
     align-items: center;
-    gap: 0.5rem;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+    line-height: 1.4;
 }
 
 .comments-user-badge strong {
     color: #fff;
+    font-weight: 700;
+}
+
+.comments-locked-banner {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px dashed rgba(255, 255, 255, 0.15);
+    border-radius: 6px;
+    padding: 1.25rem 1.5rem;
+    margin-bottom: 1.5rem;
+    flex-wrap: wrap;
+    gap: 1rem;
+}
+
+.comments-locked-content {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+.comments-locked-icon {
+    font-size: 1.4rem;
+    opacity: 0.8;
+}
+
+.comments-locked-text strong {
+    display: block;
+    font-size: 0.95rem;
+    color: #fff;
+    margin-bottom: 0.2rem;
+}
+
+.comments-locked-text p {
+    margin: 0;
+    font-size: 0.85rem;
+    color: var(--text-muted);
 }
 
 .btn-text-link {
