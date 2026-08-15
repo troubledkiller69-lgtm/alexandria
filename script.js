@@ -1035,6 +1035,17 @@ const Alexandria = {
         }
     },
 
+    removeFromHistory(id, type) {
+        if (!id) return;
+        this.state.history = (this.state.history || []).filter(item => !(String(item.id) === String(id) && item.type === type));
+        this.writeLocalList('alexandria_history', this.state.history);
+        this.renderHistory();
+        if (this.state.view === 'history') {
+            this.renderHistoryPage();
+        }
+        this.showToast('Removed from continue watching');
+    },
+
     async renderFiltered(type) {
         const token = this._renderToken;
         this.main.innerHTML = '<div class="placeholder-msg">LOADING SECTORS...</div>';
@@ -1509,6 +1520,11 @@ const Alexandria = {
                         ${poster ? `<img src="${poster}" alt="${safeTitle} poster" loading="lazy" decoding="async">` : `<div class="poster-placeholder" role="img" aria-label="No poster available"><span>A</span><small>NO POSTER</small></div>`}
                         <div class="card-overlay">
                             ${badgeHtml}
+                            ${isHistoryRow ? `
+                                <button class="remove-history-btn" type="button" aria-label="Remove from continue watching" title="Remove from continue watching" onclick="event.stopPropagation(); event.preventDefault(); Alexandria.removeFromHistory(${Number(item.id)}, '${type}')">
+                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                                </button>
+                            ` : ''}
                             <a class="card-open" href="${target}" aria-label="View ${safeTitle}">
                                 <svg class="overlay-play" aria-hidden="true" width="40" height="40" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
                             </a>
