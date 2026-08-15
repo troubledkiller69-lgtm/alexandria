@@ -726,26 +726,25 @@ const Alexandria = {
             this.renderHome();
         }
     },
-
     GENRES: [
-        { id: 35, name: 'Comedy', icon: '😄' },
-        { id: 28, name: 'Action', icon: '⚡' },
-        { id: 18, name: 'Drama', icon: '🎭' },
-        { id: 27, name: 'Horror', icon: '👻' },
-        { id: 10749, name: 'Romance', icon: '💖' },
-        { id: 12, name: 'Adventure', icon: '🧭' },
-        { id: 878, name: 'Science Fiction', icon: '🚀' },
-        { id: 53, name: 'Thriller', icon: '🔥' },
-        { id: 16, name: 'Animation', icon: '✨' },
-        { id: 80, name: 'Crime', icon: '🔍' },
-        { id: 14, name: 'Fantasy', icon: '🪄' },
-        { id: 9648, name: 'Mystery', icon: '🕵️' },
-        { id: 99, name: 'Documentary', icon: '📷' },
-        { id: 10751, name: 'Family', icon: '👥' },
-        { id: 36, name: 'History', icon: '🏛️' },
-        { id: 10402, name: 'Music', icon: '🎵' },
-        { id: 10752, name: 'War', icon: '🛡️' },
-        { id: 37, name: 'Western', icon: '🤠' }
+        { id: 35, name: 'Comedy' },
+        { id: 28, name: 'Action' },
+        { id: 18, name: 'Drama' },
+        { id: 27, name: 'Horror' },
+        { id: 10749, name: 'Romance' },
+        { id: 12, name: 'Adventure' },
+        { id: 878, name: 'Science Fiction' },
+        { id: 53, name: 'Thriller' },
+        { id: 16, name: 'Animation' },
+        { id: 80, name: 'Crime' },
+        { id: 14, name: 'Fantasy' },
+        { id: 9648, name: 'Mystery' },
+        { id: 99, name: 'Documentary' },
+        { id: 10751, name: 'Family' },
+        { id: 36, name: 'History' },
+        { id: 10402, name: 'Music' },
+        { id: 10752, name: 'War' },
+        { id: 37, name: 'Western' }
     ],
 
     toggleGenreMenu(e) {
@@ -850,7 +849,6 @@ const Alexandria = {
                             <div class="genre-dropdown-popover">
                                 ${this.GENRES.map(g => `
                                     <div class="genre-popover-item ${g.id === currentGenre.id ? 'active' : ''}" data-genre-id="${g.id}" onclick="Alexandria.selectGenre(${g.id})">
-                                        <div class="genre-popover-icon">${g.icon}</div>
                                         <span class="genre-popover-text">${this.escapeHtml(g.name)}</span>
                                     </div>
                                 `).join('')}
