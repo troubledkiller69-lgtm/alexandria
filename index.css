@@ -819,22 +819,44 @@ h1, h2, h3, h4 {
     margin-bottom: 0.5rem;
 }
 
-/* Player Interface - Minimalist Cinema Mode */
-.player-layout {
+/* Player Interface - YouTube Style Cinema Layout */
+.player-page-container {
     display: flex;
-    height: calc(100vh - 69px);
-    height: calc(100dvh - 69px);
+    flex-direction: column;
+    width: 100%;
+    min-height: calc(100dvh - 69px);
     background: #000;
+    padding: 1.5rem;
+    gap: 2rem;
+    max-width: 1600px;
+    margin: 0 auto;
+    box-sizing: border-box;
+}
+
+.player-stage-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 1.5rem;
+    width: 100%;
+}
+
+.player-stage-grid.has-sidebar {
+    grid-template-columns: 1fr 340px;
+}
+
+.player-below-stage {
+    width: 100%;
+    max-width: 1200px;
 }
 
 .player-main {
-    flex-grow: 1;
     display: flex;
     flex-direction: column;
     background: var(--bg-surface);
     border: var(--glass-border);
     border-radius: 12px;
     overflow: hidden;
+    width: 100%;
 }
 
 /* Server Selection */
@@ -2160,9 +2182,9 @@ h1, h2, h3, h4 {
     .details-info h1 { font-size: 2.6rem; }
     .person-layout { padding: 5rem 2rem; }
     .person-header { gap: 2rem; }
-    .person-info h1 { font-size: 3rem; }
-    .player-layout { flex-direction: column; height: auto; min-height: calc(100dvh - 62px); }
-    .player-main { flex: none; border-radius: 0; }
+    .player-page-container { padding: 1rem; gap: 1.5rem; }
+    .player-stage-grid.has-sidebar { grid-template-columns: 1fr; }
+    .player-main { flex: none; border-radius: 8px; }
     .player-frame-container { flex: none; aspect-ratio: 16 / 9; }
     .episode-sidebar {
         width: 100%;
