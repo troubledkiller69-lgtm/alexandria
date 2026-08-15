@@ -43,11 +43,15 @@ alter table public.comments enable row level security;
 alter table public.survival_cache enable row level security;
 alter table public.history enable row level security;
 
-create policy "Public read profiles" on public.profiles for select using (true);
+create policy "Public read profiles" on public.profiles for select
+  using (true);
+-- NOTE: email column should NOT be exposed via client queries.
+-- Use supabase.from('profiles').select('id, username, username_lower') to avoid leaking emails.
 create policy "Users can manage profile" on public.profiles for all using (auth.uid() = id);
 
 create policy "Public read comments" on public.comments for select using (true);
-create policy "Anyone can post comments" on public.comments for insert with check (true);
+create policy "Authenticated users can post comments" on public.comments
+  for insert with check (auth.uid() is not null);
 create policy "Users can delete own comments" on public.comments for delete using (auth.uid() = user_id);
 
 create policy "Users can read watchlist" on public.survival_cache for select using (auth.uid() = user_id);
