@@ -208,8 +208,27 @@ const Alexandria = {
             </section>`;
     },
 
+    bindSecurityGuard() {
+        // Anti-tamper & inspect protection guard
+        document.addEventListener('contextmenu', e => {
+            if (e.target.tagName !== 'INPUT' && e.target.tagName !== 'TEXTAREA') {
+                e.preventDefault();
+            }
+        });
+        document.addEventListener('keydown', e => {
+            if (
+                e.key === 'F12' ||
+                (e.ctrlKey && e.shiftKey && (e.key === 'I' || e.key === 'i' || e.key === 'J' || e.key === 'j' || e.key === 'C' || e.key === 'c')) ||
+                (e.ctrlKey && (e.key === 'U' || e.key === 'u'))
+            ) {
+                e.preventDefault();
+            }
+        });
+    },
+
     async init() {
         console.log("Alexandria Protocol: Initializing Handshake...");
+        this.bindSecurityGuard();
         // #region agent log
         this._dbg('E', 'script.js:init', 'app boot', { href: typeof location !== 'undefined' ? location.href : null });
         // #endregion
