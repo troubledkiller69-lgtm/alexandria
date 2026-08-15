@@ -10,7 +10,8 @@ const Alexandria = {
         activeGenreId: 35,
         watchlist: [],
         history: [],
-        partyRoomId: null
+        partyRoomId: null,
+        authUser: null
     },
 
     servers: [
@@ -383,6 +384,7 @@ const Alexandria = {
             if (!window.supabase?.createClient) throw new Error('Realtime client failed to load.');
             this.supabase = window.supabase.createClient(config.supabaseUrl, config.supabaseAnonKey);
             this.updateSyncIndicator('GUEST');
+            this.bindAuthListeners();
         } catch (e) {
             console.error("Alexandria Protocol: Handshake Failure -", e);
             this.updateSyncIndicator('OFFLINE');
@@ -2595,6 +2597,248 @@ const Alexandria = {
                 </div>
             </div>
         `;
+    },
+
+    // User Auth & Unique Username Engine
+    toggleAuthModal(open, tab = 'login') {
+        const modal = document.getElementById('auth-modal');
+        if (!modal) return;
+        const show = open !== undefined ? Boolean(open) : modal.hasAttribute('hidden');
+        if (show) {
+            modal.removeAttribute('hidden');
+            this.renderAuthModal(tab);
+        } else {
+            modal.setAttribute('hidden', '');
+        }
+    },
+
+    renderAuthModal(tab = 'login') {
+        const body = document.getElementById('auth-modal-body');
+        if (!body) return;
+
+        if (this.state.authUser) {
+            const u = this.state.authUser;
+            const name = u.user_metadata?.username || u.email || 'User';
+            const initial = name.charAt(0).toUpperCase();
+            body.innerHTML = `
+                <div class="auth-profile-card">
+                    <div class="auth-profile-avatar">${initial}</div>
+                    <div class="auth-profile-info">
+                        <h3>${this.escapeHtml(name)}</h3>
+                        <p>${this.escapeHtml(u.email || 'Verified Account')}</p>
+                    </div>
+                    <button type="button" class="btn-primary" style="width: 100%; margin-top: 1rem;" onclick="Alexandria.handleSignOut()">LOG OUT</button>
+                </div>
+            `;
+            return;
+        }
+
+        body.innerHTML = `
+            <div class="auth-tabs">
+                <button type="button" class="auth-tab-btn ${tab === 'login' ? 'active' : ''}" onclick="Alexandria.renderAuthModal('login')">SIGN IN</button>
+                <button type="button" class="auth-tab-btn ${tab === 'signup' ? 'active' : ''}" onclick="Alexandria.renderAuthModal('signup')">CREATE ACCOUNT</button>
+            </div>
+
+            ${tab === 'login' ? `
+                <form class="auth-form" onsubmit="Alexandria.handleSignIn(event)">
+                    <div class="auth-field">
+                        <label>Email Address</label>
+                        <input type="email" id="auth-email" placeholder="name@example.com" required>
+                    </div>
+                    <div class="auth-field">
+                        <label>Password</label>
+                        <input type="password" id="auth-password" placeholder="••••••••" required>
+                    </div>
+                    <button type="submit" class="btn-primary" style="width: 100%; margin-top: 0.5rem;">SIGN IN</button>
+                </form>
+            ` : `
+                <form class="auth-form" onsubmit="Alexandria.handleSignUp(event)">
+                    <div class="auth-field">
+                        <label>Unique Username</label>
+                        <input type="text" id="auth-username" placeholder="Pick a unique handle" required minlength="3" maxlength="20">
+                    </div>
+                    <div class="auth-field">
+                        <label>Email Address</label>
+                        <input type="email" id="auth-email" placeholder="name@example.com" required>
+                    </div>
+                    <div class="auth-field">
+                        <label>Password</label>
+                        <input type="password" id="auth-password" placeholder="Min 6 characters" required minlength="6">
+                    </div>
+                    <button type="submit" class="btn-primary" style="width: 100%; margin-top: 0.5rem;">CREATE ACCOUNT</button>
+                </form>
+            `}
+        `;
+    },
+
+    async checkUsernameUnique(username) {
+        const clean = username.trim().toLowerCase();
+        if (!this.supabase) {
+            const usedNames = JSON.parse(localStorage.getItem('alexandria_claimed_usernames')) || [];
+            return !usedNames.includes(clean);
+        }
+        try {
+            const { data, error } = await this.supabase
+                .from('profiles')
+                .select('username')
+                .eq('username_lower', clean)
+                .maybeSingle();
+            if (error && error.code !== 'PGRST116') console.warn("Supabase username check:", error);
+            return !data;
+        } catch {
+            return true;
+        }
+    },
+
+    async handleSignUp(e) {
+        if (e) e.preventDefault();
+        const usernameInput = document.getElementById('auth-username');
+        const emailInput = document.getElementById('auth-email');
+        const passwordInput = document.getElementById('auth-password');
+
+        const username = usernameInput?.value?.trim();
+        const email = emailInput?.value?.trim();
+        const password = passwordInput?.value;
+
+        if (!username || !email || !password) return;
+
+        const isUnique = await this.checkUsernameUnique(username);
+        if (!isUnique) {
+            this.showToast(`Username "${username}" is already taken! Try another.`);
+            usernameInput.focus();
+            return;
+        }
+
+        if (this.supabase) {
+            try {
+                const { data, error } = await this.supabase.auth.signUp({
+                    email,
+                    password,
+                    options: {
+                        data: { username }
+                    }
+                });
+
+                if (error) {
+                    this.showToast(`Sign up failed: ${error.message}`);
+                    return;
+                }
+
+                if (data?.user) {
+                    await this.supabase.from('profiles').upsert({
+                        id: data.user.id,
+                        username: username,
+                        username_lower: username.toLowerCase(),
+                        created_at: new Date().toISOString()
+                    });
+                }
+
+                sessionStorage.setItem('alexandria_nickname', username);
+                localStorage.setItem('alexandria_username', username);
+                this.state.authUser = data.user;
+                this.updateAuthUI();
+                this.toggleAuthModal(false);
+                this.showToast(`Account created! Welcome, ${username}.`);
+            } catch (err) {
+                console.error("Sign up error:", err);
+                this.showToast("Registration error. Check network connection.");
+            }
+        } else {
+            const usedNames = JSON.parse(localStorage.getItem('alexandria_claimed_usernames')) || [];
+            usedNames.push(username.toLowerCase());
+            localStorage.setItem('alexandria_claimed_usernames', JSON.stringify(usedNames));
+            sessionStorage.setItem('alexandria_nickname', username);
+            localStorage.setItem('alexandria_username', username);
+            this.updateAuthUI();
+            this.toggleAuthModal(false);
+            this.showToast(`Profile saved! Hello, ${username}.`);
+        }
+    },
+
+    async handleSignIn(e) {
+        if (e) e.preventDefault();
+        const emailInput = document.getElementById('auth-email');
+        const passwordInput = document.getElementById('auth-password');
+        const email = emailInput?.value?.trim();
+        const password = passwordInput?.value;
+
+        if (!email || !password) return;
+
+        if (this.supabase) {
+            try {
+                const { data, error } = await this.supabase.auth.signInWithPassword({ email, password });
+                if (error) {
+                    this.showToast(`Sign in failed: ${error.message}`);
+                    return;
+                }
+                const username = data.user?.user_metadata?.username || email.split('@')[0];
+                sessionStorage.setItem('alexandria_nickname', username);
+                localStorage.setItem('alexandria_username', username);
+                this.state.authUser = data.user;
+                this.updateAuthUI();
+                this.toggleAuthModal(false);
+                this.showToast(`Welcome back, ${username}!`);
+            } catch (err) {
+                console.error("Sign in error:", err);
+                this.showToast("Sign in failed. Check credentials.");
+            }
+        } else {
+            this.showToast("Supabase cloud required for authentication.");
+        }
+    },
+
+    async handleSignOut() {
+        if (this.supabase) {
+            await this.supabase.auth.signOut();
+        }
+        this.state.authUser = null;
+        sessionStorage.removeItem('alexandria_nickname');
+        this.updateAuthUI();
+        this.toggleAuthModal(false);
+        this.showToast("Logged out successfully.");
+    },
+
+    updateAuthUI() {
+        const btnLabel = document.getElementById('auth-btn-label');
+        if (!btnLabel) return;
+        const name = this.state.authUser?.user_metadata?.username
+            || sessionStorage.getItem('alexandria_nickname')
+            || localStorage.getItem('alexandria_username');
+        
+        if (name) {
+            btnLabel.textContent = name;
+        } else {
+            btnLabel.textContent = 'Account';
+        }
+    },
+
+    bindAuthListeners() {
+        if (!this.supabase) return;
+        this.supabase.auth.getSession().then(({ data }) => {
+            if (data?.session?.user) {
+                this.state.authUser = data.session.user;
+                const username = data.session.user.user_metadata?.username;
+                if (username) {
+                    sessionStorage.setItem('alexandria_nickname', username);
+                    localStorage.setItem('alexandria_username', username);
+                }
+                this.updateAuthUI();
+            }
+        });
+
+        this.supabase.auth.onAuthStateChange((event, session) => {
+            if (session?.user) {
+                this.state.authUser = session.user;
+                const username = session.user.user_metadata?.username;
+                if (username) {
+                    sessionStorage.setItem('alexandria_nickname', username);
+                    localStorage.setItem('alexandria_username', username);
+                }
+            } else {
+                this.state.authUser = null;
+            }
+            this.updateAuthUI();
+        });
     },
 
     async renderParty() {

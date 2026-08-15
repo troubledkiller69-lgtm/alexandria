@@ -48,6 +48,10 @@
                 <button id="search-trigger" class="icon-btn" type="button" aria-label="Search the archive" title="Search">
                     <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
                 </button>
+                <button id="auth-trigger" class="icon-btn auth-btn" type="button" aria-label="User Account" title="Account" onclick="Alexandria.toggleAuthModal()">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+                    <span id="auth-btn-label" class="auth-btn-label">Account</span>
+                </button>
             </div>
         </header>
 
@@ -92,6 +96,15 @@
 
         <button id="back-to-top" type="button" title="Return to top" aria-label="Return to top" aria-hidden="true" tabindex="-1">↑</button>
     </div>
+
+    <!-- User Auth Modal -->
+    <div id="auth-modal" class="auth-modal-overlay" hidden onclick="if(event.target === this) Alexandria.toggleAuthModal(false)">
+        <div class="auth-modal-card">
+            <button class="auth-close-btn" type="button" onclick="Alexandria.toggleAuthModal(false)">✕</button>
+            <div id="auth-modal-body"></div>
+        </div>
+    </div>
+
     <noscript><p class="noscript-message">Alexandria needs JavaScript enabled to load the archive.</p></noscript>
     <script defer src="script.js?v=20260809d"></script>
 </body>
