@@ -683,7 +683,12 @@ const Alexandria = {
     async syncFromCloud() {
         try {
             this.state.watchlist = JSON.parse(localStorage.getItem('alexandria_watchlist')) || [];
-            this.state.history = JSON.parse(localStorage.getItem('alexandria_history')) || [];
+            const rawHistory = JSON.parse(localStorage.getItem('alexandria_history')) || [];
+            // Clean out legacy sports items and invalid entries
+            this.state.history = Array.isArray(rawHistory)
+                ? rawHistory.filter(i => i && i.id != null && i.type !== 'sports' && String(i.id).match(/^\d+$/))
+                : [];
+            this.writeLocalList('alexandria_history', this.state.history);
         } catch {
             this.state.watchlist = [];
             this.state.history = [];
@@ -1036,8 +1041,13 @@ const Alexandria = {
     },
 
     removeFromHistory(id, type) {
-        if (!id) return;
-        this.state.history = (this.state.history || []).filter(item => !(String(item.id) === String(id) && item.type === type));
+        if (id == null) return;
+        const targetId = String(id);
+        this.state.history = (this.state.history || []).filter(item => {
+            const idMatch = String(item.id) === targetId;
+            const typeMatch = !type || item.type === type || item.media_type === type;
+            return !(idMatch && typeMatch);
+        });
         this.writeLocalList('alexandria_history', this.state.history);
         this.renderHistory();
         if (this.state.view === 'history') {
@@ -1494,11 +1504,13 @@ const Alexandria = {
         container.innerHTML = results.map(item => {
             const title = item.title || item.name || 'Untitled';
             const safeTitle = this.escapeHtml(title);
+            const itemIdStr = String(item.id);
+            const safeItemId = this.escapeHtml(itemIdStr);
             const poster = this.imageUrl(item.poster_path);
             const type = item.media_type === 'tv' || item.media_type === 'movie'
                 ? item.media_type
                 : (item.type === 'tv' || item.type === 'movie' ? item.type : (item.name && !item.title ? 'tv' : 'movie'));
-            const inWatchlist = this.state.watchlist.some(i => String(i.id) === String(item.id) && i.type === type);
+            const inWatchlist = this.state.watchlist.some(i => String(i.id) === itemIdStr && i.type === type);
             const isAnime = item.isAnime || (item.origin_country && item.origin_country.includes('JP') && item.genre_ids && item.genre_ids.includes(16));
             
             const badgeHtml = isHistoryRow && type === 'tv' && item.season && item.episode
@@ -1509,26 +1521,26 @@ const Alexandria = {
                 ? `data-season="${item.season}" data-episode="${item.episode}"` 
                 : '';
             const target = isHistoryRow && type === 'tv' && item.season && item.episode
-                ? `#tv/${Number(item.id)}/s/${Number(item.season)}/e/${Number(item.episode)}`
+                ? `#tv/${safeItemId}/s/${Number(item.season)}/e/${Number(item.episode)}`
                 : isHistoryRow && type === 'movie'
-                    ? `#movie/${Number(item.id)}`
-                    : `#details/${type}/${Number(item.id)}`;
+                    ? `#movie/${safeItemId}`
+                    : `#details/${type}/${safeItemId}`;
 
             return `
-                <article class="movie-card" data-id="${Number(item.id)}" data-type="${type}" data-title="${safeTitle}" data-is-anime="${isAnime}" ${dataAttributes}>
+                <article class="movie-card" data-id="${safeItemId}" data-type="${type}" data-title="${safeTitle}" data-is-anime="${isAnime}" ${dataAttributes}>
                     <div class="poster-wrapper">
                         ${poster ? `<img src="${poster}" alt="${safeTitle} poster" loading="lazy" decoding="async">` : `<div class="poster-placeholder" role="img" aria-label="No poster available"><span>A</span><small>NO POSTER</small></div>`}
                         <div class="card-overlay">
                             ${badgeHtml}
                             ${isHistoryRow ? `
-                                <button class="remove-history-btn" type="button" aria-label="Remove from continue watching" title="Remove from continue watching" onclick="event.stopPropagation(); event.preventDefault(); Alexandria.removeFromHistory(${Number(item.id)}, '${type}')">
+                                <button class="remove-history-btn" type="button" aria-label="Remove from continue watching" title="Remove from continue watching" onclick="event.stopPropagation(); event.preventDefault(); Alexandria.removeFromHistory('${safeItemId}', '${type}')">
                                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
                                 </button>
                             ` : ''}
                             <a class="card-open" href="${target}" aria-label="View ${safeTitle}">
                                 <svg class="overlay-play" aria-hidden="true" width="40" height="40" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
                             </a>
-                            <button class="log-btn ${inWatchlist ? 'active' : ''}" type="button" aria-label="${inWatchlist ? 'Remove from' : 'Add to'} watchlist" aria-pressed="${inWatchlist}" data-id="${Number(item.id)}" data-type="${type}" data-title="${safeTitle}" data-poster="${this.escapeHtml(item.poster_path || '')}">
+                            <button class="log-btn ${inWatchlist ? 'active' : ''}" type="button" aria-label="${inWatchlist ? 'Remove from' : 'Add to'} watchlist" aria-pressed="${inWatchlist}" data-id="${safeItemId}" data-type="${type}" data-title="${safeTitle}" data-poster="${this.escapeHtml(item.poster_path || '')}">
                                 ${inWatchlist ? '✓' : '+'}
                             </button>
                         </div>
