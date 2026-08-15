@@ -1679,6 +1679,8 @@ const Alexandria = {
                             <button class="carousel-arrow right" onclick="Alexandria.scrollCarousel(this, 800)">&#10095;</button>
                         </div>
                     </div>` : ''}
+
+                    <section class="comments-section-container" id="comments-section-container"></section>
                 </section>
             `;
             
@@ -1688,6 +1690,7 @@ const Alexandria = {
                 });
                 this.renderResults(data.similar.results, 'similar-results');
             }
+            this.renderComments();
         } catch(e) {
             console.error("Alexandria Protocol: Details Render Failed", e);
             if (token === this._renderToken) this.renderError('This title could not be decrypted', e.message, 'details');
@@ -1846,12 +1849,14 @@ const Alexandria = {
                             <div class="placeholder-msg">DECRYPTING EPISODES...</div>
                         </div>
                     </div>` : ''}
+                <section class="comments-section-container" id="comments-section-container"></section>
             </section>`;
 
         this.bindSoloPlayerEvents();
         this.prepareResumeSeek();
         this.armFailoverWatch(server);
         this.scheduleEmbedTheme(document.getElementById('video-iframe'));
+        this.renderComments();
 
         if (type === 'sports') {
             const ev = this.SPORTS_EVENTS.find(e => e.id === id) || this.SPORTS_EVENTS[0];
@@ -2427,14 +2432,170 @@ const Alexandria = {
                     <span class="ep-num">EP ${ep.episode_number}</span>
                     <span class="ep-name">${this.escapeHtml(ep.name || 'Untitled episode')}</span>
                 </div>`).join('');
-        } catch (e) {
-            console.error("Alexandria Protocol: Episode Load Failed -", e);
+            if (this.state.view === 'player') {
+                this.renderComments();
+            }
+        } catch (error) {
+            console.error("Alexandria: Failed to load episodes", error);
             const container = document.getElementById('sidebar-episodes');
-            if (container) container.innerHTML = '<div class="placeholder-msg">EPISODES COULD NOT BE LOADED.</div>';
+            if (container) container.innerHTML = '<div class="placeholder-msg">EPISODES UNREACHABLE</div>';
         }
     },
 
+    // Comments Engine Methods
+    getCommentKey(content = this.state.activeContent) {
+        const { id, type, season, episode } = content || {};
+        if (!id || !type) return null;
+        if (type === 'tv') {
+            const s = season || 1;
+            const e = episode || 1;
+            return `tv_${id}_s${s}_e${e}`;
+        }
+        return `movie_${id}`;
+    },
 
+    getComments(commentKey) {
+        if (!commentKey) return [];
+        try {
+            const allComments = JSON.parse(localStorage.getItem('alexandria_comments')) || {};
+            return allComments[commentKey] || [];
+        } catch {
+            return [];
+        }
+    },
+
+    saveComment(commentKey, commentObj) {
+        if (!commentKey || !commentObj) return;
+        try {
+            const allComments = JSON.parse(localStorage.getItem('alexandria_comments')) || {};
+            if (!allComments[commentKey]) allComments[commentKey] = [];
+            allComments[commentKey].unshift(commentObj);
+            localStorage.setItem('alexandria_comments', JSON.stringify(allComments));
+        } catch (e) {
+            console.error("Alexandria: Failed to save comment", e);
+        }
+    },
+
+    deleteComment(commentKey, commentId) {
+        if (!commentKey || !commentId) return;
+        try {
+            const allComments = JSON.parse(localStorage.getItem('alexandria_comments')) || {};
+            if (allComments[commentKey]) {
+                allComments[commentKey] = allComments[commentKey].filter(c => c.id !== commentId);
+                localStorage.setItem('alexandria_comments', JSON.stringify(allComments));
+            }
+        } catch (e) {
+            console.error("Alexandria: Failed to delete comment", e);
+        }
+        this.renderComments();
+        this.showToast('Comment deleted');
+    },
+
+    addComment() {
+        const input = document.getElementById('comment-input');
+        const text = input?.value?.trim();
+        if (!text) return;
+
+        const content = this.state.activeContent;
+        const key = this.getCommentKey(content);
+        if (!key) return;
+
+        let nickname = sessionStorage.getItem('alexandria_nickname') || localStorage.getItem('alexandria_username');
+        if (!nickname) {
+            nickname = prompt('Enter a nickname for your comment:') || '';
+            if (!nickname.trim()) nickname = 'User_' + Math.floor(Math.random() * 1000);
+            nickname = nickname.trim().slice(0, 24);
+            sessionStorage.setItem('alexandria_nickname', nickname);
+        }
+
+        const commentObj = {
+            id: 'c_' + Date.now() + '_' + Math.random().toString(36).substring(2, 6),
+            key,
+            author: nickname,
+            text,
+            createdAt: new Date().toISOString(),
+            isMine: true
+        };
+
+        this.saveComment(key, commentObj);
+        input.value = '';
+        this.renderComments();
+        this.showToast('Comment posted!');
+    },
+
+    editNickname() {
+        const current = sessionStorage.getItem('alexandria_nickname') || 'Guest';
+        const name = prompt('Change your display nickname:', current);
+        if (name && name.trim()) {
+            const clean = name.trim().slice(0, 24);
+            sessionStorage.setItem('alexandria_nickname', clean);
+            localStorage.setItem('alexandria_username', clean);
+            this.renderComments();
+            this.showToast(`Nickname updated to "${clean}"`);
+        }
+    },
+
+    renderComments() {
+        const container = document.getElementById('comments-section-container');
+        if (!container) return;
+
+        const content = this.state.activeContent;
+        if (!content || !content.id) {
+            container.innerHTML = '';
+            return;
+        }
+
+        const key = this.getCommentKey(content);
+        const comments = this.getComments(key);
+        const nickname = sessionStorage.getItem('alexandria_nickname') || localStorage.getItem('alexandria_username') || 'Guest';
+        const scopeBadge = content.type === 'tv'
+            ? `S${content.season || 1}:E${content.episode || 1}`
+            : 'MOVIE';
+
+        container.innerHTML = `
+            <div class="comments-widget">
+                <div class="comments-header">
+                    <h3>DISCUSSION & REVIEWS (${comments.length}) <span class="comments-scope-badge">${scopeBadge}</span></h3>
+                    <div class="comments-user-badge">
+                        <span>Posting as <strong>${this.escapeHtml(nickname)}</strong></span>
+                        <button type="button" class="btn-text-link" onclick="Alexandria.editNickname()">Change Name</button>
+                    </div>
+                </div>
+                
+                <div class="comments-composer">
+                    <textarea id="comment-input" placeholder="Share your thoughts on this episode or movie..." maxlength="500" rows="3"></textarea>
+                    <div class="comments-composer-footer">
+                        <span class="char-count">Up to 500 characters</span>
+                        <button type="button" class="btn-primary" onclick="Alexandria.addComment()">POST COMMENT</button>
+                    </div>
+                </div>
+
+                <div class="comments-list">
+                    ${comments.length > 0 ? comments.map(c => {
+                        const dateStr = new Date(c.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+                        const initial = (c.author || 'G').charAt(0).toUpperCase();
+                        return `
+                            <div class="comment-card">
+                                <div class="comment-avatar">${initial}</div>
+                                <div class="comment-body">
+                                    <div class="comment-meta">
+                                        <span class="comment-author">${this.escapeHtml(c.author)}</span>
+                                        <span class="comment-time">${dateStr}</span>
+                                        ${c.isMine ? `
+                                            <button type="button" class="comment-delete-btn" aria-label="Delete comment" title="Delete comment" onclick="Alexandria.deleteComment('${key}', '${c.id}')">✕</button>
+                                        ` : ''}
+                                    </div>
+                                    <p class="comment-text">${this.escapeHtml(c.text)}</p>
+                                </div>
+                            </div>
+                        `;
+                    }).join('') : `
+                        <div class="placeholder-msg comments-empty">No comments yet. Be the first to start the discussion for ${scopeBadge}!</div>
+                    `}
+                </div>
+            </div>
+        `;
+    },
 
     async renderParty() {
         const { id, type, season, episode } = this.state.activeContent;
