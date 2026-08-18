@@ -1519,11 +1519,25 @@ const Alexandria = {
             { name: 'Fast & Furious', collectionId: 9485, accent: '#FF6B00', subtitle: 'Family. No Matter What.' },
             { name: 'Jurassic Park', collectionId: 328, accent: '#2E8B57', subtitle: 'Life Finds a Way' },
             { name: 'The Hunger Games', collectionId: 131635, accent: '#C4151C', subtitle: 'May The Odds Be Ever In Your Favor' },
-            { name: 'Pirates of the Caribbean', collectionId: 295, accent: '#8B6914', subtitle: 'Not All Treasure Is Silver and Gold' }
+            { name: 'Pirates of the Caribbean', collectionId: 295, accent: '#8B6914', subtitle: 'Not All Treasure Is Silver and Gold' },
+            { name: 'The Conjuring Universe', collectionId: 313086, accent: '#7a1f1f', subtitle: 'Based on the True Case Files of the Warrens' },
+            { name: 'Saw', collectionId: 656, accent: '#8d9aa6', subtitle: 'Live or Die, Make Your Choice' },
+            { name: 'Scream', collectionId: 2602, accent: '#ff1744', subtitle: "What's Your Favorite Scary Movie?" },
+            { name: 'Halloween', collectionId: 91361, accent: '#ff8f00', subtitle: 'The Night He Came Home' },
+            { name: 'Friday the 13th', collectionId: 9735, accent: '#1b5e20', subtitle: 'Welcome to Crystal Lake' },
+            { name: 'A Nightmare on Elm Street', collectionId: 8581, accent: '#8e24aa', subtitle: "One, Two, Freddy's Coming for You" },
+            { name: 'The Evil Dead', collectionId: 1960, accent: '#795548', subtitle: 'Dead by Dawn' },
+            { name: 'Alien', collectionId: 8091, accent: '#00c853', subtitle: 'In Space No One Can Hear You Scream' },
+            { name: 'Predator', collectionId: 399, accent: '#ffb300', subtitle: 'If It Bleeds, We Can Kill It' },
+            { name: 'Final Destination', collectionId: 8864, accent: '#546e7a', subtitle: "You Can't Cheat Death" },
+            { name: 'Paranormal Activity', collectionId: 41437, accent: '#283593', subtitle: 'What Happens When You Sleep?' },
+            { name: 'Insidious', collectionId: 228446, accent: '#d32f2f', subtitle: "It's Not the House That's Haunted" },
+            { name: 'The Matrix', collectionId: 2344, accent: '#00e676', subtitle: 'There Is No Spoon' },
+            { name: 'Mission: Impossible', collectionId: 87359, accent: '#1e88e5', subtitle: 'Your Mission, Should You Choose to Accept It' }
         ];
 
         try {
-            const FRANCHISE_CACHE_KEY = 'alexandria_franchise_cache_v2';
+            const FRANCHISE_CACHE_KEY = 'alexandria_franchise_cache_v3';
             let cached = null;
             try {
                 cached = JSON.parse(sessionStorage.getItem(FRANCHISE_CACHE_KEY));
