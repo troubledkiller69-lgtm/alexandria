@@ -1601,23 +1601,18 @@ const Alexandria = {
                     </div>
                     <div class="franchise-list">
                     ${results.map((f, i) => f.items.length > 0 ? `
-                    <article class="franchise-card" style="--franchise-accent:${f.accent}">
-                        <button class="franchise-card-toggle" type="button" aria-expanded="false" aria-controls="franchise-body-${i}" onclick="Alexandria.toggleFranchise(this)">
-                            <span class="franchise-card-bar" aria-hidden="true"></span>
-                            <span class="franchise-card-heading">
-                                <span class="franchise-card-name">${f.name}</span>
-                                <span class="franchise-card-quote">&ldquo;${f.subtitle}&rdquo;</span>
-                            </span>
-                            <span class="franchise-card-count">${f.items.length} ${f.items.length === 1 ? 'TITLE' : 'TITLES'}</span>
-                            <svg class="franchise-card-chevron" aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                    <article class="franchise-row">
+                        <button class="franchise-row-toggle" type="button" aria-expanded="false" aria-controls="franchise-deck-${i}" onclick="Alexandria.toggleFranchise(this)">
+                            <span class="franchise-row-bar" style="background:${f.accent}" aria-hidden="true"></span>
+                            <span class="franchise-row-name">${f.name}</span>
+                            <span class="franchise-row-quote">&ldquo;${f.subtitle}&rdquo;</span>
+                            <span class="franchise-row-count">${f.items.length} ${f.items.length === 1 ? 'TITLE' : 'TITLES'}</span>
+                            <svg class="franchise-row-chevron" aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>
                         </button>
-                        <div class="franchise-card-body" id="franchise-body-${i}">
-                            <div class="franchise-card-body-inner">
-                                <div class="carousel-container">
-                                    <button class="carousel-arrow left" onclick="Alexandria.scrollCarousel(this, -800)">&#10094;</button>
-                                    <div class="carousel-wrapper"><div class="carousel-grid" id="franchise-${i}"></div></div>
-                                    <button class="carousel-arrow right" onclick="Alexandria.scrollCarousel(this, 800)">&#10095;</button>
-                                </div>
+                        <div class="franchise-deck" id="franchise-deck-${i}">
+                            <div class="franchise-deck-scroller">
+                                <div class="franchise-deck-first" id="franchise-first-${i}"></div>
+                                <div class="franchise-deck-rest" id="franchise-rest-${i}"></div>
                             </div>
                         </div>
                     </article>` : '').join('')}
@@ -1626,7 +1621,10 @@ const Alexandria = {
 
             results.forEach((f, i) => {
                 if (f.items.length > 0) {
-                    this.renderResults(f.items, `franchise-${i}`);
+                    this.renderResults([f.items[0]], `franchise-first-${i}`);
+                    if (f.items.length > 1) {
+                        this.renderResults(f.items.slice(1), `franchise-rest-${i}`);
+                    }
                 }
             });
         } catch (error) {
@@ -1636,10 +1634,16 @@ const Alexandria = {
     },
 
     toggleFranchise(btn) {
-        const card = btn.closest('.franchise-card');
-        if (!card) return;
-        const isOpen = card.classList.toggle('open');
+        const row = btn.closest('.franchise-row');
+        if (!row) return;
+        const isOpen = row.classList.toggle('open');
         btn.setAttribute('aria-expanded', String(isOpen));
+        const rest = row.querySelector('.franchise-deck-rest');
+        if (rest) {
+            // Measure the natural width of the hidden cards so the slide-out is
+            // smooth and exact for any franchise size.
+            rest.style.width = isOpen ? `${rest.scrollWidth}px` : '0px';
+        }
     },
 
 
