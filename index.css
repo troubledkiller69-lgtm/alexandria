@@ -741,6 +741,205 @@ h1, h2, h3, h4 {
     transform: scale(1.1);
 }
 
+/* Watchlist status badges — siblings of .continue-badge */
+.progress-badge,
+.watched-badge {
+    padding: 0.2rem 0.5rem;
+    border-radius: 4px;
+    font-size: 0.7rem;
+    font-weight: 800;
+    letter-spacing: 1px;
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    z-index: 100;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.5);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.progress-badge {
+    background: rgba(138, 3, 3, 0.88);
+    color: #fff;
+}
+
+.watched-badge {
+    background: rgba(212, 175, 55, 0.92);
+    color: #0a0a0f;
+}
+
+/* Mini status circle on watchlist cards — sibling of .log-btn, stacked beneath it */
+.card-overlay .mark-btn {
+    position: absolute;
+    top: calc(0.6rem + 34px);
+    right: 0.6rem;
+    background: rgba(10, 10, 15, 0.65);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    color: var(--text-primary);
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    cursor: pointer;
+    transition: background 0.2s ease, border-color 0.2s ease, color 0.2s ease, transform 0.2s ease;
+    display: grid;
+    place-items: center;
+    z-index: 15;
+    padding: 0;
+    margin: 0;
+    font-size: 0.9rem;
+    line-height: 1;
+}
+
+.card-overlay .mark-btn:hover {
+    background: rgba(212, 175, 55, 0.92);
+    border-color: rgba(212, 175, 55, 0.95);
+    color: var(--bg-base);
+    transform: scale(1.08);
+}
+
+/* Episode list toggle on watchlist TV cards */
+.card-overlay .ep-toggle-btn {
+    position: absolute;
+    bottom: 0.6rem;
+    left: 0.6rem;
+    background: rgba(10, 10, 15, 0.65);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    color: var(--text-secondary);
+    font-family: var(--font-body);
+    font-size: 0.65rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    padding: 0.32rem 0.55rem;
+    border-radius: 4px;
+    cursor: pointer;
+    z-index: 15;
+    transition: background 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+}
+
+.card-overlay .ep-toggle-btn:hover,
+.card-overlay .ep-toggle-btn.active {
+    background: rgba(138, 3, 3, 0.85);
+    border-color: rgba(138, 3, 3, 0.95);
+    color: #fff;
+}
+
+/* Expandable per-episode panel inside watchlist cards */
+.ep-panel {
+    margin: 0.5rem 0 0;
+    padding: 0.65rem 0.7rem;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 8px;
+    max-height: 260px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+    font-family: var(--font-body);
+}
+
+.ep-panel[hidden] {
+    display: none;
+}
+
+.ep-panel-season {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.ep-panel-season-name {
+    font-size: 0.7rem;
+    font-weight: 800;
+    letter-spacing: 0.12em;
+    color: var(--text-secondary);
+}
+
+.ep-panel-item {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.25rem 0.4rem;
+    border-radius: 4px;
+    font-size: 0.8rem;
+    transition: background 0.15s ease;
+}
+
+.ep-panel-item:hover {
+    background: rgba(255, 255, 255, 0.05);
+}
+
+.ep-panel-num {
+    font-size: 0.65rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    color: var(--text-muted);
+    min-width: 34px;
+    flex-shrink: 0;
+}
+
+.ep-panel-name {
+    flex: 1;
+    color: var(--text-primary);
+    text-decoration: none;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.ep-panel-name:hover {
+    color: rgba(212, 175, 55, 0.95);
+}
+
+.ep-panel-item.watched .ep-panel-name {
+    color: var(--text-muted);
+    text-decoration: line-through;
+}
+
+/* Per-episode watched toggle — player sidebar rows and watchlist panels */
+.ep-watched-btn {
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    background: rgba(10, 10, 15, 0.55);
+    color: rgba(255, 255, 255, 0.55);
+    font-size: 0.7rem;
+    cursor: pointer;
+    display: grid;
+    place-items: center;
+    padding: 0;
+    flex-shrink: 0;
+    transition: background 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+}
+
+.ep-watched-btn:hover {
+    border-color: rgba(255, 255, 255, 0.4);
+    color: var(--text-primary);
+}
+
+.ep-watched-btn.active {
+    background: rgba(138, 3, 3, 0.9);
+    border-color: rgba(138, 3, 3, 0.95);
+    color: #fff;
+    box-shadow: 0 0 8px rgba(138, 3, 3, 0.45);
+}
+
+/* Anchor the toggle at the top-right of player-sidebar episode rows */
+.episode-item:has(> .ep-watched-btn) {
+    position: relative;
+    padding-right: 2.75rem;
+}
+
+.episode-item > .ep-watched-btn {
+    position: absolute;
+    top: 0.75rem;
+    right: 0.75rem;
+}
+
 .overlay-play {
     position: absolute;
     inset: 50% auto auto 50%;
@@ -1411,6 +1610,34 @@ h1, h2, h3, h4 {
     border-color: var(--primary-accent);
     font-weight: 600;
     box-shadow: 0 0 14px rgba(138, 3, 3, 0.4);
+}
+
+/* Watchlist page toolbar — filter pills, sort select, surprise me */
+.watchlist-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    padding: 1.5rem 5rem 0;
+}
+
+.watchlist-toolbar-filters {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+
+.watchlist-toolbar-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+@media (max-width: 900px) {
+    .watchlist-toolbar {
+        padding: 1.25rem 1rem 0;
+    }
 }
 
 .modern-search .results-grid {
