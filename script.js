@@ -1585,18 +1585,29 @@ const Alexandria = {
                         <h2>FRANCHISE ARCHIVES</h2>
                         <p style="color:var(--text-muted);font-family:var(--font-display);letter-spacing:2px">CINEMATIC UNIVERSES & LEGENDARY SAGAS</p>
                     </div>
+                    <div class="franchise-list">
                     ${results.map((f, i) => f.items.length > 0 ? `
-                    <div class="view-section">
-                        <h3 style="display:flex;align-items:center;gap:10px">
-                            <span style="color:${f.accent}">${f.name}</span>
-                            <span style="font-size:0.7rem;color:var(--text-muted);font-weight:300;letter-spacing:0.1em;text-transform:uppercase;margin-left:6px">${f.subtitle}</span>
-                        </h3>
-                        <div class="carousel-container">
-                            <button class="carousel-arrow left" onclick="Alexandria.scrollCarousel(this, -800)">&#10094;</button>
-                            <div class="carousel-wrapper"><div class="carousel-grid" id="franchise-${i}"></div></div>
-                            <button class="carousel-arrow right" onclick="Alexandria.scrollCarousel(this, 800)">&#10095;</button>
+                    <article class="franchise-card" style="--franchise-accent:${f.accent}">
+                        <button class="franchise-card-toggle" type="button" aria-expanded="false" aria-controls="franchise-body-${i}" onclick="Alexandria.toggleFranchise(this)">
+                            <span class="franchise-card-bar" aria-hidden="true"></span>
+                            <span class="franchise-card-heading">
+                                <span class="franchise-card-name">${f.name}</span>
+                                <span class="franchise-card-quote">&ldquo;${f.subtitle}&rdquo;</span>
+                            </span>
+                            <span class="franchise-card-count">${f.items.length} ${f.items.length === 1 ? 'TITLE' : 'TITLES'}</span>
+                            <svg class="franchise-card-chevron" aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                        </button>
+                        <div class="franchise-card-body" id="franchise-body-${i}">
+                            <div class="franchise-card-body-inner">
+                                <div class="carousel-container">
+                                    <button class="carousel-arrow left" onclick="Alexandria.scrollCarousel(this, -800)">&#10094;</button>
+                                    <div class="carousel-wrapper"><div class="carousel-grid" id="franchise-${i}"></div></div>
+                                    <button class="carousel-arrow right" onclick="Alexandria.scrollCarousel(this, 800)">&#10095;</button>
+                                </div>
+                            </div>
                         </div>
-                    </div>` : '').join('')}
+                    </article>` : '').join('')}
+                    </div>
                 </section>`;
 
             results.forEach((f, i) => {
@@ -1608,6 +1619,13 @@ const Alexandria = {
             console.error("Alexandria: Franchise Archive Load Failed -", error);
             if (token === this._renderToken) this.renderError('Franchise archives are unavailable', error.message, 'franchises');
         }
+    },
+
+    toggleFranchise(btn) {
+        const card = btn.closest('.franchise-card');
+        if (!card) return;
+        const isOpen = card.classList.toggle('open');
+        btn.setAttribute('aria-expanded', String(isOpen));
     },
 
 
@@ -1898,7 +1916,7 @@ const Alexandria = {
                             </button>
                             ${wlMode ? `
                                 <button class="mark-btn" type="button" aria-label="${wlStatus === 'watched' ? 'Back to queue' : wlStatus === 'watching' ? 'Mark complete' : 'Mark watched'}" title="${wlStatus === 'watched' ? 'Back to queue' : wlStatus === 'watching' ? 'Mark complete' : 'Mark watched'}"
-                                    onclick="event.stopPropagation(); event.preventDefault(); Alexandria.setWatchStatus('${safeItemId}', '${type}', '${wlStatus === 'watched' ? 'want' : 'watched'}')">${wlStatus === 'watched' ? '↩' : wlStatus === 'watching' ? '★' : '✓'}</button>
+                                    onclick="event.stopPropagation(); event.preventDefault(); Alexandria.setWatchStatus('${safeItemId}', '${type}', '${wlStatus === 'watched' ? 'want' : 'watched'}')">${wlStatus === 'watched' ? '↩' : wlStatus === 'watching' ? '★' : '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>'}</button>
                             ` : ''}
                             ${wlMode && type === 'tv' ? `
                                 <button class="ep-toggle-btn" type="button" aria-expanded="false" onclick="event.stopPropagation(); event.preventDefault(); Alexandria.toggleEpPanel('${safeItemId}', this)">EPISODES ▾</button>
