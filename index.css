@@ -1230,6 +1230,12 @@ h1, h2, h3, h4 {
     color: var(--text-muted);
 }
 
+/* The input is type="search", which browsers stamp with their own X — kill it so only our styled .clear-search shows */
+.search-input-container input::-webkit-search-cancel-button {
+    -webkit-appearance: none;
+    display: none;
+}
+
 .clear-search {
     background: transparent;
     border: none;
