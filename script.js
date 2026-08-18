@@ -3999,6 +3999,11 @@ const Alexandria = {
             if ((data.api === 'paused' || data.api === 'getPaused') && typeof data.answer === 'boolean') {
                 if (this.isHost) this.setPartyPaused(data.answer);
             }
+            // Standard PlayerJS getter replies: { event: 'getPaused', value/answer: bool }
+            if (data.event === 'getPaused' || data.event === 'paused') {
+                const v = typeof data.value === 'boolean' ? data.value : (typeof data.answer === 'boolean' ? data.answer : undefined);
+                if (typeof v === 'boolean' && this.isHost) this.setPartyPaused(v);
+            }
         }
 
         const samples = this.harvestEmbedTimes(data);
@@ -4042,18 +4047,17 @@ const Alexandria = {
     requestPlayerTime(frame) {
         if (!frame?.contentWindow) return;
         const win = frame.contentWindow;
-        win.postMessage({ api: 'time' }, '*');
-        win.postMessage({ api: 'getTime' }, '*');
-        win.postMessage({ source: 'embedmaster_player_command', command: 'getTime' }, '*');
+        // PlayerJS getter for current position. `time`/`getTime` are not valid
+        // PlayerJS methods and returned nothing, collapsing the host clock.
+        win.postMessage({ api: 'getCurrentTime' }, '*');
+        win.postMessage({ method: 'getCurrentTime' }, '*');
     },
 
     requestPlayerPaused(frame) {
         if (!frame?.contentWindow) return;
         const win = frame.contentWindow;
-        win.postMessage({ api: 'paused' }, '*');
         win.postMessage({ api: 'getPaused' }, '*');
-        win.postMessage({ source: 'embedmaster_player_command', command: 'paused' }, '*');
-        win.postMessage({ source: 'embedmaster_player_command', command: 'getPaused' }, '*');
+        win.postMessage({ method: 'getPaused' }, '*');
     },
 
     collectHostTime(ms = 900) {
@@ -4583,7 +4587,9 @@ const Alexandria = {
                     this.updatePartyRoleUI();
                     this.appendChatMessage('System', 'Player unlocked — syncing with host.');
                 }
-                if (this._pendingPartySync) {
+                // Only flush on unlock/reload — re-applying on every echoed
+                // `play`/`timeupdate` from our own seek was the sync loop.
+                if (this._pendingPartySync && (wasLocked || wasReloading)) {
                     const pending = this._pendingPartySync;
                     clearTimeout(this._partyGuestFlushTimer);
                     this._partyGuestFlushTimer = setTimeout(() => {
