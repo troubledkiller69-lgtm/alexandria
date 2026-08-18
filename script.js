@@ -1599,23 +1599,41 @@ const Alexandria = {
                         <h2>FRANCHISE ARCHIVES</h2>
                         <p style="color:var(--text-muted);font-family:var(--font-display);letter-spacing:2px">CINEMATIC UNIVERSES & LEGENDARY SAGAS</p>
                     </div>
-                    <div class="franchise-list">
-                    ${results.map((f, i) => f.items.length > 0 ? `
-                    <article class="franchise-row">
-                        <button class="franchise-row-toggle" type="button" aria-expanded="false" aria-controls="franchise-deck-${i}" onclick="Alexandria.toggleFranchise(this)">
-                            <span class="franchise-row-bar" style="background:${f.accent}" aria-hidden="true"></span>
-                            <span class="franchise-row-name">${f.name}</span>
-                            <span class="franchise-row-quote">&ldquo;${f.subtitle}&rdquo;</span>
-                            <span class="franchise-row-count">${f.items.length} ${f.items.length === 1 ? 'TITLE' : 'TITLES'}</span>
-                            <svg class="franchise-row-chevron" aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>
-                        </button>
-                        <div class="franchise-deck" id="franchise-deck-${i}">
-                            <div class="franchise-deck-scroller">
-                                <div class="franchise-deck-first" id="franchise-first-${i}"></div>
-                                <div class="franchise-deck-rest" id="franchise-rest-${i}"></div>
+                    <div class="franchise-grid">
+                    ${results.map((f, i) => {
+                        if (!f.items.length) return '';
+                        const poster = this.imageUrl(f.items[0].poster_path, 'w342');
+                        const safeName = this.escapeHtml(f.name);
+                        return `
+                    <article class="franchise-tile">
+                        <div class="franchise-tile-cover">
+                            <button class="franchise-tile-toggle" type="button" aria-expanded="false" aria-controls="franchise-panel-${i}" onclick="Alexandria.toggleFranchise(this)">
+                                ${poster ? `<img class="franchise-tile-poster" src="${poster}" alt="${safeName}" loading="lazy" decoding="async">` : `<div class="franchise-tile-placeholder" aria-hidden="true"><span>A</span></div>`}
+                                <span class="franchise-tile-scrim" aria-hidden="true"></span>
+                                <span class="franchise-tile-count">${f.items.length}</span>
+                                <span class="franchise-tile-name">${f.name}</span>
+                            </button>
+                            <button class="franchise-tile-arrow" type="button" aria-expanded="false" aria-label="Expand ${safeName}" onclick="Alexandria.toggleFranchise(this)">
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>
+                            </button>
+                        </div>
+                        <div class="franchise-tile-panel" id="franchise-panel-${i}">
+                            <div class="franchise-panel-header">
+                                <span class="franchise-panel-bar" style="background:${f.accent}" aria-hidden="true"></span>
+                                <span class="franchise-panel-name">${f.name}</span>
+                                <span class="franchise-panel-quote">&ldquo;${f.subtitle}&rdquo;</span>
+                                <button class="franchise-panel-close" type="button" aria-label="Collapse ${safeName}" onclick="Alexandria.toggleFranchise(this)">
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                                </button>
+                            </div>
+                            <div class="franchise-deck">
+                                <div class="franchise-deck-scroller">
+                                    <div class="franchise-deck-first" id="franchise-first-${i}"></div>
+                                    <div class="franchise-deck-rest" id="franchise-rest-${i}"></div>
+                                </div>
                             </div>
                         </div>
-                    </article>` : '').join('')}
+                    </article>`; }).join('')}
                     </div>
                 </section>`;
 
@@ -1634,11 +1652,12 @@ const Alexandria = {
     },
 
     toggleFranchise(btn) {
-        const row = btn.closest('.franchise-row');
-        if (!row) return;
-        const isOpen = row.classList.toggle('open');
-        btn.setAttribute('aria-expanded', String(isOpen));
-        const rest = row.querySelector('.franchise-deck-rest');
+        const tile = btn.closest('.franchise-tile');
+        if (!tile) return;
+        const isOpen = tile.classList.toggle('open');
+        // Keep aria-expanded in sync across the cover toggle and the arrow button.
+        tile.querySelectorAll('[aria-expanded]').forEach(el => el.setAttribute('aria-expanded', String(isOpen)));
+        const rest = tile.querySelector('.franchise-deck-rest');
         if (rest) {
             // Measure the natural width of the hidden cards so the slide-out is
             // smooth and exact for any franchise size.
