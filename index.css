@@ -2014,68 +2014,179 @@ h1, h2, h3, h4 {
     flex-wrap: wrap;
 }
 
-/* Franchise deck — first poster fans out to the right to reveal the rest */
-.franchise-list {
-    display: flex;
-    flex-direction: column;
-    gap: 1.75rem;
+/* Franchise grid — compact first-poster tiles that expand into a full-width fan-out */
+.franchise-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: 1rem;
     padding-bottom: 2rem;
 }
-.franchise-row-toggle {
+.franchise-tile {
+    min-width: 0;
+}
+.franchise-tile.open {
+    grid-column: 1 / -1;
+}
+.franchise-tile-cover {
+    position: relative;
+    aspect-ratio: 2 / 3;
+    border-radius: 10px;
+    overflow: hidden;
+    background: rgba(15, 15, 20, 0.6);
+}
+.franchise-tile-toggle {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    border: none;
+    padding: 0;
+    margin: 0;
+    cursor: pointer;
+    background: transparent;
+    display: block;
+    text-align: left;
+}
+.franchise-tile-poster {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+.franchise-tile-placeholder {
+    position: absolute;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    font-family: var(--font-display);
+    font-size: 2rem;
+    color: var(--text-muted);
+}
+.franchise-tile-scrim {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(180deg, rgba(0, 0, 0, 0) 42%, rgba(0, 0, 0, 0.88));
+    pointer-events: none;
+}
+.franchise-tile-count {
+    position: absolute;
+    top: 0.5rem;
+    left: 0.5rem;
+    font-size: 0.6rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    color: rgba(255, 255, 255, 0.9);
+    background: rgba(0, 0, 0, 0.55);
+    padding: 0.15rem 0.45rem;
+    border-radius: 999px;
+    pointer-events: none;
+}
+.franchise-tile-name {
+    position: absolute;
+    left: 0.55rem;
+    right: 0.55rem;
+    bottom: 0.5rem;
+    font-family: var(--font-display);
+    font-size: 0.82rem;
+    font-weight: 800;
+    letter-spacing: 0.05em;
+    color: #fff;
+    line-height: 1.25;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    pointer-events: none;
+}
+.franchise-tile-arrow {
+    position: absolute;
+    top: 50%;
+    right: 0.55rem;
+    transform: translateY(-50%);
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    border: 1px solid rgba(255, 255, 255, 0.28);
+    background: rgba(15, 15, 20, 0.45);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    color: #fff;
+    display: grid;
+    place-items: center;
+    cursor: pointer;
+    z-index: 4;
+    transition: background 0.2s ease, color 0.2s ease, transform 0.2s ease;
+}
+.franchise-tile-arrow:hover {
+    background: rgba(212, 175, 55, 0.9);
+    color: var(--bg-base);
+    transform: translateY(-50%) scale(1.08);
+}
+
+/* Expanded panel */
+.franchise-tile-panel {
+    display: none;
+}
+.franchise-tile.open .franchise-tile-cover {
+    display: none;
+}
+.franchise-tile.open .franchise-tile-panel {
+    display: block;
+}
+.franchise-panel-header {
     display: flex;
     align-items: center;
-    gap: 0.65rem;
-    width: 100%;
-    padding: 0 0.35rem 0.85rem;
-    background: transparent;
-    border: none;
-    cursor: pointer;
-    text-align: left;
-    font-family: inherit;
-    color: var(--text-primary);
+    gap: 0.6rem;
+    margin-bottom: 0.75rem;
 }
-.franchise-row-bar {
+.franchise-panel-bar {
     width: 4px;
     height: 20px;
     border-radius: 2px;
     flex-shrink: 0;
 }
-.franchise-row-name {
+.franchise-panel-name {
     font-family: var(--font-display);
     font-size: 1.3rem;
     font-weight: 800;
     letter-spacing: 0.08em;
+    color: var(--text-primary);
 }
-.franchise-row-quote {
+.franchise-panel-quote {
     font-size: 0.82rem;
     font-style: italic;
     color: var(--text-muted);
     letter-spacing: 0.03em;
-    white-space: nowrap;
+    min-width: 0;
     overflow: hidden;
     text-overflow: ellipsis;
-    min-width: 0;
-}
-.franchise-row-count {
-    font-size: 0.6rem;
-    font-weight: 700;
-    letter-spacing: 0.12em;
-    color: var(--text-muted);
-    margin-left: auto;
     white-space: nowrap;
-    flex-shrink: 0;
 }
-.franchise-row-chevron {
-    width: 20px;
-    height: 20px;
+.franchise-panel-close {
+    margin-left: auto;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    border: 1px solid rgba(255, 255, 255, 0.25);
+    background: rgba(15, 15, 20, 0.45);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    color: var(--text-primary);
+    display: grid;
+    place-items: center;
+    cursor: pointer;
     flex-shrink: 0;
-    color: var(--text-muted);
-    transition: transform 0.35s ease, color 0.3s ease;
+    transition: background 0.2s ease, color 0.2s ease, transform 0.2s ease;
 }
-.franchise-row.open .franchise-row-chevron {
+.franchise-panel-close:hover {
+    background: rgba(212, 175, 55, 0.9);
+    color: var(--bg-base);
     transform: rotate(90deg);
-    color: var(--accent-gold);
 }
+
+/* Deck (fan-out) — shared */
 .franchise-deck {
     overflow-x: auto;
     overflow-y: hidden;
@@ -2103,7 +2214,7 @@ h1, h2, h3, h4 {
     opacity: 0;
     transition: width 0.55s cubic-bezier(0.25, 0.8, 0.25, 1), opacity 0.45s ease;
 }
-.franchise-row.open .franchise-deck-rest {
+.franchise-tile.open .franchise-deck-rest {
     opacity: 1;
 }
 
