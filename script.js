@@ -1654,14 +1654,30 @@ const Alexandria = {
     toggleFranchise(btn) {
         const tile = btn.closest('.franchise-tile');
         if (!tile) return;
-        const isOpen = tile.classList.toggle('open');
-        // Keep aria-expanded in sync across the cover toggle and the arrow button.
-        tile.querySelectorAll('[aria-expanded]').forEach(el => el.setAttribute('aria-expanded', String(isOpen)));
+        // Clicking the already-open tile collapses it.
+        if (tile.classList.contains('open')) {
+            this.setFranchiseOpen(tile, false);
+            return;
+        }
+        // Enforce a cap so the grid never gets visually cluttered: close the
+        // oldest-open tiles to make room before expanding the new one.
+        const openTiles = Array.from(tile.parentElement.querySelectorAll('.franchise-tile.open'));
+        const MAX_OPEN = 2;
+        while (openTiles.length >= MAX_OPEN) {
+            this.setFranchiseOpen(openTiles.shift(), false);
+        }
+        this.setFranchiseOpen(tile, true);
+    },
+    setFranchiseOpen(tile, open) {
+        tile.classList.toggle('open', open);
+        // Pull the expanded tile to the top row; cleared when it collapses.
+        tile.style.order = open ? '-1' : '';
+        tile.querySelectorAll('[aria-expanded]').forEach(el => el.setAttribute('aria-expanded', String(open)));
         const rest = tile.querySelector('.franchise-deck-rest');
         if (rest) {
             // Measure the natural width of the hidden cards so the slide-out is
             // smooth and exact for any franchise size.
-            rest.style.width = isOpen ? `${rest.scrollWidth}px` : '0px';
+            rest.style.width = open ? `${rest.scrollWidth}px` : '0px';
         }
     },
 
@@ -3403,6 +3419,10 @@ const Alexandria = {
                 </div>
 
                 <aside class="party-rail">
+                    <div class="party-rail-head">People</div>
+                    <div class="party-people" id="party-people">
+                        <div class="party-person"><span class="party-person-dot" aria-hidden="true"></span><span class="party-person-name">You</span><span class="party-person-tag party-person-tag--you">YOU</span></div>
+                    </div>
                     <div class="party-rail-head">Chat</div>
                     <div class="party-chat-messages" id="party-chat-messages">
                         <div class="party-chat-msg system">You’re in.</div>
@@ -3670,6 +3690,27 @@ const Alexandria = {
                 this.loadPartyEpisodes(id, season, episode);
             }
         }
+    },
+
+    renderPartyPeople(hostKey) {
+        const container = document.getElementById('party-people');
+        if (!container || !this.partyChannel) return;
+        const uid = sessionStorage.getItem('alexandria_party_uid');
+        const state = this.partyChannel.presenceState();
+        const keys = Object.keys(state);
+        const rows = keys.map((key) => {
+            const p = state[key]?.[0];
+            const name = p?.nickname || 'Guest';
+            const isHost = key === hostKey;
+            const isYou = key === uid;
+            return `<div class="party-person">
+                <span class="party-person-dot${isHost ? ' is-host' : ''}" aria-hidden="true"></span>
+                <span class="party-person-name">${this.escapeHtml(name)}</span>
+                ${isHost ? '<span class="party-person-tag">HOST</span>' : ''}
+                ${isYou && !isHost ? '<span class="party-person-tag party-person-tag--you">YOU</span>' : ''}
+            </div>`;
+        }).join('');
+        container.innerHTML = rows || '<div class="party-person"><span class="party-person-name">Just you</span></div>';
     },
 
     partyHostCommand(action) {
@@ -4350,12 +4391,28 @@ const Alexandria = {
                 }
                 if (!hostKey) hostKey = users[0];
 
+                this.renderPartyPeople(hostKey);
+
                 const wasHost = this.isHost;
                 // Room creator stays host while present; otherwise earliest joiner.
                 this.isHost = isCreator ? true : (hostKey === uid);
                 if (this.isHost) this._partyGuestUnlocked = true;
 
                 this.updatePartyRoleUI();
+
+                // Guest promoted to host (creator left): seed our clock from the
+                // last sync we received, then poll our own embed for the live stamp.
+                if (this.isHost && !wasHost) {
+                    const pending = this._pendingPartySync;
+                    if (!(Number(this._partyLastTime) >= 1) && pending && typeof pending.time === 'number' && pending.time >= 1) {
+                        this._partyLastTime = pending.time;
+                        this._partyLastTimeAt = Date.now();
+                        this.setPartyPaused(!!pending.paused || pending.action === 'pause');
+                    }
+                    this.notifiedHost = true;
+                    this.appendChatMessage('System', 'You’re the host now — friends follow you.');
+                    this.scheduleHostPartyResync();
+                }
 
                 if (this.isHost && !this.notifiedHost) {
                     this.notifiedHost = true;
@@ -4375,6 +4432,16 @@ const Alexandria = {
                         this.broadcastPartyContent();
                     }, 500);
                 }
+            })
+            .on('presence', { event: 'join' }, ({ key, newPresences }) => {
+                if (this.state.view !== 'party' || !this.partyChannel) return;
+                const name = newPresences?.[0]?.nickname;
+                if (name && key !== uid) this.appendChatMessage('System', `${name} joined`);
+            })
+            .on('presence', { event: 'leave' }, ({ key, leftPresences }) => {
+                if (this.state.view !== 'party' || !this.partyChannel) return;
+                const name = leftPresences?.[0]?.nickname;
+                if (name && key !== uid) this.appendChatMessage('System', `${name} left`);
             })
             .on('broadcast', { event: 'player_sync' }, (payload) => {
                 if (this.isHost) return;
@@ -4420,6 +4487,15 @@ const Alexandria = {
                 const { sender, msg, fromUid } = payload.payload;
                 if (fromUid === uid) return;
                 this.appendChatMessage(sender, msg);
+            })
+            .on('system', { event: 'reconnected' }, () => {
+                if (this.state.view !== 'party' || !this.partyChannel) return;
+                this.appendChatMessage('System', 'Reconnected — re-syncing…');
+                if (this.isHost) {
+                    this.scheduleHostPartyResync();
+                } else {
+                    this.partyChannel.send({ type: 'broadcast', event: 'sync_request', payload: { fromUid: uid } });
+                }
             })
             .subscribe(async (status) => {
                 if (status === 'SUBSCRIBED') {
