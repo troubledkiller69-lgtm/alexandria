@@ -2839,6 +2839,9 @@ const Alexandria = {
                             ${editBtn}
                         </div>
                     </div>
+                    <div class="profile-pulse" id="profile-pulse">
+                        <div class="placeholder-msg pulse-loading"><span class="pulse-dot"></span> CALCULATING WATCH STATS...</div>
+                    </div>
                     <div class="profile-tabs">
                         <button type="button" class="profile-tab ${tab === 'activity' ? 'active' : ''}" data-tab="activity" onclick="Alexandria.setProfileTab('activity')">ACTIVITY</button>
                         <button type="button" class="profile-tab ${tab === 'reviews' ? 'active' : ''}" data-tab="reviews" onclick="Alexandria.setProfileTab('reviews')">REVIEWS</button>
@@ -2848,9 +2851,177 @@ const Alexandria = {
                 </section>
             `;
             this.renderProfileSection();
+            this.renderProfilePulse(targetUid);
         } catch (e) {
             console.error("Alexandria Protocol: Profile Render Failed", e);
             if (token === this._renderToken) this.renderError('This profile is unavailable', e.message || 'Something went wrong.', 'profile');
+        }
+    },
+
+    // Pulse — watch-time stats, streaks, heatmap and badges. All derived
+    // from public activity/ratings/comments/lists, so anyone can view them.
+    async renderProfilePulse(uid) {
+        const container = document.getElementById('profile-pulse');
+        if (!container) return;
+        if (!this.supabase) { container.innerHTML = ''; return; }
+        const token = this._renderToken;
+        const safeQuery = promise => Promise.resolve(promise).catch(() => ({ data: [] }));
+        try {
+            const [actRes, ratingRes, commentRes] = await Promise.all([
+                safeQuery(this.supabase.from('activity').select('kind, content_id, content_type, created_at').eq('user_id', uid).order('created_at', { ascending: false }).limit(1000)),
+                safeQuery(this.supabase.from('ratings').select('rating').eq('user_id', uid).limit(1000)),
+                safeQuery(this.supabase.from('comments').select('id', { count: 'exact', head: true }).eq('user_id', uid))
+            ]);
+            if (token !== this._renderToken) return;
+
+            const activity = (actRes.data || []).filter(a => a.kind && a.created_at);
+            const ratings = ratingRes.data || [];
+            const commentCount = Number(commentRes.count) || 0;
+
+            // Day buckets, per-title watch counts, badges input
+            const dayCounts = {};
+            const dayKeys = [];
+            const perTitle = {};
+            const tvPerDay = {};
+            const moviePerDay = {};
+            let nightOwl = false;
+            for (const a of activity) {
+                const d = this.localDayKey(a.created_at);
+                if (!d) continue;
+                if (!(d in dayCounts)) dayKeys.push(d);
+                dayCounts[d] = (dayCounts[d] || 0) + 1;
+                if (a.kind === 'watching') {
+                    if (a.content_type === 'tv') tvPerDay[d] = (tvPerDay[d] || 0) + 1;
+                    else if (a.content_type === 'movie') moviePerDay[d] = (moviePerDay[d] || 0) + 1;
+                    if (a.content_id != null && (a.content_type === 'movie' || a.content_type === 'tv')) {
+                        const k = a.content_type + '_' + a.content_id;
+                        perTitle[k] = (perTitle[k] || 0) + 1;
+                    }
+                    const h = new Date(a.created_at).getHours();
+                    if (h < 5) nightOwl = true;
+                }
+            }
+            dayKeys.sort();
+
+            // Streaks
+            const daySet = new Set(dayKeys);
+            const today = this.todayKey();
+            let longest = 0, run = 0, prev = null;
+            for (const k of dayKeys) {
+                run = (prev && this.dayKeyOffset(prev, 1) === k) ? run + 1 : 1;
+                if (run > longest) longest = run;
+                prev = k;
+            }
+            let current = 0;
+            let cursor = daySet.has(today) ? today : this.dayKeyOffset(today, -1);
+            while (daySet.has(cursor)) { current++; cursor = this.dayKeyOffset(cursor, -1); }
+
+            // Approx hours: per watch event, movie runtime / avg episode runtime
+            let hours = 0;
+            const titleKeys = Object.keys(perTitle);
+            if (titleKeys.length > 0) {
+                const targets = titleKeys.map(k => {
+                    const i = k.indexOf('_');
+                    return { key: k, type: k.slice(0, i), id: Number(k.slice(i + 1)) };
+                });
+                await this.mapWithConcurrency(targets, 4, async t => {
+                    const rt = await this.runtimeFor(t.type, t.id);
+                    hours += (rt / 60) * perTitle[t.key];
+                });
+            }
+            if (token !== this._renderToken) return;
+
+            const episodes = Object.values(tvPerDay).reduce((s, n) => s + n, 0);
+            const titles = titleKeys.length;
+
+            // Heatmap: 16 weeks x 7 days ending today
+            const heatStart = new Date();
+            heatStart.setDate(heatStart.getDate() - 111);
+            heatStart.setHours(0, 0, 0, 0);
+            const heatCells = [];
+            for (let i = 0; i < 112; i++) {
+                const dt = new Date(heatStart);
+                dt.setDate(heatStart.getDate() + i);
+                const k = this.localDayKey(dt);
+                const count = dayCounts[k] || 0;
+                const level = count === 0 ? 0 : count === 1 ? 1 : count === 2 ? 2 : count <= 4 ? 3 : 4;
+                heatCells.push(`<span class="pulse-heat-cell heat-${level}" title="${k} — ${count} event${count === 1 ? '' : 's'}"></span>`);
+            }
+            let heatHtml = '';
+            for (let c = 0; c < 16; c++) {
+                heatHtml += `<div class="pulse-heat-col">${heatCells.slice(c * 7, c * 7 + 7).join('')}</div>`;
+            }
+
+            // Badges
+            const { lists = [], followers = 0, following = 0 } = this.state.profileData || {};
+            const maxTvDay = Object.keys(tvPerDay).length ? Math.max(...Object.values(tvPerDay)) : 0;
+            const maxMovieDay = Object.keys(moviePerDay).length ? Math.max(...Object.values(moviePerDay)) : 0;
+            const badges = [];
+            if (titles > 0) badges.push(['FIRST BLOOD', 'Watched your first title']);
+            if (maxTvDay >= 5) badges.push(['BINGE LORD', '5+ episodes in a single day']);
+            if (maxMovieDay >= 3) badges.push(['MARATHON MAN', '3+ movies in a single day']);
+            if (nightOwl) badges.push(['NIGHT OWL', 'Watching after midnight']);
+            if (ratings.length >= 5) badges.push(['CRITIC', '5+ ratings given']);
+            if (commentCount >= 10) badges.push(['TALKER', '10+ comments posted']);
+            if (longest >= 7) badges.push(['ON FIRE', '7-day watch streak']);
+            if (longest >= 30) badges.push(['UNSTOPPABLE', '30-day watch streak']);
+            if (lists.length >= 3) badges.push(['CURATOR', '3+ lists created']);
+            if (followers + following >= 3) badges.push(['CONNECTED', '3+ followers or following']);
+
+            const hoursText = hours >= 10 ? String(Math.round(hours)) : hours.toFixed(1);
+            container.innerHTML = `
+                <div class="pulse-stats-grid">
+                    <div class="pulse-stat-card"><span class="pulse-stat-value">${hoursText}</span><span class="pulse-stat-label">HRS WATCHED <span class="pulse-stat-sub">APPROX</span></span></div>
+                    <div class="pulse-stat-card"><span class="pulse-stat-value">${episodes}</span><span class="pulse-stat-label">EPISODES</span></div>
+                    <div class="pulse-stat-card"><span class="pulse-stat-value">${titles}</span><span class="pulse-stat-label">TITLES</span></div>
+                    <div class="pulse-stat-card"><span class="pulse-stat-value">${current}</span><span class="pulse-stat-label">DAY STREAK${longest > current ? ` <span class="pulse-stat-sub">LONGEST ${longest}</span>` : ''}</span></div>
+                </div>
+                <div class="pulse-heat-wrap">
+                    <div class="pulse-heatmap">${heatHtml}</div>
+                    <div class="pulse-heat-legend">LESS <span class="pulse-heat-cell heat-1"></span><span class="pulse-heat-cell heat-2"></span><span class="pulse-heat-cell heat-3"></span><span class="pulse-heat-cell heat-4"></span> MORE</div>
+                </div>
+                ${badges.length ? `<div class="pulse-badges"><span class="pulse-badge-title">BADGES</span>${badges.map(([name, desc]) => `<span class="pulse-badge" title="${this.escapeHtml(desc)}">${this.escapeHtml(name)}</span>`).join('')}</div>` : '<p class="pulse-empty">Start watching to earn badges.</p>'}
+            `;
+        } catch (e) {
+            console.warn("Alexandria Protocol: Pulse stats failed", e);
+            if (token === this._renderToken) container.innerHTML = '';
+        }
+    },
+
+    localDayKey(dateOrIso) {
+        const d = dateOrIso instanceof Date ? dateOrIso : new Date(dateOrIso);
+        if (isNaN(d.getTime())) return null;
+        return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    },
+
+    dayKeyOffset(key, delta) {
+        const [y, m, d] = key.split('-').map(Number);
+        const dt = new Date(y, m - 1, d);
+        dt.setDate(dt.getDate() + delta);
+        return this.localDayKey(dt);
+    },
+
+    todayKey() {
+        return this.localDayKey(new Date());
+    },
+
+    async runtimeFor(type, id) {
+        const k = type + '_' + id;
+        if (!this._runtimeCache) this._runtimeCache = {};
+        if (this._runtimeCache[k] !== undefined) return this._runtimeCache[k];
+        try {
+            const data = await this.getJson(type + '/' + id);
+            let rt = 0;
+            if (type === 'movie') rt = Number(data?.runtime) || 0;
+            else if (type === 'tv') {
+                rt = (Array.isArray(data?.episode_run_time) && Number(data?.episode_run_time[0]))
+                    ? Number(data.episode_run_time[0]) : 45;
+            }
+            this._runtimeCache[k] = rt;
+            return rt;
+        } catch {
+            this._runtimeCache[k] = type === 'tv' ? 45 : 0;
+            return this._runtimeCache[k];
         }
     },
 
@@ -2890,7 +3061,7 @@ const Alexandria = {
                                 ${titleLink(r)}
                             </div>
                             <div class="profile-review-stars">${stars}</div>
-                            ${r.review ? `<p class="profile-review-text">${this.escapeHtml(r.review)}</p>` : ''}
+                            ${r.review ? `<p class="profile-review-text">${r.spoiler ? this.spoilerHtml(this.escapeHtml(r.review)) : this.escapeHtml(r.review)}</p>` : ''}
                         </div>
                         <span class="profile-timeago">${this.timeago(r.created_at)}</span>
                     </div>
@@ -3000,13 +3171,73 @@ const Alexandria = {
                         <button type="button" class="feed-tab ${tab === 'following' ? 'active' : ''}" data-tab="following" aria-pressed="${tab === 'following'}" onclick="Alexandria.setCommunityTab('following')">FOLLOWING</button>
                     </div>
                 </div>
+                <div class="leaderboard-section">
+                    <h3>TOP WATCHERS THIS WEEK</h3>
+                    <div id="leaderboard-list"><div class="placeholder-msg"><span class="pulse-dot"></span> LOADING LEADERBOARD...</div></div>
+                </div>
                 <div id="feed-list"><div class="placeholder-msg"><span class="pulse-dot"></span> LOADING COMMUNITY FEED...</div></div>
             </section>
         `;
 
         this.initFeedRealtime();
+        this.renderLeaderboard();
         await this.fetchFeed();
         if (token !== this._renderToken) return;
+    },
+
+    async renderLeaderboard() {
+        const container = document.getElementById('leaderboard-list');
+        if (!container || !this.supabase) return;
+        const token = this._renderToken;
+        const safeQuery = promise => Promise.resolve(promise).catch(() => ({ data: [] }));
+        try {
+            const since = new Date(Date.now() - 7 * 86400000).toISOString();
+            const res = await safeQuery(this.supabase
+                .from('activity')
+                .select('user_id, kind, content_type')
+                .gte('created_at', since)
+                .order('created_at', { ascending: false })
+                .limit(2000));
+            if (token !== this._renderToken) return;
+
+            const tally = {};
+            (res.data || []).forEach(a => {
+                if (a.kind !== 'watching' || !a.user_id) return;
+                if (a.content_type !== 'movie' && a.content_type !== 'tv') return;
+                tally[a.user_id] = (tally[a.user_id] || 0) + 1;
+            });
+            const ranked = Object.entries(tally)
+                .map(([uid, score]) => ({ uid, score }))
+                .sort((a, b) => b.score - a.score)
+                .slice(0, 5);
+            if (token !== this._renderToken) return;
+
+            if (ranked.length === 0) {
+                container.innerHTML = '<div class="feed-empty">No watches logged this week yet. Be the first!</div>';
+                return;
+            }
+            await Promise.all(ranked.map(r => this.fetchProfile(r.uid)));
+            if (token !== this._renderToken) return;
+
+            const max = ranked[0].score;
+            const me = this.state.authUser?.id;
+            container.innerHTML = ranked.map((r, i) => {
+                const p = this._profileCache?.[r.uid] || null;
+                const name = p ? (p.nickname || p.username || 'Member') : 'Member';
+                const isMe = me === r.uid;
+                return `
+                    <a class="leaderboard-row ${isMe ? 'is-me' : ''}" href="#profile/${this.escapeHtml(r.uid)}">
+                        <span class="leaderboard-rank">${i + 1}</span>
+                        ${this.avatarHtml(p, 36)}
+                        <span class="leaderboard-name">${this.escapeHtml(name)}${isMe ? ' <em>(you)</em>' : ''}</span>
+                        <span class="leaderboard-count"><strong>${r.score}</strong> watch${r.score === 1 ? '' : 'es'}</span>
+                        <span class="leaderboard-bar"><span class="leaderboard-bar-fill" style="width:${Math.max(6, Math.round(r.score / max * 100))}%"></span></span>
+                    </a>`;
+            }).join('');
+        } catch (e) {
+            console.warn("Alexandria Protocol: Leaderboard failed", e);
+            if (token === this._renderToken) container.innerHTML = '<div class="feed-empty">Leaderboard unavailable right now.</div>';
+        }
     },
 
     setCommunityTab(tab) {
@@ -3966,7 +4197,8 @@ const Alexandria = {
                     text: row.content,
                     createdAt: row.created_at,
                     userId: row.user_id,
-                    isMine: row.user_id === this.state.authUser?.id
+                    isMine: row.user_id === this.state.authUser?.id,
+                    spoiler: !!row.spoiler
                 }));
                 // Pull any pre-auth localStorage comments up into the cloud once.
                 this.migrateLocalComments(commentKey).catch(() => {});
@@ -3998,7 +4230,8 @@ const Alexandria = {
                     comment_key: key,
                     author: entry.author || 'Member',
                     content: entry.text,
-                    user_id: userId
+                    user_id: userId,
+                    spoiler: !!entry.spoiler
                 });
                 if (error) failed = true;
             } catch {
@@ -4026,7 +4259,8 @@ const Alexandria = {
                         comment_key: commentKey,
                         author: commentObj.author,
                         content: commentObj.text,
-                        user_id: this.state.authUser.id
+                        user_id: this.state.authUser.id,
+                        spoiler: !!commentObj.spoiler
                     })
                     .select();
                 if (!error && data && data.length) {
@@ -4038,7 +4272,8 @@ const Alexandria = {
                         createdAt: row.created_at,
                         userId: row.user_id,
                         isMine: true,
-                        cloud: true
+                        cloud: true,
+                        spoiler: !!row.spoiler
                     };
                 }
             } catch (e) {
@@ -4100,13 +4335,15 @@ const Alexandria = {
         const u = this.state.authUser;
         const nickname = u.user_metadata?.username || u.email?.split('@')[0] || sessionStorage.getItem('alexandria_nickname') || 'Member';
 
+        const spoilerBox = document.getElementById('comment-spoiler');
         const commentObj = {
             id: 'c_' + Date.now() + '_' + Math.random().toString(36).substring(2, 6),
             key,
             author: nickname,
             text,
             createdAt: new Date().toISOString(),
-            isMine: true
+            isMine: true,
+            spoiler: spoilerBox ? spoilerBox.checked : false
         };
 
         let cloudPosted = false;
@@ -4226,7 +4463,7 @@ const Alexandria = {
                                 <button type="button" class="comment-delete-btn" aria-label="Delete comment" title="Delete comment" data-key="${safeKey}" data-id="${safeId}" onclick="Alexandria.deleteComment('${safeKey}', '${safeId}')">✕</button>
                             ` : ''}
                         </div>
-                        <p class="comment-text">${this.escapeHtml(c.text)}</p>
+                        <p class="comment-text">${c.spoiler ? this.spoilerHtml(this.escapeHtml(c.text)) : this.escapeHtml(c.text)}</p>
                     </div>
                 </div>
             `;
@@ -4251,6 +4488,10 @@ const Alexandria = {
                     <div class="comments-composer">
                         <textarea id="comment-input" placeholder="Share your thoughts on this episode or movie..." maxlength="500" rows="3"></textarea>
                         <div class="comments-composer-footer">
+                            <label class="spoiler-toggle" title="Blurs the comment until someone clicks it">
+                                <input type="checkbox" id="comment-spoiler">
+                                <span class="spoiler-toggle-text">Spoiler</span>
+                            </label>
                             <span class="char-count">Up to 500 characters</span>
                             <button type="button" class="btn-primary" onclick="Alexandria.addComment()">POST COMMENT</button>
                         </div>
@@ -4310,6 +4551,19 @@ const Alexandria = {
         }
         this.commentsChannel = null;
         this._commentsChannelKey = null;
+    },
+
+    // Cipher — spoiler tags. text is expected to be already escaped.
+    spoilerHtml(text) {
+        return `<span class="spoiler-block" tabindex="0" role="button" aria-label="Spoiler — click to reveal" title="Spoiler — click to reveal" onclick="Alexandria.revealSpoiler(this)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();Alexandria.revealSpoiler(this)}"><span class="spoiler-chip">SPOILER</span><span class="spoiler-blur">${text}</span></span>`;
+    },
+
+    revealSpoiler(el) {
+        const block = el.closest('.spoiler-block');
+        if (!block) return;
+        const revealed = block.classList.toggle('revealed');
+        block.setAttribute('aria-label', revealed ? 'Spoiler revealed' : 'Spoiler — click to reveal');
+        if (revealed) block.removeAttribute('title');
     },
 
     captureCommentDraft(inputId = 'comment-input') {
@@ -4418,6 +4672,10 @@ const Alexandria = {
                 </div>
                 <textarea id="review-input" placeholder="Write your review or comment..." maxlength="1000" rows="4">${this.escapeHtml(ownReview)}</textarea>
                 <div class="ratings-composer-footer">
+                    <label class="spoiler-toggle" title="Blurs the review until someone clicks it">
+                        <input type="checkbox" id="review-spoiler" ${ownRow?.spoiler ? 'checked' : ''}>
+                        <span class="spoiler-toggle-text">Spoiler</span>
+                    </label>
                     <button type="button" class="btn-primary" onclick="Alexandria.submitRating('${type}', ${id})">${ownRow ? 'UPDATE REVIEW' : 'SUBMIT'}</button>
                     ${ownRow ? `<button type="button" class="btn-secondary" onclick="Alexandria.deleteRating('${ownRow.id}')">DELETE MY REVIEW</button>` : ''}
                 </div>
@@ -4444,7 +4702,7 @@ const Alexandria = {
                             <span class="review-stars" aria-label="Rated ${n} of 5">${'★'.repeat(n)}${'☆'.repeat(5 - n)}</span>
                             <span class="review-time">${this.escapeHtml(this.timeago(r.created_at))}</span>
                         </div>
-                        ${r.review ? `<p class="review-text">${this.escapeHtml(r.review)}</p>` : ''}
+                        ${r.review ? `<p class="review-text">${r.spoiler ? this.spoilerHtml(this.escapeHtml(r.review)) : this.escapeHtml(r.review)}</p>` : ''}
                     </div>
                     ${isMine ? `
                         <div class="review-actions">
@@ -4479,7 +4737,7 @@ const Alexandria = {
                                 <button type="button" class="comment-delete-btn" aria-label="Delete comment" title="Delete comment" data-key="${safeKey}" data-id="${safeId}" onclick="Alexandria.deleteComment('${safeKey}', '${safeId}')">✕</button>
                             ` : ''}
                         </div>
-                        <p class="comment-text">${this.escapeHtml(c.text)}</p>
+                        <p class="comment-text">${c.spoiler ? this.spoilerHtml(this.escapeHtml(c.text)) : this.escapeHtml(c.text)}</p>
                     </div>
                 </div>
             `};
@@ -4534,6 +4792,8 @@ const Alexandria = {
         }
         const input = document.getElementById('review-input');
         const review = (input?.value || '').trim();
+        const spoilerBox = document.getElementById('review-spoiler');
+        const spoiler = spoilerBox ? spoilerBox.checked : false;
         const existing = this.state._ownRatingRow;
         try {
             const { error } = await this.supabase.from('ratings').upsert({
@@ -4542,6 +4802,7 @@ const Alexandria = {
                 content_type: type,
                 rating,
                 review,
+                spoiler,
                 created_at: existing ? existing.created_at : new Date().toISOString(),
                 updated_at: new Date().toISOString()
             }, { onConflict: 'user_id,content_id,content_type' });
@@ -4563,7 +4824,7 @@ const Alexandria = {
                     const u = this.state.authUser;
                     const nickname = u.user_metadata?.username || u.email?.split('@')[0] || sessionStorage.getItem('alexandria_nickname') || 'Member';
                     const profile = await this.fetchProfile(u.id).catch(() => null);
-                    await this.saveComment(key, { author: profile?.nickname || nickname, text: review });
+                    await this.saveComment(key, { author: profile?.nickname || nickname, text: review, spoiler });
                 } catch (e) {
                     console.warn("Alexandria: Comment insert after review failed", e);
                 }
