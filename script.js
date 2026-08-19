@@ -3601,7 +3601,14 @@ const Alexandria = {
             }
         } catch (err) {
             console.warn('Profile save failed:', err);
-            this.showToast('Could not save profile');
+            // 23505 = unique_violation: someone grabbed this @ between our
+            // uniqueness check and the update (DB constraint is the backstop).
+            if (err && (err.code === '23505' || /duplicate key/.test(err.message || ''))) {
+                this.showToast(`@${username} is already taken. Try another.`);
+                document.getElementById('profile-username-input')?.focus();
+            } else {
+                this.showToast('Could not save profile');
+            }
         }
     },
     // #endregion
@@ -5375,17 +5382,28 @@ const Alexandria = {
 
     async ensureUserProfile(user, preferredUsername) {
         if (!this.supabase || !user) return;
-        try {
-            const username = preferredUsername || user.user_metadata?.username || user.email?.split('@')[0] || 'User';
-            await this.supabase.from('profiles').upsert({
-                id: user.id,
-                username: username,
-                username_lower: username.toLowerCase(),
-                nickname: username,
-                created_at: new Date().toISOString()
-            }, { onConflict: 'id' });
-        } catch (err) {
-            console.warn("Profile sync note:", err);
+        const base = preferredUsername || user.user_metadata?.username || user.email?.split('@')[0] || 'User';
+        for (let attempt = 0; attempt < 3; attempt++) {
+            const username = attempt === 0 ? base : `${base}${attempt + 1}`;
+            try {
+                await this.supabase.from('profiles').upsert({
+                    id: user.id,
+                    username,
+                    username_lower: username.toLowerCase(),
+                    nickname: username,
+                    created_at: new Date().toISOString()
+                }, { onConflict: 'id' });
+                return;
+            } catch (err) {
+                // 23505 = unique_violation: this @ is taken (someone raced the
+                // signup). Retry with a numbered suffix rather than silently
+                // failing to create the profile.
+                const isDuplicate = err && (err.code === '23505' || /duplicate key/.test(err.message || ''));
+                if (!isDuplicate) {
+                    console.warn("Profile sync note:", err);
+                    return;
+                }
+            }
         }
     },
 
