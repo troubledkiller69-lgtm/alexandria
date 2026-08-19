@@ -5563,6 +5563,13 @@ h1, h2, h3, h4 {
     line-height: 1.35;
     color: var(--text-primary);
 }
+.airing-card-ep {
+    margin: -0.35rem 0.6rem 0.6rem;
+    font-size: 0.62rem;
+    font-weight: 800;
+    letter-spacing: 0.1em;
+    color: #fca5a5;
+}
 
 /* ============ PULSE — watch stats, streaks, badges (profile) ============ */
 .profile-pulse {
@@ -5683,6 +5690,13 @@ h1, h2, h3, h4 {
     background: rgba(239, 68, 68, 0.1);
     border: 1px solid rgba(239, 68, 68, 0.35);
     cursor: default;
+}
+
+.pulse-badge svg {
+    flex: none;
+    margin-right: 0.4rem;
+    color: #fca5a5;
+    opacity: 0.95;
 }
 
 /* Badge hover tooltip — "how did I earn this" */
