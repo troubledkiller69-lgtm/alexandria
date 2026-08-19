@@ -1871,16 +1871,13 @@ const Alexandria = {
             { name: 'Indiana Jones', collectionId: 84, accent: '#8b5a2b', subtitle: 'Snakes. Why Did It Have to Be Snakes?', genre: 'Adventure' },
             { name: 'Dune', collectionId: 726871, accent: '#d4a33c', subtitle: 'Fear Is the Mind-Killer', genre: 'Sci-Fi' },
             { name: 'Mad Max', collectionId: 8945, accent: '#e0662e', subtitle: 'Witness Me!', genre: 'Action' },
-            { name: 'Reacher', tvIds: [108978], accent: '#7d8f9e', subtitle: 'You Do Not Mess with the Special Investigators', isTv: true, genre: 'Action' },
-            { name: 'Suits', tvIds: [37680], accent: '#28415c', subtitle: "When You're a Lawyer, You're Part of the Firm", isTv: true, genre: 'Drama' },
-            { name: 'Lost', tvIds: [4607], accent: '#3a6ea5', subtitle: 'We Have to Go Back', isTv: true, genre: 'Mystery' },
             { name: 'Breaking Bad Universe', tvIds: [1396, 60059], accent: '#1b7f3a', subtitle: 'I Am the One Who Knocks', isTv: true, genre: 'Crime' },
             { name: 'The Witcher', tvIds: [71912, 106541], accent: '#8e6b3f', subtitle: 'Toss a Coin to Your Witcher', isTv: true, genre: 'Fantasy' },
             { name: 'The Boys', tvIds: [76479, 205715], accent: '#4a4a6a', subtitle: 'Fuck the Seven. Fuck Homelander.', isTv: true, genre: 'Superhero' }
         ];
 
         try {
-            const FRANCHISE_CACHE_KEY = 'alexandria_franchise_cache_v4';
+            const FRANCHISE_CACHE_KEY = 'alexandria_franchise_cache_v5';
             let cached = null;
             try {
                 cached = JSON.parse(sessionStorage.getItem(FRANCHISE_CACHE_KEY));
@@ -2630,6 +2627,24 @@ const Alexandria = {
             const wlStatus = wlEntry ? (wlEntry.status || 'want') : 'want';
 
             const trailer = data.videos?.results?.find(v => v.site === 'YouTube' && v.type === 'Trailer' && /^[\w-]{6,20}$/.test(v.key));
+
+            // Curate similar titles: exclude the current title, drop poster-less
+            // entries, cap the carousel. If TMDB has nothing similar, fall back
+            // to a genre-based discovery scan so the section is never empty.
+            let similarItems = (data.similar?.results || [])
+                .filter(i => i && Number(i.id) !== Number(id) && i.poster_path)
+                .slice(0, 20);
+            let similarHeading = 'SIMILAR TITLES';
+            if (!similarItems.length && data.genres?.length) {
+                const genreDiscover = await this.getJson(
+                    `discover/${type}?with_genres=${data.genres[0].id}&sort_by=popularity.desc`
+                ).catch(() => ({ results: [] }));
+                if (token !== this._renderToken) return;
+                similarItems = (genreDiscover.results || [])
+                    .filter(i => i && Number(i.id) !== Number(id) && i.poster_path)
+                    .slice(0, 20);
+                similarHeading = 'MORE LIKE THIS';
+            }
             
             const castData = data.credits?.cast?.length ? data.credits.cast : (data.aggregate_credits?.cast || []);
             const castHtml = castData.slice(0, 15).map(c => `
@@ -2693,9 +2708,9 @@ const Alexandria = {
                         </div>
                     </div>` : ''}
 
-                    ${data.similar?.results?.length ? `
+                    ${similarItems.length ? `
                     <div class="view-section">
-                        <h3>SIMILAR TITLES</h3>
+                        <h3>${similarHeading}</h3>
                         <div class="carousel-container">
                             <button class="carousel-arrow left" onclick="Alexandria.scrollCarousel(this, -800)">&#10094;</button>
                             <div class="carousel-wrapper"><div class="carousel-grid" id="similar-results"></div></div>
@@ -2707,11 +2722,11 @@ const Alexandria = {
                 </section>
             `;
             
-            if (data.similar?.results?.length) {
-                data.similar.results.forEach(item => {
+            if (similarItems.length) {
+                similarItems.forEach(item => {
                     if (!item.media_type) item.media_type = type;
                 });
-                this.renderResults(data.similar.results, 'similar-results');
+                this.renderResults(similarItems, 'similar-results');
             }
             this.renderCommunitySection(type, id);
         } catch(e) {
