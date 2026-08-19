@@ -14,7 +14,12 @@ const Alexandria = {
         watchlistFilter: 'all',
         watchlistSort: 'recent',
         partyRoomId: null,
-        authUser: null
+        authUser: null,
+        activeProfileId: null,
+        profileTab: 'activity',
+        profileData: null,
+        profileGenreSelection: null,
+        profileAvatarSelection: null
     },
 
     servers: [
@@ -58,6 +63,16 @@ const Alexandria = {
         ['80', 'Crime'], ['99', 'Documentary'], ['18', 'Drama'], ['10751', 'Family'], ['10762', 'Kids'],
         ['9648', 'Mystery'], ['10763', 'News'], ['10764', 'Reality'], ['10765', 'Sci-Fi & Fantasy'],
         ['10766', 'Soap'], ['10767', 'Talk'], ['10768', 'War & Politics']
+    ],
+    AVATAR_PRESETS: [
+        { id: 'python', emoji: '🐍' },
+        { id: 'dragon', emoji: '🐉' },
+        { id: 'owl', emoji: '🦉' },
+        { id: 'fox', emoji: '🦊' },
+        { id: 'wolf', emoji: '🐺' },
+        { id: 'raven', emoji: '🐦‍⬛' },
+        { id: 'panda', emoji: '🐼' },
+        { id: 'tiger', emoji: '🐯' }
     ],
 
     escapeHtml(value = '') {
@@ -454,6 +469,18 @@ const Alexandria = {
             if (!Number.isInteger(id) || id < 1) { this.setView('home'); return; }
             this.state.activeContent = { id, type: 'person' };
             this.setView('person');
+        } else if (path.startsWith('profile/')) {
+            let uid = '';
+            try {
+                uid = decodeURIComponent(path.split('/').slice(1).join('/')).trim();
+            } catch {
+                uid = path.split('/').slice(1).join('/').trim();
+            }
+            if (!uid) { this.setView('home'); return; }
+            this.state.activeProfileId = uid;
+            this.state.profileTab = 'activity';
+            this.state.profileData = null;
+            this.setView('profile');
         } else {
             const allowedViews = new Set(['home', 'movies', 'tv', 'anime', 'franchises', 'search', 'history', 'watchlist']);
             this.setView(allowedViews.has(path) ? path : 'home');
@@ -830,6 +857,7 @@ const Alexandria = {
         else if (this.state.view === 'player') this.renderPlayer();
         else if (this.state.view === 'details') this.renderDetails();
         else if (this.state.view === 'person') this.renderPerson();
+        else if (this.state.view === 'profile') this.renderProfile();
         else if (this.state.view === 'party') this.renderParty();
         
         else {
@@ -2254,6 +2282,426 @@ const Alexandria = {
         }
     },
 
+    // #region Community profiles
+    avatarHtml(profile, sizePx = 32) {
+        const preset = this.AVATAR_PRESETS.find(p => p.id === profile?.avatar_id);
+        const content = preset
+            ? preset.emoji
+            : (profile?.nickname || profile?.username || profile?.email || '?').charAt(0).toUpperCase();
+        const px = Math.max(16, Number(sizePx) || 32);
+        return `<span class="alexandria-avatar" style="width:${px}px;height:${px}px;font-size:${Math.round(px * 0.5)}px;">${this.escapeHtml(content)}</span>`;
+    },
+
+    timeago(iso) {
+        if (!iso) return '';
+        const then = new Date(iso).getTime();
+        if (!Number.isFinite(then)) return '';
+        const sec = Math.max(0, Math.floor((Date.now() - then) / 1000));
+        if (sec < 60) return 'just now';
+        const min = Math.floor(sec / 60);
+        if (min < 60) return `${min}m ago`;
+        const hr = Math.floor(min / 60);
+        if (hr < 24) return `${hr}h ago`;
+        const day = Math.floor(hr / 24);
+        if (day < 7) return `${day}d ago`;
+        const wk = Math.floor(day / 7);
+        if (wk < 5) return `${wk}w ago`;
+        const d = new Date(then);
+        const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+        return `${months[d.getMonth()]} ${d.getDate()}, ${d.getFullYear()}`;
+    },
+
+    async fetchProfile(uid) {
+        if (!uid) return null;
+        this._profileCache = this._profileCache || {};
+        if (this._profileCache[uid]) return this._profileCache[uid];
+        if (!this.supabase) return null;
+        try {
+            const { data, error } = await this.supabase
+                .from('profiles')
+                .select('id, username, username_lower, nickname, bio, fav_genres, avatar_id, created_at')
+                .eq('id', uid)
+                .maybeSingle();
+            if (error && error.code !== 'PGRST116') console.warn("Supabase profile fetch:", error);
+            if (data) this._profileCache[uid] = data;
+            return data || null;
+        } catch {
+            return null;
+        }
+    },
+
+    logActivity(kind, opts = {}) {
+        if (!this.supabase || !this.state.authUser) return;
+        const { contentId, contentType, title, posterPath, meta } = opts;
+        this.supabase.from('activity').insert({
+            user_id: this.state.authUser.id,
+            kind,
+            content_id: contentId ?? null,
+            content_type: contentType ?? null,
+            title: title ?? null,
+            poster_path: posterPath ?? null,
+            meta: meta ?? null
+        }).then().catch(() => {});
+    },
+
+    async renderProfile(uid) {
+        const targetUid = uid || this.state.activeProfileId;
+        if (!targetUid) {
+            this.renderError('This profile is unavailable', 'No user id was supplied.', 'home');
+            return;
+        }
+        const token = this._renderToken;
+        this.main.innerHTML = '<div class="placeholder-msg"><span class="pulse-dot"></span> LOADING PROFILE...</div>';
+
+        const safeQuery = promise => promise.catch(() => ({ data: [] }));
+
+        try {
+            const me = this.state.authUser?.id;
+            const [profile, activityRes, ratingsRes, listsRes] = await Promise.all([
+                this.fetchProfile(targetUid),
+                this.supabase ? safeQuery(this.supabase.from('activity').select('*').eq('user_id', targetUid).order('created_at', { ascending: false }).limit(20)) : Promise.resolve({ data: [] }),
+                this.supabase ? safeQuery(this.supabase.from('ratings').select('*').eq('user_id', targetUid).order('created_at', { ascending: false }).limit(20)) : Promise.resolve({ data: [] }),
+                this.supabase ? safeQuery(this.supabase.from('movie_night_lists').select('*').eq('owner_id', targetUid).order('created_at', { ascending: false })) : Promise.resolve({ data: [] })
+            ]);
+            if (token !== this._renderToken) return;
+
+            const [followersRes, followingRes, myFollowRes] = this.supabase
+                ? await Promise.all([
+                    safeQuery(this.supabase.from('follows').select('follower_id').eq('followee_id', targetUid)),
+                    safeQuery(this.supabase.from('follows').select('followee_id').eq('follower_id', targetUid)),
+                    (me && me !== targetUid)
+                        ? this.supabase.from('follows').select('id').eq('follower_id', me).eq('followee_id', targetUid).maybeSingle().catch(() => ({ data: null }))
+                        : Promise.resolve({ data: null })
+                ])
+                : [{ data: [] }, { data: [] }, { data: null }];
+            if (token !== this._renderToken) return;
+
+            if (!profile) {
+                this.main.innerHTML = '<div class="placeholder-msg">This profile could not be found.</div>';
+                return;
+            }
+
+            const activity = activityRes.data || [];
+            const ratings = ratingsRes.data || [];
+            const lists = listsRes.data || [];
+            const followers = (followersRes.data || []).length;
+            const following = (followingRes.data || []).length;
+            const isFollowing = Boolean(myFollowRes.data);
+
+            this.state.profileData = { profile, activity, ratings, lists, followers, following, isFollowing };
+
+            const displayName = profile.nickname || profile.username || 'Member';
+            const isMe = Boolean(me && me === targetUid);
+            const followBtn = (me && !isMe)
+                ? `<button type="button" id="profile-follow-btn" class="follow-btn ${isFollowing ? 'following' : ''}" onclick="Alexandria.toggleFollow('${this.escapeHtml(targetUid)}')">${isFollowing ? 'FOLLOWING' : 'FOLLOW'}</button>`
+                : '';
+            const editBtn = isMe
+                ? '<button type="button" class="btn-secondary" onclick="Alexandria.editProfileModal(true)">EDIT PROFILE</button>'
+                : '';
+            const genreChips = (profile.fav_genres || '')
+                .split(',').map(s => s.trim()).filter(Boolean)
+                .map(gid => {
+                    const g = this.GENRES.find(genre => String(genre.id) === gid);
+                    return g ? `<span class="genre-chip">${this.escapeHtml(g.name)}</span>` : '';
+                }).join('');
+            const tab = ['reviews', 'lists'].includes(this.state.profileTab) ? this.state.profileTab : 'activity';
+            this.state.profileTab = tab;
+
+            this.main.innerHTML = `
+                <section class="profile-page">
+                    <div class="profile-hero">
+                        ${this.avatarHtml(profile, 96)}
+                        <div class="profile-hero-info">
+                            <h1>${this.escapeHtml(displayName)}</h1>
+                            ${profile.username ? `<p class="profile-handle">@${this.escapeHtml(profile.username)}</p>` : ''}
+                            ${profile.bio ? `<p class="profile-bio">${this.escapeHtml(profile.bio)}</p>` : ''}
+                            <div class="profile-stats">
+                                <span class="profile-stat"><strong>${activity.length}</strong>Activity</span>
+                                <span class="profile-stat"><strong>${ratings.length}</strong>Reviews</span>
+                                <span class="profile-stat"><strong>${lists.length}</strong>Lists</span>
+                                <span class="profile-stat"><strong id="profile-followers-count">${followers}</strong>Followers</span>
+                                <span class="profile-stat"><strong>${following}</strong>Following</span>
+                            </div>
+                            ${genreChips ? `<div class="profile-genres">${genreChips}</div>` : ''}
+                        </div>
+                        <div class="profile-hero-actions">
+                            ${followBtn}
+                            ${editBtn}
+                        </div>
+                    </div>
+                    <div class="profile-tabs">
+                        <button type="button" class="profile-tab ${tab === 'activity' ? 'active' : ''}" data-tab="activity" onclick="Alexandria.setProfileTab('activity')">ACTIVITY</button>
+                        <button type="button" class="profile-tab ${tab === 'reviews' ? 'active' : ''}" data-tab="reviews" onclick="Alexandria.setProfileTab('reviews')">REVIEWS</button>
+                        <button type="button" class="profile-tab ${tab === 'lists' ? 'active' : ''}" data-tab="lists" onclick="Alexandria.setProfileTab('lists')">LISTS</button>
+                    </div>
+                    <div id="profile-section"></div>
+                </section>
+            `;
+            this.renderProfileSection();
+        } catch (e) {
+            console.error("Alexandria Protocol: Profile Render Failed", e);
+            if (token === this._renderToken) this.renderError('This profile is unavailable', e.message || 'Something went wrong.', 'profile');
+        }
+    },
+
+    setProfileTab(tab) {
+        if (!['activity', 'reviews', 'lists'].includes(tab)) tab = 'activity';
+        this.state.profileTab = tab;
+        document.querySelectorAll('.profile-tab').forEach(btn => {
+            btn.classList.toggle('active', btn.dataset.tab === tab);
+        });
+        this.renderProfileSection();
+    },
+
+    renderProfileSection() {
+        const container = document.getElementById('profile-section');
+        const data = this.state.profileData;
+        if (!container || !data) return;
+        const { profile, activity, ratings, lists } = data;
+        const targetUid = this.state.activeProfileId || profile.id;
+        const displayName = profile.nickname || profile.username || 'Member';
+        const avatar = size => `<a class="profile-avatar-link" href="#profile/${this.escapeHtml(targetUid)}">${this.avatarHtml(profile, size)}</a>`;
+        const nameLink = `<a href="#profile/${this.escapeHtml(targetUid)}">${this.escapeHtml(displayName)}</a>`;
+        const titleLink = item => (item.content_id && (item.content_type === 'movie' || item.content_type === 'tv'))
+            ? `<a href="#details/${this.escapeHtml(item.content_type)}/${this.escapeHtml(item.content_id)}">${this.escapeHtml(item.title || 'this title')}</a>`
+            : (item.title ? this.escapeHtml(item.title) : '');
+
+        if (this.state.profileTab === 'reviews') {
+            container.innerHTML = ratings.length ? ratings.map(r => {
+                const n = Math.max(0, Math.min(10, Math.round(Number(r.rating) || 0)));
+                const stars = '★'.repeat(n) + '☆'.repeat(10 - n);
+                return `
+                    <div class="profile-section-item">
+                        ${avatar(36)}
+                        <div class="profile-section-body">
+                            <div class="profile-section-line">
+                                ${nameLink}
+                                <span class="profile-verb">reviewed</span>
+                                ${titleLink(r)}
+                            </div>
+                            <div class="profile-review-stars">${stars}</div>
+                            ${r.review ? `<p class="profile-review-text">${this.escapeHtml(r.review)}</p>` : ''}
+                        </div>
+                        <span class="profile-timeago">${this.timeago(r.created_at)}</span>
+                    </div>
+                `;
+            }).join('') : '<div class="profile-empty">No reviews yet.</div>';
+            return;
+        }
+
+        if (this.state.profileTab === 'lists') {
+            container.innerHTML = lists.length ? lists.map(l => `
+                <div class="profile-section-item">
+                    ${avatar(36)}
+                    <div class="profile-section-body">
+                        <div class="profile-section-line">
+                            <span class="profile-verb">list</span>
+                            <a href="#list/${this.escapeHtml(l.id)}">${this.escapeHtml(l.title || 'Untitled list')}</a>
+                        </div>
+                        ${l.description ? `<p class="profile-list-desc">${this.escapeHtml(l.description)}</p>` : ''}
+                    </div>
+                    <span class="profile-timeago">${this.timeago(l.created_at)}</span>
+                </div>
+            `).join('') : '<div class="profile-empty">No lists yet.</div>';
+            return;
+        }
+
+        const verbs = {
+            watching: 'started watching',
+            rated: 'rated',
+            reviewed: 'wrote a review of',
+            watchlist: 'added to watchlist',
+            list_created: 'created the list',
+            list_added: 'added a title to a list',
+            followed: 'started following someone',
+            comment: 'commented on'
+        };
+        container.innerHTML = activity.length ? activity.map(a => {
+            const verb = verbs[a.kind] || 'was active on';
+            return `
+                <div class="profile-section-item">
+                    ${avatar(36)}
+                    <div class="profile-section-body">
+                        <div class="profile-section-line">
+                            ${nameLink}
+                            <span class="profile-verb">${verb}</span>
+                            ${titleLink(a)}
+                        </div>
+                    </div>
+                    <span class="profile-timeago">${this.timeago(a.created_at)}</span>
+                </div>
+            `;
+        }).join('') : '<div class="profile-empty">No activity yet.</div>';
+    },
+
+    async toggleFollow(uid) {
+        if (!uid) return;
+        if (!this.supabase || !this.state.authUser) {
+            this.toggleAuthModal(true, 'login');
+            this.showToast('Sign in to follow');
+            return;
+        }
+        const me = this.state.authUser.id;
+        if (me === uid) return;
+        try {
+            const { data: existing } = await this.supabase
+                .from('follows')
+                .select('id')
+                .eq('follower_id', me)
+                .eq('followee_id', uid)
+                .maybeSingle();
+            const nowFollowing = !existing;
+            if (existing) {
+                await this.supabase.from('follows').delete().eq('follower_id', me).eq('followee_id', uid);
+            } else {
+                await this.supabase.from('follows').insert({ follower_id: me, followee_id: uid });
+            }
+            if (nowFollowing) {
+                this.logActivity('followed', { meta: JSON.stringify({ followee: uid }) });
+            }
+            const btn = document.getElementById('profile-follow-btn');
+            if (btn) {
+                btn.textContent = nowFollowing ? 'FOLLOWING' : 'FOLLOW';
+                btn.classList.toggle('following', nowFollowing);
+            }
+            const countEl = document.getElementById('profile-followers-count');
+            if (countEl) {
+                const current = Number(countEl.textContent) || 0;
+                countEl.textContent = String(current + (nowFollowing ? 1 : -1));
+            }
+            this.showToast(nowFollowing ? 'Following' : 'Unfollowed');
+        } catch (err) {
+            console.warn('Follow toggle failed:', err);
+            this.showToast('Could not update follow status');
+        }
+    },
+
+    editProfileModal(open) {
+        let modal = document.getElementById('profile-modal');
+        if (!modal) {
+            modal = document.createElement('div');
+            modal.id = 'profile-modal';
+            modal.className = 'profile-modal-overlay';
+            modal.setAttribute('hidden', '');
+            modal.innerHTML = `
+                <div class="profile-modal-card">
+                    <button class="auth-close-btn" type="button" aria-label="Close" onclick="Alexandria.editProfileModal(false)">✕</button>
+                    <h3 class="profile-modal-title">EDIT PROFILE</h3>
+                    <div class="auth-field">
+                        <label>Nickname</label>
+                        <input type="text" id="profile-nickname-input" placeholder="Your display name" maxlength="40">
+                    </div>
+                    <div class="auth-field">
+                        <label>Bio</label>
+                        <textarea id="profile-bio-input" rows="4" placeholder="Tell the archive about yourself" maxlength="500"></textarea>
+                    </div>
+                    <span class="profile-modal-label">Avatar</span>
+                    <div class="avatar-picker" id="avatar-picker"></div>
+                    <span class="profile-modal-label">Favorite Genres</span>
+                    <div class="genre-picker" id="genre-picker"></div>
+                    <div class="profile-modal-actions">
+                        <button type="button" class="btn-secondary" onclick="Alexandria.editProfileModal(false)">CANCEL</button>
+                        <button type="button" class="btn-primary" onclick="Alexandria.saveProfile()">SAVE</button>
+                    </div>
+                </div>
+            `;
+            modal.addEventListener('click', e => { if (e.target === modal) this.editProfileModal(false); });
+            document.body.appendChild(modal);
+        }
+        const show = open !== undefined ? Boolean(open) : modal.hasAttribute('hidden');
+        if (show) {
+            modal.removeAttribute('hidden');
+            this.prefillProfileModal();
+        } else {
+            modal.setAttribute('hidden', '');
+        }
+    },
+
+    async prefillProfileModal() {
+        const me = this.state.authUser?.id;
+        if (!me) return;
+        const nicknameInput = document.getElementById('profile-nickname-input');
+        if (nicknameInput) {
+            nicknameInput.value = this.state.authUser?.user_metadata?.username
+                || sessionStorage.getItem('alexandria_nickname')
+                || localStorage.getItem('alexandria_username')
+                || '';
+        }
+        const profile = await this.fetchProfile(me);
+        const modal = document.getElementById('profile-modal');
+        if (!profile || !modal || modal.hasAttribute('hidden')) return;
+        if (nicknameInput && profile.nickname) nicknameInput.value = profile.nickname;
+        const bioInput = document.getElementById('profile-bio-input');
+        if (bioInput) bioInput.value = profile.bio || '';
+        this.state.profileAvatarSelection = profile.avatar_id || 'python';
+        const picker = document.getElementById('avatar-picker');
+        if (picker) {
+            picker.innerHTML = this.AVATAR_PRESETS.map(p => `
+                <button type="button" class="avatar-picker-btn ${profile.avatar_id === p.id ? 'selected' : ''}" data-avatar="${p.id}" aria-label="${p.id}" onclick="Alexandria.selectProfileAvatar('${p.id}', this)">${p.emoji}</button>
+            `).join('');
+        }
+        this.state.profileGenreSelection = new Set(
+            (profile.fav_genres || '').split(',').map(s => s.trim()).filter(Boolean)
+        );
+        const genrePicker = document.getElementById('genre-picker');
+        if (genrePicker) {
+            genrePicker.innerHTML = this.GENRES.map(g => `
+                <button type="button" class="genre-chip genre-chip-btn ${this.state.profileGenreSelection.has(String(g.id)) ? 'selected' : ''}" data-genre="${g.id}" onclick="Alexandria.toggleProfileGenre(${g.id}, this)">${this.escapeHtml(g.name)}</button>
+            `).join('');
+        }
+    },
+
+    selectProfileAvatar(id, btn) {
+        this.state.profileAvatarSelection = id;
+        document.querySelectorAll('.avatar-picker-btn').forEach(b => b.classList.toggle('selected', b === btn));
+    },
+
+    toggleProfileGenre(genreId, btn) {
+        const set = this.state.profileGenreSelection || new Set();
+        const key = String(genreId);
+        if (set.has(key)) set.delete(key); else set.add(key);
+        this.state.profileGenreSelection = set;
+        if (btn) btn.classList.toggle('selected', set.has(key));
+    },
+
+    async saveProfile() {
+        const me = this.state.authUser?.id;
+        if (!me) return;
+        const nickname = (document.getElementById('profile-nickname-input')?.value || '').trim();
+        const bio = (document.getElementById('profile-bio-input')?.value || '').trim();
+        if (!nickname) {
+            this.showToast('Nickname is required');
+            return;
+        }
+        if (!this.supabase) {
+            this.showToast('Supabase cloud required for profiles.');
+            return;
+        }
+        const genres = this.state.profileGenreSelection ? [...this.state.profileGenreSelection] : [];
+        const avatarId = this.state.profileAvatarSelection || 'python';
+        try {
+            await this.supabase.from('profiles').update({
+                nickname,
+                bio,
+                fav_genres: genres.join(','),
+                avatar_id: avatarId
+            }).eq('id', me);
+            this._profileCache = this._profileCache || {};
+            delete this._profileCache[me];
+            this.showToast('Profile saved');
+            this.editProfileModal(false);
+            this.updateAuthUI();
+            if (this.state.view === 'profile') {
+                this.state.profileTab = 'activity';
+                this.renderProfile();
+            }
+        } catch (err) {
+            console.warn('Profile save failed:', err);
+            this.showToast('Could not save profile');
+        }
+    },
+    // #endregion
+
     async renderPlayer() {
         const { id, type, season, episode, isAnime } = this.state.activeContent;
         if (!this.servers[this.state.activeServer]) this.state.activeServer = 0;
@@ -3093,14 +3541,17 @@ const Alexandria = {
             const u = this.state.authUser;
             const name = u.user_metadata?.username || u.email || 'User';
             const initial = name.charAt(0).toUpperCase();
+            const profileHash = '#profile/' + encodeURIComponent(u.id);
             body.innerHTML = `
                 <div class="auth-profile-card">
-                    <div class="auth-profile-avatar">${initial}</div>
+                    <div class="auth-profile-avatar">${this.escapeHtml(initial)}</div>
                     <div class="auth-profile-info">
                         <h3>${this.escapeHtml(name)}</h3>
                         <p>${this.escapeHtml(u.email || 'Verified Account')}</p>
                     </div>
-                    <button type="button" class="btn-primary" style="width: 100%; margin-top: 1rem;" onclick="Alexandria.handleSignOut()">LOG OUT</button>
+                    <button type="button" class="btn-primary" style="width: 100%; margin-top: 1rem;" onclick="Alexandria.toggleAuthModal(false); window.location.hash = '${profileHash}'">VIEW PROFILE</button>
+                    <button type="button" class="btn-secondary" style="width: 100%; margin-top: 0.5rem;" onclick="Alexandria.editProfileModal(true)">EDIT PROFILE</button>
+                    <button type="button" class="btn-secondary" style="width: 100%; margin-top: 0.5rem;" onclick="Alexandria.handleSignOut()">LOG OUT</button>
                 </div>
             `;
             return;
@@ -3279,14 +3730,20 @@ const Alexandria = {
     updateAuthUI() {
         const btnLabel = document.getElementById('auth-btn-label');
         if (!btnLabel) return;
-        
+
         if (this.state.authUser) {
-            const name = this.state.authUser.user_metadata?.username
+            const fallback = this.state.authUser.user_metadata?.username
                 || sessionStorage.getItem('alexandria_nickname')
                 || localStorage.getItem('alexandria_username')
                 || this.state.authUser.email?.split('@')[0]
                 || 'Account';
-            btnLabel.textContent = name;
+            btnLabel.textContent = fallback;
+            this.fetchProfile(this.state.authUser.id).then(profile => {
+                const current = document.getElementById('auth-btn-label');
+                if (current && this.state.authUser && profile?.nickname) {
+                    current.textContent = profile.nickname;
+                }
+            }).catch(() => {});
         } else {
             btnLabel.textContent = 'Account';
         }
@@ -3300,6 +3757,7 @@ const Alexandria = {
                 id: user.id,
                 username: username,
                 username_lower: username.toLowerCase(),
+                nickname: username,
                 created_at: new Date().toISOString()
             }, { onConflict: 'id' });
         } catch (err) {
