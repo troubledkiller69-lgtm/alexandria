@@ -495,7 +495,7 @@ const Alexandria = {
             this.openRouletteModal();
             return;
         } else {
-            const allowedViews = new Set(['home', 'movies', 'tv', 'anime', 'franchises', 'search', 'history', 'watchlist', 'community', 'calendar']);
+            const allowedViews = new Set(['home', 'movies', 'tv', 'anime', 'franchises', 'search', 'history', 'watchlist', 'community']);
             this.setView(allowedViews.has(path) ? path : 'home');
         }
     },
@@ -918,7 +918,6 @@ const Alexandria = {
 
         // Main View Routing
         if (this.state.view === 'home') this.renderHome();
-        else if (this.state.view === 'calendar') this.renderCalendar();
         else if (this.state.view === 'movies') this.renderFiltered('movie');
         else if (this.state.view === 'tv') this.renderFiltered('tv');
         else if (this.state.view === 'anime') this.renderAnime();
@@ -1368,12 +1367,9 @@ const Alexandria = {
             const currentGenre = this.GENRES.find(g => g.id === (this.state.activeGenreId || 35)) || this.GENRES[0];
 
             // Sector 1: Core Content Scans
-            const [mData, tData, nData, aData, uData, genreData] = await Promise.all([
+            const [mData, tData, genreData] = await Promise.all([
                 this.getJson('trending/movie/day'),
                 this.getJson('trending/tv/day'),
-                this.getJson('discover/movie?with_watch_providers=8&watch_region=US'),
-                this.getJson('discover/movie?with_genres=28'),
-                this.getJson('movie/upcoming'),
                 this.getJson(`discover/movie?with_genres=${currentGenre.id}&sort_by=popularity.desc`).catch(() => ({ results: [] }))
             ]);
             
@@ -1439,10 +1435,8 @@ const Alexandria = {
                     </div>
                     <div class="view-section"><h3>ALEXANDRIA'S SPECIALS</h3><div class="carousel-container"><button class="carousel-arrow left" onclick="Alexandria.scrollCarousel(this, -800)">&#10094;</button><div class="carousel-wrapper"><div class="carousel-grid" id="alexandria-specials"></div></div><button class="carousel-arrow right" onclick="Alexandria.scrollCarousel(this, 800)">&#10095;</button></div></div>
                     <div class="view-section"><h3>Trending Movies</h3><div class="carousel-container"><button class="carousel-arrow left" onclick="Alexandria.scrollCarousel(this, -800)">&#10094;</button><div class="carousel-wrapper"><div class="carousel-grid" id="trending-movies"></div></div><button class="carousel-arrow right" onclick="Alexandria.scrollCarousel(this, 800)">&#10095;</button></div></div>
-                    <div class="view-section"><h3>Netflix Originals</h3><div class="carousel-container"><button class="carousel-arrow left" onclick="Alexandria.scrollCarousel(this, -800)">&#10094;</button><div class="carousel-wrapper"><div class="carousel-grid" id="netflix-hits"></div></div><button class="carousel-arrow right" onclick="Alexandria.scrollCarousel(this, 800)">&#10095;</button></div></div>
                     <div class="view-section"><h3>Trending TV Shows</h3><div class="carousel-container"><button class="carousel-arrow left" onclick="Alexandria.scrollCarousel(this, -800)">&#10094;</button><div class="carousel-wrapper"><div class="carousel-grid" id="trending-tv"></div></div><button class="carousel-arrow right" onclick="Alexandria.scrollCarousel(this, 800)">&#10095;</button></div></div>
-                    <div class="view-section"><h3>Upcoming Missions</h3><div class="carousel-container"><button class="carousel-arrow left" onclick="Alexandria.scrollCarousel(this, -800)">&#10094;</button><div class="carousel-wrapper"><div class="carousel-grid" id="upcoming-hits"></div></div><button class="carousel-arrow right" onclick="Alexandria.scrollCarousel(this, 800)">&#10095;</button></div></div>
-                    <div class="view-section"><h3>Action Archives</h3><div class="carousel-container"><button class="carousel-arrow left" onclick="Alexandria.scrollCarousel(this, -800)">&#10094;</button><div class="carousel-wrapper"><div class="carousel-grid" id="action-hits"></div></div><button class="carousel-arrow right" onclick="Alexandria.scrollCarousel(this, 800)">&#10095;</button></div></div>
+                    <div class="view-section"><h3>RELEASING THIS WEEK</h3><div class="carousel-container"><button class="carousel-arrow left" onclick="Alexandria.scrollCarousel(this, -800)">&#10094;</button><div class="carousel-wrapper"><div class="carousel-grid" id="airing-week-grid"><div class="placeholder-msg"><span class="pulse-dot"></span> SCANNING AIRTIMES...</div></div></div><button class="carousel-arrow right" onclick="Alexandria.scrollCarousel(this, 800)">&#10095;</button></div></div>
                 </section>`;
             
             this.renderHistory();
@@ -1452,9 +1446,7 @@ const Alexandria = {
             this.renderResults(specialsData, 'alexandria-specials');
             this.renderResults(mData.results, 'trending-movies');
             this.renderResults(tData.results, 'trending-tv');
-            this.renderResults(nData.results, 'netflix-hits');
-            this.renderResults(aData.results, 'action-hits');
-            this.renderResults(uData.results, 'upcoming-hits');
+            this.renderAiringThisWeek();
         } catch (error) {
             console.error("Alexandria Protocol: Home Scout Failed -", error);
             if (token === this._renderToken) this.renderError('The archive is out of range', error.message, 'home');
@@ -1546,75 +1538,72 @@ const Alexandria = {
         this.renderResults(capped, 'because-you-watched-results');
     },
 
-    async renderCalendar() {
-        const token = this._renderToken;
-        this.main.innerHTML = '<div class="placeholder-msg"><span class="pulse-dot"></span> SYNCING AIRTIME...</div>';
+    localISODate(d) {
+        return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+    },
 
+    // TMDB's tv/on_the_air list items only carry first_air_date (premiere),
+    // not the next episode's air date — so resolve each show's detail for
+    // next_episode_to_air to know when it actually airs this week.
+    async fetchAiringThisWeek(limit = 18) {
         try {
-            const [airingData, onAirData] = await Promise.all([
-                this.getJson('tv/airing_today'),
-                this.getJson('tv/on_the_air')
-            ]);
-            if (token !== this._renderToken) return;
-
-            const localISO = (d) => d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+            const data = await this.getJson('tv/on_the_air');
+            const shows = (data.results || []).filter(s => s && s.id).slice(0, limit);
+            if (!shows.length) return [];
             const today = new Date();
-            const days = [];
-            for (let i = 0; i < 7; i++) {
-                const date = new Date(today.getFullYear(), today.getMonth(), today.getDate() + i, 12);
-                days.push({
-                    iso: localISO(date),
-                    label: ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'][date.getDay()] + ' ' + date.getDate()
-                });
-            }
-            const todayISO = days[0].iso;
-            const lastISO = days[6].iso;
-
-            const seen = new Set();
-            const shows = [];
-            for (const data of [airingData, onAirData]) {
-                const results = (data && data.results) || [];
-                for (const show of results) {
-                    if (!show || !show.air_date) continue;
-                    if (show.air_date < todayISO || show.air_date > lastISO) continue;
-                    if (seen.has(show.id)) continue;
-                    seen.add(show.id);
-                    shows.push(show);
+            const minIso = this.localISODate(new Date(today.getFullYear(), today.getMonth(), today.getDate() - 1, 12));
+            const maxIso = this.localISODate(new Date(today.getFullYear(), today.getMonth(), today.getDate() + 7, 12));
+            const rows = await this.mapWithConcurrency(shows, 5, async s => {
+                try {
+                    const detail = await this.getJson('tv/' + s.id);
+                    const next = detail.next_episode_to_air;
+                    if (!next || !next.air_date) return null;
+                    if (next.air_date < minIso || next.air_date > maxIso) return null;
+                    return {
+                        id: s.id,
+                        name: s.name || detail.name || 'Untitled',
+                        poster_path: detail.poster_path || s.poster_path,
+                        air_date: next.air_date,
+                        season: next.season_number,
+                        episode: next.episode_number
+                    };
+                } catch {
+                    return null;
                 }
-            }
-
-            const groups = {};
-            days.forEach(d => { groups[d.iso] = []; });
-            shows.forEach(show => {
-                if (groups[show.air_date]) groups[show.air_date].push(show);
             });
-
-            this.main.innerHTML = `
-                <section class="view-section calendar-view">
-                    <div class="calendar-header">
-                        <h3>AIRTIME CALENDAR</h3>
-                        <p class="calendar-range">${this.escapeHtml(days[0].label)} &mdash; ${this.escapeHtml(days[6].label)}</p>
-                    </div>
-                    <div class="calendar-grid">
-                        ${days.map((d, i) => `
-                            <div class="calendar-day${i === 0 ? ' today' : ''}">
-                                <div class="calendar-day-head">${this.escapeHtml(d.label)}${i === 0 ? ' <span class="calendar-today-tag">TODAY</span>' : ''}</div>
-                                ${groups[d.iso].length
-                                    ? groups[d.iso].map(show => {
-                                        const safeId = this.escapeHtml(String(show.id));
-                                        const safeTitle = this.escapeHtml(show.name || show.original_name || 'Untitled');
-                                        const poster = this.imageUrl(show.poster_path, 'w185');
-                                        return `<div class="calendar-item">${poster ? `<img src="${poster}" alt="${safeTitle} poster" loading="lazy" decoding="async">` : `<div class="poster-placeholder" role="img" aria-label="No poster available"><span>A</span><small>NO POSTER</small></div>`}<a class="calendar-item-title" href="#details/tv/${safeId}">${safeTitle}</a></div>`;
-                                    }).join('')
-                                    : '<div class="calendar-empty">NO SIGNALS</div>'}
-                            </div>
-                        `).join('')}
-                    </div>
-                </section>`;
-        } catch (error) {
-            console.error("Alexandria Protocol: Calendar Sync Failed -", error);
-            if (token === this._renderToken) this.renderError('CALENDAR OFFLINE', error.message, 'calendar');
+            return rows.filter(Boolean).sort((a, b) => a.air_date < b.air_date ? -1 : 1);
+        } catch {
+            return [];
         }
+    },
+
+    async renderAiringThisWeek() {
+        const token = this._renderToken;
+        const grid = document.getElementById('airing-week-grid');
+        if (!grid) return;
+        const rows = await this.fetchAiringThisWeek();
+        if (token !== this._renderToken || !grid.isConnected) return;
+        if (!rows.length) {
+            grid.innerHTML = '<div class="placeholder-msg">No confirmed airings this week.</div>';
+            return;
+        }
+        const fmt = iso => {
+            const d = new Date(iso + 'T12:00:00');
+            return ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'][d.getDay()] + ' ' + ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'][d.getMonth()] + ' ' + d.getDate();
+        };
+        const todayIso = this.localISODate(new Date());
+        grid.innerHTML = rows.map(r => {
+            const safeId = this.escapeHtml(String(r.id));
+            const safeTitle = this.escapeHtml(r.name);
+            const poster = this.imageUrl(r.poster_path, 'w185');
+            const isToday = r.air_date === todayIso;
+            return `
+                <a class="airing-card" href="#details/tv/${safeId}">
+                    ${poster ? `<img class="airing-card-poster" src="${poster}" alt="${safeTitle} poster" loading="lazy" decoding="async">` : '<div class="poster-placeholder" role="img" aria-label="No poster available"><span>A</span><small>NO POSTER</small></div>'}
+                    <span class="airing-card-badge ${isToday ? 'today' : ''}">${isToday ? 'TONIGHT' : fmt(r.air_date)}</span>
+                    <span class="airing-card-title">${safeTitle}</span>
+                </a>`;
+        }).join('');
     },
 
     removeFromHistory(id, type) {
