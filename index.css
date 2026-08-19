@@ -5543,6 +5543,7 @@ h1, h2, h3, h4 {
 }
 
 .pulse-badge {
+    position: relative;
     display: inline-flex;
     align-items: center;
     padding: 0.35rem 0.75rem;
@@ -5554,6 +5555,52 @@ h1, h2, h3, h4 {
     background: rgba(239, 68, 68, 0.1);
     border: 1px solid rgba(239, 68, 68, 0.35);
     cursor: default;
+}
+
+/* Badge hover tooltip — "how did I earn this" */
+.pulse-badge::after {
+    content: attr(data-desc);
+    position: absolute;
+    bottom: calc(100% + 9px);
+    left: 50%;
+    transform: translateX(-50%);
+    background: #0a0a0c;
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    border-radius: 8px;
+    padding: 0.5rem 0.8rem;
+    font-size: 0.72rem;
+    font-weight: 500;
+    letter-spacing: 0.02em;
+    line-height: 1.45;
+    color: var(--text-secondary);
+    max-width: 260px;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.15s ease;
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.55);
+    z-index: 40;
+}
+
+.pulse-badge::before {
+    content: '';
+    position: absolute;
+    bottom: calc(100% + 5px);
+    left: 50%;
+    transform: translateX(-50%) rotate(45deg);
+    width: 8px;
+    height: 8px;
+    background: #0a0a0c;
+    border-right: 1px solid rgba(255, 255, 255, 0.14);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.14);
+    opacity: 0;
+    transition: opacity 0.15s ease;
+    z-index: 40;
+    pointer-events: none;
+}
+
+.pulse-badge:hover::after,
+.pulse-badge:hover::before {
+    opacity: 1;
 }
 
 .pulse-empty {
