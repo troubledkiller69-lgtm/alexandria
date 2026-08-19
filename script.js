@@ -617,6 +617,31 @@ const Alexandria = {
             }
         });
 
+        // Trailer previews on poster hover (desktop only, hover-intent)
+        this.main.addEventListener('mouseover', (e) => {
+            const w = e.target.closest('.poster-wrapper[data-trailer]');
+            if (!w) return;
+            if (!window.matchMedia('(hover: hover)').matches) return;
+            if (window.innerWidth < 900) return;
+            if (!this._trailerTimers) this._trailerTimers = new Map();
+            if (this._trailerTimers.has(w)) return;
+            if (w.querySelector('.trailer-preview')) return;
+            this._trailerTimers.set(w, setTimeout(() => {
+                this._trailerTimers.delete(w);
+                this.loadTrailerPreview(w);
+            }, 650));
+        });
+
+        this.main.addEventListener('mouseout', (e) => {
+            const w = e.target.closest('.poster-wrapper[data-trailer]');
+            if (!w) return;
+            if (e.relatedTarget && w.contains(e.relatedTarget)) return;
+            const t = this._trailerTimers.get(w);
+            if (t) { clearTimeout(t); this._trailerTimers.delete(w); }
+            const f = w.querySelector('.trailer-preview');
+            if (f) f.remove();
+        });
+
     },
 
     teardownParty() {
@@ -2319,10 +2344,13 @@ const Alexandria = {
                 : isHistoryRow && type === 'movie'
                     ? `#movie/${safeItemId}`
                     : `#details/${type}/${safeItemId}`;
+            const trailerAttrs = (type === 'movie' || type === 'tv')
+                ? ` data-trailer="${safeItemId}" data-trailer-type="${type}"`
+                : '';
 
             return `
                 <article class="movie-card" data-id="${safeItemId}" data-type="${type}" data-title="${safeTitle}" data-is-anime="${isAnime}" ${dataAttributes}>
-                    <div class="poster-wrapper">
+                    <div class="poster-wrapper"${trailerAttrs}>
                         ${poster ? `<img src="${poster}" alt="${safeTitle} poster" loading="lazy" decoding="async">` : `<div class="poster-placeholder" role="img" aria-label="No poster available"><span>A</span><small>NO POSTER</small></div>`}
                         <div class="card-overlay">
                             ${badgeHtml}
@@ -2352,6 +2380,30 @@ const Alexandria = {
                     <div class="ep-panel" data-panel-show="${safeItemId}" hidden></div>
                 </article>`;
         }).join('');
+    },
+
+    loadTrailerPreview(w) {
+        if (!this._trailerCache) this._trailerCache = {};
+        if (this._trailerInflight == null) this._trailerInflight = 0;
+        const id = w.dataset.trailer, type = w.dataset.trailerType;
+        if (this._trailerCache[id] === false) return;
+        if (typeof this._trailerCache[id] === 'string') {
+            w.insertAdjacentHTML('beforeend', trailerFrame(this._trailerCache[id]));
+            return;
+        }
+        if (this._trailerInflight >= 2) return;
+        this._trailerInflight++;
+        this.getJson(type + '/' + id + '/videos').then(data => {
+            this._trailerInflight--;
+            const list = (data.videos && data.videos.results) || data.results || [];
+            const v = list.find(x => x.site === 'YouTube' && (x.type === 'Trailer' || x.type === 'Teaser') && x.key && x.key.length >= 6 && x.key.length <= 20 && /^[a-zA-Z0-9_-]+$/.test(x.key));
+            this._trailerCache[id] = v ? v.key : false;
+            if (v && w.isConnected && !w.querySelector('.trailer-preview')) w.insertAdjacentHTML('beforeend', trailerFrame(v.key));
+        }).catch(() => { this._trailerInflight--; });
+
+        function trailerFrame(key) {
+            return '<iframe class="trailer-preview" src="https://www.youtube-nocookie.com/embed/' + key + '?autoplay=1&mute=1&controls=0&modestbranding=1&rel=0&playsinline=1" allow="autoplay; encrypted-media" loading="lazy" tabindex="-1"></iframe>';
+        }
     },
 
 
