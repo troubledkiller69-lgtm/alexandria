@@ -3418,12 +3418,35 @@ h1, h2, h3, h4 {
     display: flex;
     flex-direction: column;
     gap: 0.35rem;
+    min-width: 0;
 }
 
 .comment-meta {
     display: flex;
     align-items: center;
     gap: 0.75rem;
+    flex-wrap: wrap;
+}
+
+.comment-avatar-link {
+    display: grid;
+    place-items: center;
+    flex-shrink: 0;
+    align-self: flex-start;
+    text-decoration: none;
+}
+
+.comment-avatar-link:hover .alexandria-avatar {
+    box-shadow: 0 0 16px rgba(239, 68, 68, 0.45);
+}
+
+.comment-author-link {
+    text-decoration: none;
+    color: #fff;
+}
+
+.comment-author-link:hover {
+    color: var(--accent-primary);
 }
 
 .comment-author {
@@ -3456,6 +3479,8 @@ h1, h2, h3, h4 {
     font-size: 0.88rem;
     color: rgba(255, 255, 255, 0.88);
     line-height: 1.45;
+    overflow-wrap: anywhere;
+    margin: 0;
 }
 
 .comments-empty {
