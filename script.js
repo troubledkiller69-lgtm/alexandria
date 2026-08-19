@@ -3871,11 +3871,20 @@ const Alexandria = {
 
             container.innerHTML = this._currentSeasonEpisodes.map(ep => {
                 const watched = !!this.state.watchedEpisodes[`${id}_s${season}e${ep.episode_number}`];
+                const still = ep.still_path ? this.imageUrl(ep.still_path, 'w300') : '';
+                const overview = ep.overview ? this.escapeHtml(ep.overview) : 'No description on file.';
                 return `
                 <div class="episode-item ${this.state.activeContent.episode == ep.episode_number ? 'active' : ''}" role="link" tabindex="0"
+                     aria-label="Episode ${ep.episode_number}: ${this.escapeHtml(ep.name || 'Untitled episode')}"
                      onclick="window.location.hash = '#tv/${id}/s/${season}/e/${ep.episode_number}'">
-                    <span class="ep-num">EP ${ep.episode_number}</span>
-                    <span class="ep-name">${this.escapeHtml(ep.name || 'Untitled episode')}</span>
+                    <div class="ep-card-media">
+                        ${still ? `<img src="${still}" alt="" loading="lazy" decoding="async">` : '<div class="ep-card-fallback" aria-hidden="true"></div>'}
+                        <span class="ep-num">EP ${ep.episode_number}</span>
+                        <div class="ep-card-overlay">
+                            <span class="ep-name">${this.escapeHtml(ep.name || 'Untitled episode')}</span>
+                            <span class="ep-overview">${overview}</span>
+                        </div>
+                    </div>
                     <button class="ep-watched-btn ${watched ? 'active' : ''}" type="button" title="Mark episode watched" aria-label="Mark episode ${ep.episode_number} watched" aria-pressed="${watched}"
                         data-show="${id}" data-season="${season}" data-episode="${ep.episode_number}"
                         onclick="event.stopPropagation(); event.preventDefault(); Alexandria.markEpisodeWatched(${id}, ${season}, ${ep.episode_number}, !this.classList.contains('active'))">✓</button>
