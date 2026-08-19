@@ -133,16 +133,23 @@ alter table public.movie_night_lists enable row level security;
 alter table public.movie_night_items enable row level security;
 
 -- profiles
+-- Column-level grants keep email out of client queries entirely:
+-- the "Public read profiles" policy alone would still expose it to anon clients.
+revoke select, insert, update on public.profiles from anon, authenticated;
+grant select (id, username, username_lower, nickname, bio, fav_genres, avatar_id, created_at)
+  on public.profiles to anon, authenticated;
+grant insert (id, username, username_lower, nickname, avatar_id, created_at)
+  on public.profiles to authenticated;
+grant update (username, username_lower, nickname, bio, fav_genres, avatar_id)
+  on public.profiles to authenticated;
 create policy "Public read profiles" on public.profiles for select
   using (true);
--- NOTE: email column should NOT be exposed via client queries.
--- Use supabase.from('profiles').select('id, username, username_lower, nickname, bio, fav_genres, avatar_id') to avoid leaking emails.
 create policy "Users can manage profile" on public.profiles for all using (auth.uid() = id);
 
 -- comments
 create policy "Public read comments" on public.comments for select using (true);
 create policy "Authenticated users can post comments" on public.comments
-  for insert with check (auth.uid() is not null);
+  for insert with check (auth.uid() = user_id);
 create policy "Users can delete own comments" on public.comments for delete using (auth.uid() = user_id);
 
 -- survival_cache (watchlist)

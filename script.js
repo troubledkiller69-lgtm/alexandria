@@ -1549,9 +1549,10 @@ const Alexandria = {
             if (token !== this._renderToken) return;
 
             const localISO = (d) => d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+            const today = new Date();
             const days = [];
             for (let i = 0; i < 7; i++) {
-                const date = new Date(Date.now() + i * 86400000);
+                const date = new Date(today.getFullYear(), today.getMonth(), today.getDate() + i, 12);
                 days.push({
                     iso: localISO(date),
                     label: ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'][date.getDay()] + ' ' + date.getDate()
@@ -2183,7 +2184,6 @@ const Alexandria = {
         const read = id => document.getElementById(id)?.value || '';
         r.genre = read('roulette-genre');
         r.rating = Number(read('roulette-rating')) || 0;
-        r.votes = Number(read('roulette-votes')) || 0;
         r.runtime = read('roulette-runtime');
         r.yearFrom = read('roulette-year-from');
         r.yearTo = read('roulette-year-to');
@@ -2200,10 +2200,10 @@ const Alexandria = {
         if (r.rating > 0) params.push(`vote_average.gte=${r.rating}`);
         if (r.votes > 0) params.push(`vote_count.gte=${r.votes}`);
         if (type === 'movie' && r.runtime) params.push(`with_runtime.lte=${r.runtime}`);
-        if (r.yearFrom) params.push(type === 'movie' ? `primary_release_year.gte=${r.yearFrom}` : `first_air_date_year.gte=${r.yearFrom}`);
-        if (r.yearTo) params.push(type === 'movie' ? `primary_release_year.lte=${r.yearTo}` : `first_air_date_year.lte=${r.yearTo}`);
+        if (r.yearFrom) params.push(type === 'movie' ? `primary_release_date.gte=${r.yearFrom}-01-01` : `first_air_date.gte=${r.yearFrom}-01-01`);
+        if (r.yearTo) params.push(type === 'movie' ? `primary_release_date.lte=${r.yearTo}-12-31` : `first_air_date.lte=${r.yearTo}-12-31`);
         let endpoint = `discover/${type}?${params.join('&')}`;
-        if (endpoint.length > 480 && params[params.length - 1]?.includes('year.lte')) {
+        if (endpoint.length > 480 && params[params.length - 1]?.includes('_date.lte=')) {
             params.pop();
             endpoint = `discover/${type}?${params.join('&')}`;
         }
@@ -2386,9 +2386,10 @@ const Alexandria = {
         if (!this._trailerCache) this._trailerCache = {};
         if (this._trailerInflight == null) this._trailerInflight = 0;
         const id = w.dataset.trailer, type = w.dataset.trailerType;
-        if (this._trailerCache[id] === false) return;
-        if (typeof this._trailerCache[id] === 'string') {
-            w.insertAdjacentHTML('beforeend', trailerFrame(this._trailerCache[id]));
+        const cacheKey = type + '_' + id;
+        if (this._trailerCache[cacheKey] === false) return;
+        if (typeof this._trailerCache[cacheKey] === 'string') {
+            w.insertAdjacentHTML('beforeend', trailerFrame(this._trailerCache[cacheKey]));
             return;
         }
         if (this._trailerInflight >= 2) return;
@@ -2397,7 +2398,7 @@ const Alexandria = {
             this._trailerInflight--;
             const list = (data.videos && data.videos.results) || data.results || [];
             const v = list.find(x => x.site === 'YouTube' && (x.type === 'Trailer' || x.type === 'Teaser') && x.key && x.key.length >= 6 && x.key.length <= 20 && /^[a-zA-Z0-9_-]+$/.test(x.key));
-            this._trailerCache[id] = v ? v.key : false;
+            this._trailerCache[cacheKey] = v ? v.key : false;
             if (v && w.isConnected && !w.querySelector('.trailer-preview')) w.insertAdjacentHTML('beforeend', trailerFrame(v.key));
         }).catch(() => { this._trailerInflight--; });
 
@@ -2509,7 +2510,7 @@ const Alexandria = {
                                         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg> WATCH PARTY
                                     </button>
                                     <button class="btn-secondary" type="button" data-share-title="${this.escapeHtml(title)}" onclick="Alexandria.shareCurrent(this.dataset.shareTitle)" style="margin-left: 10px;">SHARE</button>
-                                    <button class="btn-secondary" type="button" style="margin-left: 10px;" onclick="Alexandria.addToListModal(${Number(id)}, '${type}', '${this.escapeHtml(this.state.detailsTitle)}', '${this.escapeHtml(this.state.detailsPoster || '')}')">ADD TO LIST</button>
+                                    <button class="btn-secondary" type="button" style="margin-left: 10px;" onclick="Alexandria.addToListModal(${Number(id)}, '${type}')">ADD TO LIST</button>
                                     <button class="icon-btn log-btn ${inWatchlist ? 'active' : ''}" type="button" aria-label="${inWatchlist ? 'Remove from' : 'Add to'} watchlist" aria-pressed="${inWatchlist}" data-id="${Number(id)}" data-type="${type}" data-title="${this.escapeHtml(title)}" data-poster="${this.escapeHtml(data.poster_path || '')}">
                                         ${inWatchlist ? '✓' : '+'}
                                     </button>
@@ -2771,7 +2772,7 @@ const Alexandria = {
                     safeQuery(this.supabase.from('follows').select('follower_id').eq('followee_id', targetUid)),
                     safeQuery(this.supabase.from('follows').select('followee_id').eq('follower_id', targetUid)),
                     (me && me !== targetUid)
-                        ? this.supabase.from('follows').select('id').eq('follower_id', me).eq('followee_id', targetUid).maybeSingle().catch(() => ({ data: null }))
+                        ? this.supabase.from('follows').select('follower_id').eq('follower_id', me).eq('followee_id', targetUid).maybeSingle().catch(() => ({ data: null }))
                         : Promise.resolve({ data: null })
                 ])
                 : [{ data: [] }, { data: [] }, { data: null }];
@@ -2947,7 +2948,7 @@ const Alexandria = {
         try {
             const { data: existing } = await this.supabase
                 .from('follows')
-                .select('id')
+                .select('follower_id')
                 .eq('follower_id', me)
                 .eq('followee_id', uid)
                 .maybeSingle();
@@ -4041,6 +4042,8 @@ const Alexandria = {
                 if (error) throw error;
             } catch (e) {
                 console.warn("Alexandria: Cloud comment delete failed", e);
+                this.showToast('Could not delete comment');
+                return;
             }
         }
         this.renderComments();
@@ -4074,17 +4077,19 @@ const Alexandria = {
         };
 
         let cloudPosted = false;
+        let savedLocally = false;
         try {
             if (this.supabase) {
                 await this.migrateLocalComments(key);
                 const profile = await this.fetchProfile(u.id);
                 const saved = await this.saveComment(key, { ...commentObj, author: profile?.nickname || nickname });
                 cloudPosted = !!(saved && saved.cloud);
+                savedLocally = !cloudPosted; // saveComment already fell back to localStorage
             }
         } catch (e) {
             console.warn("Alexandria: Cloud comment post failed", e);
         }
-        if (!cloudPosted) {
+        if (!cloudPosted && !savedLocally) {
             this.saveComment(key, commentObj);
         }
 
@@ -4344,9 +4349,7 @@ const Alexandria = {
                 : `<span class="review-author">${this.escapeHtml(name)}</span>`;
         };
 
-        if (this.state._ratingDraft === undefined) {
-            this.state._ratingDraft = Math.max(0, Math.min(10, Math.round(Number(ownRow?.rating) || 0)));
-        }
+        this.state._ratingDraft = Math.max(0, Math.min(10, Math.round(Number(ownRow?.rating) || 0)));
 
         const composer = this.state.authUser ? `
             <div class="ratings-composer" id="ratings-composer">
@@ -6304,13 +6307,13 @@ const Alexandria = {
                 current.hidden = false;
                 return;
             }
-            const listId = this.state.activeListId;
-            current.innerHTML = results.map(r => {
+            this._listSearchResults = results;
+            current.innerHTML = results.map((r, i) => {
                 const rTitle = r.title || r.name || 'Untitled';
                 const year = (r.release_date || r.first_air_date || '').slice(0, 4);
                 const poster = this.imageUrl(r.poster_path, 'w92');
                 return `
-                <button type="button" class="list-add-result" onclick="Alexandria.addListItem('${this.escapeHtml(listId)}', '${this.escapeHtml(r.media_type)}', ${Number(r.id)}, '${this.escapeHtml(rTitle)}', '${this.escapeHtml(r.poster_path || '')}')">
+                <button type="button" class="list-add-result" onclick="Alexandria.addListItemFromSearch(${i})">
                     ${poster ? `<img src="${poster}" alt="" loading="lazy" decoding="async">` : '<span class="list-add-result-ph" aria-hidden="true">A</span>'}
                     <span class="list-add-result-info">
                         <span class="list-add-result-title">${this.escapeHtml(rTitle)}</span>
@@ -6326,6 +6329,18 @@ const Alexandria = {
             current.innerHTML = '<div class="list-add-empty">Search failed. Try again.</div>';
             current.hidden = false;
         }
+    },
+
+    addListItemFromSearch(idx) {
+        const r = this._listSearchResults && this._listSearchResults[idx];
+        if (!r) return;
+        this.addListItem(
+            this.state.activeListId,
+            r.media_type,
+            Number(r.id),
+            r.title || r.name || 'Untitled',
+            r.poster_path || ''
+        );
     },
 
     async addListItem(listId, type, id, title, poster) {
@@ -6453,7 +6468,7 @@ const Alexandria = {
         }
     },
 
-    async addToListModal(id, type, title, poster) {
+    async addToListModal(id, type) {
         if (!this.supabase || !this.state.authUser) {
             this.toggleAuthModal(true, 'login');
             this.showToast('Sign in to add titles to lists');
@@ -6483,7 +6498,7 @@ const Alexandria = {
             modal.addEventListener('click', e => { if (e.target === modal) this.closeListPicker(); });
             document.body.appendChild(modal);
         }
-        this._pickerItem = { id, type, title, poster };
+        this._pickerItem = { id, type, title: this.state.detailsTitle, poster: this.state.detailsPoster || null };
         modal.removeAttribute('hidden');
         try {
             const { data: lists } = await this.supabase

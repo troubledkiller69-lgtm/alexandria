@@ -433,18 +433,6 @@ h1, h2, h3, h4 {
     overflow: hidden;
 }
 
-.anime-badge {
-    background: var(--text-primary);
-    color: var(--bg-base);
-    padding: 0.2rem 0.5rem;
-    border-radius: 4px;
-    font-size: 0.7rem;
-    font-weight: 800;
-    position: absolute;
-    top: 10px;
-    left: 10px;
-}
-
 .continue-badge {
     background: rgba(239, 68, 68, 0.9);
     color: white;
@@ -1488,10 +1476,6 @@ h1, h2, h3, h4 {
     flex-wrap: wrap;
 }
 
-.search-discover {
-    padding: 0;
-}
-
 .minimalist-discover {
     background: transparent !important;
     border: none !important;
@@ -2257,12 +2241,6 @@ h1, h2, h3, h4 {
 .alexandria-toast.show {
     opacity: 1;
     transform: translateX(-50%) translateY(0);
-}
-
-
-
-.player-frame-container {
-    position: relative;
 }
 
 /* Details Page Trailer */
