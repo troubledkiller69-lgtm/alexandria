@@ -482,7 +482,7 @@ const Alexandria = {
             this.state.profileData = null;
             this.setView('profile');
         } else {
-            const allowedViews = new Set(['home', 'movies', 'tv', 'anime', 'franchises', 'search', 'history', 'watchlist']);
+            const allowedViews = new Set(['home', 'movies', 'tv', 'anime', 'franchises', 'search', 'history', 'watchlist', 'community']);
             this.setView(allowedViews.has(path) ? path : 'home');
         }
     },
@@ -660,6 +660,10 @@ const Alexandria = {
         if (this.state.view === 'party' && view !== 'party') {
             this.teardownParty();
         }
+        if (view !== 'community' && this.feedChannel && this.supabase) {
+            this.supabase.removeChannel(this.feedChannel);
+            this.feedChannel = null;
+        }
         if (this.state.view === 'player' && view !== 'player') {
             this.writeLocalList('alexandria_history', this.state.history);
         }
@@ -831,6 +835,15 @@ const Alexandria = {
                 poster_path: item.poster_path
             }, { onConflict: 'user_id, content_id, type' }).then();
         }
+
+        if (['movie', 'tv'].includes(item.type) && String(item.id).match(/^\d+$/)) {
+            this.logActivity('watching', {
+                contentId: item.id,
+                contentType: item.type,
+                title: item.title,
+                posterPath: item.poster_path
+            });
+        }
     },
 
     render() {
@@ -858,6 +871,7 @@ const Alexandria = {
         else if (this.state.view === 'details') this.renderDetails();
         else if (this.state.view === 'person') this.renderPerson();
         else if (this.state.view === 'profile') this.renderProfile();
+        else if (this.state.view === 'community') this.renderCommunity();
         else if (this.state.view === 'party') this.renderParty();
         
         else {
@@ -2574,6 +2588,152 @@ const Alexandria = {
             console.warn('Follow toggle failed:', err);
             this.showToast('Could not update follow status');
         }
+    },
+
+    async renderCommunity() {
+        this.state.communityTab = this.state.communityTab || 'all';
+        const token = this._renderToken;
+        const tab = this.state.communityTab;
+
+        this.main.innerHTML = `
+            <section class="filtered-view community-view">
+                <div class="view-section">
+                    <h3>COMMUNITY</h3>
+                    <div class="feed-tabs">
+                        <button type="button" class="feed-tab ${tab === 'all' ? 'active' : ''}" data-tab="all" aria-pressed="${tab === 'all'}" onclick="Alexandria.setCommunityTab('all')">ALL</button>
+                        <button type="button" class="feed-tab ${tab === 'following' ? 'active' : ''}" data-tab="following" aria-pressed="${tab === 'following'}" onclick="Alexandria.setCommunityTab('following')">FOLLOWING</button>
+                    </div>
+                </div>
+                <div id="feed-list"><div class="placeholder-msg"><span class="pulse-dot"></span> LOADING COMMUNITY FEED...</div></div>
+            </section>
+        `;
+
+        this.initFeedRealtime();
+        await this.fetchFeed();
+        if (token !== this._renderToken) return;
+    },
+
+    setCommunityTab(tab) {
+        if (!['all', 'following'].includes(tab)) tab = 'all';
+        this.state.communityTab = tab;
+        document.querySelectorAll('.feed-tab').forEach(btn => {
+            const active = btn.dataset.tab === tab;
+            btn.classList.toggle('active', active);
+            btn.setAttribute('aria-pressed', String(active));
+        });
+        this.fetchFeed();
+    },
+
+    async fetchFeed() {
+        const container = document.getElementById('feed-list');
+        if (!container) return;
+        const tab = this.state.communityTab || 'all';
+        container.innerHTML = '<div class="placeholder-msg"><span class="pulse-dot"></span> LOADING COMMUNITY FEED...</div>';
+
+        if (!this.supabase) {
+            container.innerHTML = '<div class="feed-empty">The community feed is unavailable right now.</div>';
+            return;
+        }
+
+        const safeQuery = promise => promise.catch(() => ({ data: [] }));
+        try {
+            let rows = [];
+            if (tab === 'all') {
+                const res = await safeQuery(this.supabase.from('activity').select('*').order('created_at', { ascending: false }).limit(60));
+                rows = res.data || [];
+            } else {
+                const me = this.state.authUser?.id;
+                if (!me) {
+                    container.innerHTML = `
+                        <div class="feed-empty">
+                            <p>Sign in to follow people</p>
+                            <button type="button" class="btn-primary" onclick="Alexandria.toggleAuthModal(true, 'login')">SIGN IN</button>
+                        </div>`;
+                    return;
+                }
+                const followsRes = await safeQuery(this.supabase.from('follows').select('followee_id').eq('follower_id', me));
+                const ids = Array.from(new Set((followsRes.data || []).map(f => f.followee_id).filter(Boolean)));
+                this._followingIds = ids;
+                if (ids.length === 0) {
+                    container.innerHTML = '<div class="feed-empty">You are not following anyone yet. Visit a profile and hit FOLLOW.</div>';
+                    return;
+                }
+                const res = await safeQuery(this.supabase.from('activity').select('*').in('user_id', ids).order('created_at', { ascending: false }).limit(60));
+                rows = res.data || [];
+            }
+
+            const distinctUsers = Array.from(new Set(rows.map(r => r.user_id).filter(Boolean)));
+            await Promise.all(distinctUsers.map(uid => this.fetchProfile(uid)));
+
+            if (document.getElementById('feed-list') !== container) return;
+            if (this.state.communityTab !== tab) return;
+            container.innerHTML = rows.length
+                ? rows.map(row => this.feedItemHtml(row)).join('')
+                : '<div class="feed-empty">No activity yet.</div>';
+        } catch (err) {
+            console.warn('Community feed fetch failed:', err);
+            container.innerHTML = '<div class="feed-empty">Could not load the community feed.</div>';
+        }
+    },
+
+    feedItemHtml(row) {
+        const profile = this._profileCache?.[row.user_id] || null;
+        const displayName = profile ? (profile.nickname || profile.username || 'Member') : 'Member';
+        const verbs = {
+            watching: 'started watching',
+            rated: 'rated',
+            reviewed: 'wrote a review of',
+            watchlist: 'added to watchlist',
+            list_created: 'created the list',
+            list_added: 'added a title to a list',
+            followed: 'started following someone',
+            comment: 'commented on'
+        };
+        const verb = verbs[row.kind] || 'was active on';
+        const titleHtml = (row.content_id && (row.content_type === 'movie' || row.content_type === 'tv'))
+            ? `<a class="feed-item-title" href="#details/${this.escapeHtml(row.content_type)}/${this.escapeHtml(row.content_id)}">${this.escapeHtml(row.title || 'this title')}</a>`
+            : (row.title ? `<span class="feed-item-title">${this.escapeHtml(row.title)}</span>` : '');
+        const poster = (row.content_type === 'movie' || row.content_type === 'tv') && row.poster_path
+            ? `<img class="feed-poster-thumb" src="${this.imageUrl(row.poster_path, 'w92')}" alt="" loading="lazy" decoding="async">`
+            : '';
+        return `
+            <div class="feed-item">
+                <a class="feed-item-avatar" href="#profile/${this.escapeHtml(row.user_id)}" aria-label="${this.escapeHtml(displayName)}">${this.avatarHtml(profile, 40)}</a>
+                <div class="feed-item-body">
+                    <div class="feed-item-line">
+                        <a class="feed-item-user" href="#profile/${this.escapeHtml(row.user_id)}">${this.escapeHtml(displayName)}</a>
+                        <span class="profile-verb">${this.escapeHtml(verb)}</span>
+                        ${titleHtml}
+                    </div>
+                    <span class="feed-item-time">${this.escapeHtml(this.timeago(row.created_at))}</span>
+                </div>
+                ${poster}
+            </div>`;
+    },
+
+    initFeedRealtime() {
+        if (!this.supabase) return;
+        if (this.feedChannel) {
+            this.supabase.removeChannel(this.feedChannel);
+            this.feedChannel = null;
+        }
+        this.feedChannel = this.supabase.channel('community_feed');
+        this.feedChannel
+            .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'activity' }, async (payload) => {
+                if (this.state.view !== 'community') return;
+                const row = payload.new;
+                if (!row || !row.user_id) return;
+                if (this.state.communityTab === 'following' && !(Array.isArray(this._followingIds) && this._followingIds.includes(row.user_id))) return;
+                await this.fetchProfile(row.user_id);
+                if (this.state.view !== 'community') return;
+                const list = document.getElementById('feed-list');
+                if (!list) return;
+                const empty = list.querySelector('.feed-empty');
+                if (empty) empty.remove();
+                list.insertAdjacentHTML('afterbegin', this.feedItemHtml(row));
+                while (list.children.length > 60) list.removeChild(list.lastElementChild);
+            })
+            .subscribe();
     },
 
     editProfileModal(open) {
