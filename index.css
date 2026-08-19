@@ -958,12 +958,16 @@ h1, h2, h3, h4 {
 
 .episode-sidebar .episode-item {
     position: relative;
-    padding: 0;
+    /* 16:9 via height:0 + padding-bottom, NOT aspect-ratio: grid track sizing
+       only sees the item's content contribution, and the card's children are
+       all absolutely positioned (content = 0), so aspect-ratio left the tracks
+       collapsed and rows overlapped vertically. Padding feeds the track. */
+    height: 0;
+    padding: 0 0 56.25%;
     border-radius: 8px;
     overflow: hidden;
     border: 1px solid rgba(255, 255, 255, 0.08);
     background: rgba(255, 255, 255, 0.03);
-    aspect-ratio: 16 / 9;
 }
 
 .episode-sidebar .episode-item.active {
