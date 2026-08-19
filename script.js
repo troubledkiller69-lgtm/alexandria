@@ -994,26 +994,27 @@ const Alexandria = {
             else link.removeAttribute('aria-current');
         });
 
-        // Main View Routing
-        if (this.state.view === 'home') this.renderHome();
-        else if (this.state.view === 'movies') this.renderFiltered('movie');
-        else if (this.state.view === 'tv') this.renderFiltered('tv');
-        else if (this.state.view === 'anime') this.renderAnime();
-        else if (this.state.view === 'franchises') this.renderFranchises();
-        else if (this.state.view === 'search') this.renderSearch();
-        else if (this.state.view === 'history') this.renderHistoryPage();
-        else if (this.state.view === 'watchlist') this.renderWatchlistPage();
-        else if (this.state.view === 'player') this.renderPlayer();
-        else if (this.state.view === 'details') this.renderDetails();
-        else if (this.state.view === 'person') this.renderPerson();
-        else if (this.state.view === 'profile') this.renderProfile();
-        else if (this.state.view === 'community') this.renderCommunity();
-        else if (this.state.view === 'party') this.renderParty();
-        else if (this.state.view === 'list') this.renderList();
-        
+        // Main View Routing. Views render asynchronously; return the promise
+        // so callers and tests can await completion (navigate() ignores it).
+        if (this.state.view === 'home') return this.renderHome();
+        else if (this.state.view === 'movies') return this.renderFiltered('movie');
+        else if (this.state.view === 'tv') return this.renderFiltered('tv');
+        else if (this.state.view === 'anime') return this.renderAnime();
+        else if (this.state.view === 'franchises') return this.renderFranchises();
+        else if (this.state.view === 'search') return this.renderSearch();
+        else if (this.state.view === 'history') return this.renderHistoryPage();
+        else if (this.state.view === 'watchlist') return this.renderWatchlistPage();
+        else if (this.state.view === 'player') return this.renderPlayer();
+        else if (this.state.view === 'details') return this.renderDetails();
+        else if (this.state.view === 'person') return this.renderPerson();
+        else if (this.state.view === 'profile') return this.renderProfile();
+        else if (this.state.view === 'community') return this.renderCommunity();
+        else if (this.state.view === 'party') return this.renderParty();
+        else if (this.state.view === 'list') return this.renderList();
+
         else {
             this.state.view = 'home';
-            this.renderHome();
+            return this.renderHome();
         }
     },
     GENRES: [
@@ -2472,11 +2473,11 @@ const Alexandria = {
             const type = item.media_type === 'tv' || item.media_type === 'movie'
                 ? item.media_type
                 : (item.type === 'tv' || item.type === 'movie' ? item.type : (item.name && !item.title ? 'tv' : 'movie'));
-            const inWatchlist = this.state.watchlist.some(i => String(i.id) === itemIdStr && i.type === type);
+            const inWatchlist = (this.state.watchlist || []).some(i => String(i.id) === itemIdStr && i.type === type);
             const isAnime = item.isAnime || (item.origin_country && item.origin_country.includes('JP') && item.genre_ids && item.genre_ids.includes(16));
             const wlStatus = wlMode ? (item.status || 'want') : '';
             const watchedCount = wlMode && type === 'tv'
-                ? Object.keys(this.state.watchedEpisodes).filter(k => k.startsWith(itemIdStr + '_s')).length
+                ? Object.keys(this.state.watchedEpisodes || {}).filter(k => k.startsWith(itemIdStr + '_s')).length
                 : 0;
 
             const badgeHtml = wlMode
