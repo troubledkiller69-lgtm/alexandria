@@ -4961,12 +4961,11 @@ const Alexandria = {
         {
             key: 'v1.6',
             date: 'Aug 19, 2026',
-            title: 'Cross-Device Sync & Mobile Polish',
+            title: 'Cross-Device Sync & Mobile',
             items: [
-                'Your watchlist, episode progress, and history now sync across all devices when you are signed in',
-                'Episode marks (and "up next") transfer between devices',
-                'Fixed the TV player not loading on mobile',
-                'Mobile cleanup: shorter heroes, less clutter, swipeable filter pills'
+                'Episode progress now syncs across devices — your "up next" and watched marks follow you everywhere',
+                'TV player fixed on phones',
+                'Cleaner mobile browsing: shorter heroes, less clutter, swipeable filters'
             ]
         },
         {
@@ -4974,10 +4973,10 @@ const Alexandria = {
             date: 'Aug 18, 2026',
             title: 'Pulse, Cipher & The Leaderboard',
             items: [
-                'Profile watch stats: hours watched, episodes, titles, day streaks, and a 16-week activity heatmap',
-                '10 earnable badges — hover them to see how you earned each one',
-                'Spoiler tags for comments and reviews (blurred until tapped)',
-                'Weekly leaderboard: top 5 most active watchers on the community page',
+                'Profile watch stats: hours watched, episodes, day streaks, and a 16-week activity heatmap',
+                '10 earnable badges — hover any badge to see how you earned it',
+                'Weekly top-5 leaderboard of the most active watchers',
+                'Spoiler tags blur comments and reviews until you tap them',
                 'Walking Dead actor avatars (Rick, Daryl, Michonne, Glenn, Maggie, Carol, Negan)'
             ]
         },
@@ -4985,18 +4984,18 @@ const Alexandria = {
             key: 'v1.4',
             title: 'The Community Era',
             items: [
-                'Profiles with avatars, bios, and following',
-                'Live activity feed with a "following only" filter',
-                'Ratings, reviews, and comments on every title'
+                'Profiles with avatars, bios, and follows',
+                'Live activity feed with a following filter',
+                'Ratings, reviews, and upgraded comments with profiles',
+                'Shared movie night lists for planning with friends'
             ]
         },
         {
             key: 'v1.3',
-            title: 'Player & Watch Party',
+            title: 'Player',
             items: [
-                'Redesigned YouTube-style player with comments below the video',
-                'Episode grid with hover previews in the sidebar',
-                'Watch Together improvements'
+                'Episode grid cards with hover previews in the sidebar',
+                'Fixes for long TV seasons'
             ]
         },
         {
@@ -5015,8 +5014,7 @@ const Alexandria = {
             items: [
                 'Watchlist statuses: TO WATCH, WATCHING, WATCHED',
                 'Per-episode tracking for TV shows',
-                'Franchise archive with expandable collections',
-                'Discord server button in the header'
+                'Expandable franchise collections — 14 new universes added'
             ]
         }
     ],
