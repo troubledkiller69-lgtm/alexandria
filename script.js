@@ -253,6 +253,7 @@ const Alexandria = {
         await Promise.all([loadingPromise, networkPromise]);
         
         this.bindEvents();
+        this.updateChangelogDot();
         window.addEventListener('hashchange', () => this.handleRouting());
         this.handleRouting();
         this.bindListTransferControls();
@@ -566,9 +567,17 @@ const Alexandria = {
             }
         });
 
+        document.addEventListener('click', (e) => {
+            const menu = document.getElementById('changelog-menu');
+            const trigger = document.getElementById('changelog-trigger');
+            if (menu && !menu.hasAttribute('hidden') && !menu.contains(e.target) && !trigger?.contains(e.target)) {
+                menu.setAttribute('hidden', '');
+            }
+        });
+
         document.addEventListener('keydown', event => {
             if (event.key === 'Escape' && sidebar?.classList.contains('open')) toggleSidebar(false);
-            if (event.key === 'Escape') this.closeAccountMenu();
+            if (event.key === 'Escape') { this.closeAccountMenu(); this.closeChangelogMenu(); }
             if ((event.key === 'Enter' || event.key === ' ') && event.target.matches('.cast-card, .episode-item, .resume-widget, .person-result-card')) {
                 event.preventDefault();
                 event.target.click();
@@ -4915,6 +4924,7 @@ const Alexandria = {
     },
 
     toggleAccountMenu() {
+        this.closeChangelogMenu();
         const menu = document.getElementById('account-menu');
         if (!menu) return;
         if (!menu.hasAttribute('hidden')) {
@@ -4943,6 +4953,118 @@ const Alexandria = {
 
     closeAccountMenu() {
         const menu = document.getElementById('account-menu');
+        if (menu) menu.setAttribute('hidden', '');
+    },
+
+    // ============ WHAT'S NEW — changelog bell ============
+    CHANGELOG: [
+        {
+            key: 'v1.6',
+            date: 'Aug 19, 2026',
+            title: 'Cross-Device Sync & Mobile Polish',
+            items: [
+                'Your watchlist, episode progress, and history now sync across all devices when you are signed in',
+                'Episode marks (and "up next") transfer between devices',
+                'Fixed the TV player not loading on mobile',
+                'Mobile cleanup: shorter heroes, less clutter, swipeable filter pills'
+            ]
+        },
+        {
+            key: 'v1.5',
+            date: 'Aug 18, 2026',
+            title: 'Pulse, Cipher & The Leaderboard',
+            items: [
+                'Profile watch stats: hours watched, episodes, titles, day streaks, and a 16-week activity heatmap',
+                '10 earnable badges — hover them to see how you earned each one',
+                'Spoiler tags for comments and reviews (blurred until tapped)',
+                'Weekly leaderboard: top 5 most active watchers on the community page',
+                'Walking Dead actor avatars (Rick, Daryl, Michonne, Glenn, Maggie, Carol, Negan)'
+            ]
+        },
+        {
+            key: 'v1.4',
+            title: 'The Community Era',
+            items: [
+                'Profiles with avatars, bios, and following',
+                'Live activity feed with a "following only" filter',
+                'Ratings, reviews, and comments on every title'
+            ]
+        },
+        {
+            key: 'v1.3',
+            title: 'Player & Watch Party',
+            items: [
+                'Redesigned YouTube-style player with comments below the video',
+                'Episode grid with hover previews in the sidebar',
+                'Watch Together improvements'
+            ]
+        },
+        {
+            key: 'v1.2',
+            title: 'Discovery',
+            items: [
+                'Advanced search filters and a roulette mode that picks for you',
+                'Trailer previews on hover',
+                'Because-You-Watched recommendations',
+                'Releasing This Week row on the homepage'
+            ]
+        },
+        {
+            key: 'v1.1',
+            title: 'Watchlist & Franchises',
+            items: [
+                'Watchlist statuses: TO WATCH, WATCHING, WATCHED',
+                'Per-episode tracking for TV shows',
+                'Franchise archive with expandable collections',
+                'Discord server button in the header'
+            ]
+        }
+    ],
+
+    updateChangelogDot() {
+        const dot = document.getElementById('changelog-dot');
+        if (!dot) return;
+        const latest = this.CHANGELOG[0];
+        const seen = localStorage.getItem('alexandria_changelog_seen');
+        dot.hidden = !(latest && seen !== latest.key);
+    },
+
+    toggleChangelogMenu() {
+        this.closeAccountMenu();
+        const menu = document.getElementById('changelog-menu');
+        if (!menu) return;
+        if (!menu.hasAttribute('hidden')) {
+            this.closeChangelogMenu();
+            return;
+        }
+        // "NEW" badge only while the latest release is unread — same state the dot tracks.
+        const latestSeen = localStorage.getItem('alexandria_changelog_seen');
+        menu.innerHTML = `
+            <div class="changelog-menu-head">
+                <h3>What's New</h3>
+                <span class="changelog-date">${this.escapeHtml(this.CHANGELOG[0].date || '')}</span>
+            </div>
+        ` + this.CHANGELOG.map((entry, i) => `
+            <div class="changelog-entry">
+                <div class="changelog-entry-head">
+                    <span class="changelog-version">${this.escapeHtml(entry.key)}${i === 0 && latestSeen !== entry.key ? ' <em class="changelog-new">NEW</em>' : ''}</span>
+                    ${entry.date ? `<span class="changelog-date">${this.escapeHtml(entry.date)}</span>` : ''}
+                </div>
+                <h4 class="changelog-title">${this.escapeHtml(entry.title)}</h4>
+                <ul class="changelog-items">
+                    ${entry.items.map(item => `<li>${this.escapeHtml(item)}</li>`).join('')}
+                </ul>
+            </div>
+        `).join('');
+        menu.removeAttribute('hidden');
+        // Opening marks the latest release as seen.
+        const latest = this.CHANGELOG[0];
+        if (latest) localStorage.setItem('alexandria_changelog_seen', latest.key);
+        this.updateChangelogDot();
+    },
+
+    closeChangelogMenu() {
+        const menu = document.getElementById('changelog-menu');
         if (menu) menu.setAttribute('hidden', '');
     },
 
