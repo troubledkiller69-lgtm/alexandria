@@ -1599,18 +1599,23 @@ const Alexandria = {
         return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
     },
 
-    // TMDB's tv/on_the_air list items only carry first_air_date (premiere),
-    // not the next episode's air date — so resolve each show's detail for
-    // next_episode_to_air to know when it actually airs this week.
-    async fetchAiringThisWeek(limit = 18) {
+    // TMDB's tv/on_the_air is popularity-ordered, so page 1 alone misses most
+    // of the week's real airings. Pull a few pages and resolve each show's
+    // next_episode_to_air (cached by getJson) for the true air date + episode.
+    async fetchAiringThisWeek(limit = 24) {
         try {
-            const data = await this.getJson('tv/on_the_air');
-            const shows = (data.results || []).filter(s => s && s.id).slice(0, limit);
-            if (!shows.length) return [];
             const today = new Date();
-            const minIso = this.localISODate(new Date(today.getFullYear(), today.getMonth(), today.getDate() - 1, 12));
-            const maxIso = this.localISODate(new Date(today.getFullYear(), today.getMonth(), today.getDate() + 7, 12));
-            const rows = await this.mapWithConcurrency(shows, 5, async s => {
+            const minIso = this.localISODate(today);
+            const maxIso = this.localISODate(new Date(today.getFullYear(), today.getMonth(), today.getDate() + 7));
+            const seen = new Set();
+            const tvShows = [];
+            const tvPages = await Promise.all([1, 2, 3].map(p => this.getJson('tv/on_the_air?page=' + p).catch(() => null)));
+            for (const page of tvPages) {
+                for (const s of (page?.results || [])) {
+                    if (s && s.id && !seen.has(s.id)) { seen.add(s.id); tvShows.push(s); }
+                }
+            }
+            const tvRows = await this.mapWithConcurrency(tvShows, 6, async s => {
                 try {
                     const detail = await this.getJson('tv/' + s.id);
                     const next = detail.next_episode_to_air;
@@ -1618,6 +1623,7 @@ const Alexandria = {
                     if (next.air_date < minIso || next.air_date > maxIso) return null;
                     return {
                         id: s.id,
+                        type: 'tv',
                         name: s.name || detail.name || 'Untitled',
                         poster_path: detail.poster_path || s.poster_path,
                         air_date: next.air_date,
@@ -1628,7 +1634,25 @@ const Alexandria = {
                     return null;
                 }
             });
-            return rows.filter(Boolean).sort((a, b) => a.air_date < b.air_date ? -1 : 1);
+            // Theatrical releases this week — the row was TV-only before.
+            const movieRows = [];
+            try {
+                const movieData = await this.getJson(`discover/movie?sort_by=popularity.desc&with_release_type=2|3&primary_release_date.gte=${minIso}&primary_release_date.lte=${maxIso}`);
+                for (const m of (movieData.results || []).slice(0, 10)) {
+                    if (!m || !m.id || !m.release_date) continue;
+                    movieRows.push({
+                        id: m.id,
+                        type: 'movie',
+                        name: m.title || m.name || 'Untitled',
+                        poster_path: m.poster_path,
+                        air_date: m.release_date
+                    });
+                }
+            } catch { /* movies are a bonus; TV is the core row */ }
+            return [...tvRows, ...movieRows]
+                .filter(Boolean)
+                .sort((a, b) => a.air_date < b.air_date ? -1 : 1)
+                .slice(0, limit);
         } catch {
             return [];
         }
@@ -1654,11 +1678,14 @@ const Alexandria = {
             const safeTitle = this.escapeHtml(r.name);
             const poster = this.imageUrl(r.poster_path, 'w185');
             const isToday = r.air_date === todayIso;
+            const isMovie = r.type === 'movie';
+            const epLabel = isMovie ? '' : `<span class="airing-card-ep">S${r.season ?? 1} · E${r.episode}</span>`;
             return `
-                <a class="airing-card" href="#details/tv/${safeId}">
+                <a class="airing-card" href="#details/${isMovie ? 'movie' : 'tv'}/${safeId}">
                     ${poster ? `<img class="airing-card-poster" src="${poster}" alt="${safeTitle} poster" loading="lazy" decoding="async">` : '<div class="poster-placeholder" role="img" aria-label="No poster available"><span>A</span><small>NO POSTER</small></div>'}
                     <span class="airing-card-badge ${isToday ? 'today' : ''}">${isToday ? 'TONIGHT' : fmt(r.air_date)}</span>
                     <span class="airing-card-title">${safeTitle}</span>
+                    ${epLabel}
                 </a>`;
         }).join('');
     },
@@ -3004,17 +3031,18 @@ const Alexandria = {
             const { lists = [], followers = 0, following = 0 } = this.state.profileData || {};
             const maxTvDay = Object.keys(tvPerDay).length ? Math.max(...Object.values(tvPerDay)) : 0;
             const maxMovieDay = Object.keys(moviePerDay).length ? Math.max(...Object.values(moviePerDay)) : 0;
+            const icon = p => `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${p}</svg>`;
             const badges = [];
-            if (titles > 0) badges.push(['FIRST BLOOD', 'Watched your first title']);
-            if (maxTvDay >= 5) badges.push(['BINGE LORD', '5+ episodes in a single day']);
-            if (maxMovieDay >= 3) badges.push(['MARATHON MAN', '3+ movies in a single day']);
-            if (nightOwl) badges.push(['NIGHT OWL', 'Watching after midnight']);
-            if (ratings.length >= 5) badges.push(['CRITIC', '5+ ratings given']);
-            if (commentCount >= 10) badges.push(['TALKER', '10+ comments posted']);
-            if (longest >= 7) badges.push(['ON FIRE', '7-day watch streak']);
-            if (longest >= 30) badges.push(['UNSTOPPABLE', '30-day watch streak']);
-            if (lists.length >= 3) badges.push(['CURATOR', '3+ lists created']);
-            if (followers + following >= 3) badges.push(['CONNECTED', '3+ followers or following']);
+            if (titles > 0) badges.push(['FIRST BLOOD', 'Watched your first title', icon('<path d="M12 22a7 7 0 0 0 7-7c0-2-1-3.9-3-5.5s-3.5-4-4-6.5c-.5 2.5-2 4.9-4 6.5C6 11.1 5 13 5 15a7 7 0 0 0 7 7z"></path>')]);
+            if (maxTvDay >= 5) badges.push(['BINGE LORD', '5+ episodes in a single day', icon('<polygon points="12 2 2 7 12 12 22 7 12 2"></polygon><polyline points="2 17 12 22 22 17"></polyline><polyline points="2 12 12 17 22 12"></polyline>')]);
+            if (maxMovieDay >= 3) badges.push(['MARATHON MAN', '3+ movies in a single day', icon('<rect x="2" y="2" width="20" height="20" rx="2.18" ry="2.18"></rect><line x1="7" y1="2" x2="7" y2="22"></line><line x1="17" y1="2" x2="17" y2="22"></line><line x1="2" y1="12" x2="22" y2="12"></line><line x1="2" y1="7" x2="7" y2="7"></line><line x1="2" y1="17" x2="7" y2="17"></line><line x1="17" y1="17" x2="22" y2="17"></line><line x1="17" y1="7" x2="22" y2="7"></line>')]);
+            if (nightOwl) badges.push(['NIGHT OWL', 'Watching after midnight', icon('<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>')]);
+            if (ratings.length >= 5) badges.push(['CRITIC', '5+ ratings given', icon('<polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon>')]);
+            if (commentCount >= 10) badges.push(['TALKER', '10+ comments posted', icon('<path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"></path>')]);
+            if (longest >= 7) badges.push(['ON FIRE', '7-day watch streak', icon('<path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"></path>')]);
+            if (longest >= 30) badges.push(['UNSTOPPABLE', '30-day watch streak', icon('<polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>')]);
+            if (lists.length >= 3) badges.push(['CURATOR', '3+ lists created', icon('<polyline points="21 8 21 21 3 21 3 8"></polyline><rect x="1" y="3" width="22" height="5"></rect><line x1="10" y1="12" x2="14" y2="12"></line>')]);
+            if (followers + following >= 3) badges.push(['CONNECTED', '3+ followers or following', icon('<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path>')]);
 
             const hoursText = hours >= 10 ? String(Math.round(hours)) : hours.toFixed(1);
             container.innerHTML = `
@@ -3028,7 +3056,7 @@ const Alexandria = {
                     <div class="pulse-heatmap">${heatHtml}</div>
                     <div class="pulse-heat-legend">LESS <span class="pulse-heat-cell heat-1"></span><span class="pulse-heat-cell heat-2"></span><span class="pulse-heat-cell heat-3"></span><span class="pulse-heat-cell heat-4"></span> MORE</div>
                 </div>
-                ${badges.length ? `<div class="pulse-badges"><span class="pulse-badge-title">BADGES</span>${badges.map(([name, desc]) => `<span class="pulse-badge" data-desc="${this.escapeHtml(desc)}">${this.escapeHtml(name)}</span>`).join('')}</div>` : '<p class="pulse-empty">Start watching to earn badges.</p>'}
+                ${badges.length ? `<div class="pulse-badges"><span class="pulse-badge-title">BADGES</span>${badges.map(([name, desc, badgeIcon]) => `<span class="pulse-badge" data-desc="${this.escapeHtml(desc)}">${badgeIcon}${this.escapeHtml(name)}</span>`).join('')}</div>` : '<p class="pulse-empty">Start watching to earn badges.</p>'}
             `;
         } catch (e) {
             console.warn("Alexandria Protocol: Pulse stats failed", e);
@@ -3423,6 +3451,10 @@ const Alexandria = {
                     <button class="auth-close-btn" type="button" aria-label="Close" onclick="Alexandria.editProfileModal(false)">✕</button>
                     <h3 class="profile-modal-title">EDIT PROFILE</h3>
                     <div class="auth-field">
+                        <label>Username (@)</label>
+                        <input type="text" id="profile-username-input" placeholder="Your unique @ handle" minlength="3" maxlength="20" autocomplete="off">
+                    </div>
+                    <div class="auth-field">
                         <label>Nickname</label>
                         <input type="text" id="profile-nickname-input" placeholder="Your display name" maxlength="40">
                     </div>
@@ -3465,6 +3497,8 @@ const Alexandria = {
         const profile = await this.fetchProfile(me);
         const modal = document.getElementById('profile-modal');
         if (!profile || !modal || modal.hasAttribute('hidden')) return;
+        const usernameInput = document.getElementById('profile-username-input');
+        if (usernameInput) usernameInput.value = profile.username || '';
         if (nicknameInput && profile.nickname) nicknameInput.value = profile.nickname;
         const bioInput = document.getElementById('profile-bio-input');
         if (bioInput) bioInput.value = profile.bio || '';
@@ -3508,8 +3542,17 @@ const Alexandria = {
     async saveProfile() {
         const me = this.state.authUser?.id;
         if (!me) return;
+        const username = (document.getElementById('profile-username-input')?.value || '').trim();
         const nickname = (document.getElementById('profile-nickname-input')?.value || '').trim();
         const bio = (document.getElementById('profile-bio-input')?.value || '').trim();
+        if (!username) {
+            this.showToast('Username (@handle) is required');
+            return;
+        }
+        if (username.length < 3 || username.length > 20) {
+            this.showToast('Username must be 3-20 characters');
+            return;
+        }
         if (!nickname) {
             this.showToast('Nickname is required');
             return;
@@ -3518,15 +3561,35 @@ const Alexandria = {
             this.showToast('Supabase cloud required for profiles.');
             return;
         }
+        const usernameLower = username.toLowerCase();
+        const profile = await this.fetchProfile(me).catch(() => null);
+        const usernameChanged = !profile || (profile.username || '').toLowerCase() !== usernameLower;
+        if (usernameChanged) {
+            const isUnique = await this.checkUsernameUnique(username, me);
+            if (!isUnique) {
+                this.showToast(`@${username} is already taken. Try another.`);
+                document.getElementById('profile-username-input')?.focus();
+                return;
+            }
+        }
         const genres = this.state.profileGenreSelection ? [...this.state.profileGenreSelection] : [];
         const avatarId = this.state.profileAvatarSelection || 'python';
         try {
             await this.supabase.from('profiles').update({
+                username,
+                username_lower: usernameLower,
                 nickname,
                 bio,
                 fav_genres: genres.join(','),
                 avatar_id: avatarId
             }).eq('id', me);
+            if (usernameChanged) {
+                try {
+                    await this.supabase.auth.updateUser({ data: { username } });
+                } catch { /* metadata sync is best-effort */ }
+                localStorage.setItem('alexandria_username', username);
+            }
+            sessionStorage.setItem('alexandria_nickname', nickname);
             this._profileCache = this._profileCache || {};
             delete this._profileCache[me];
             this.showToast('Profile saved');
@@ -4199,14 +4262,17 @@ const Alexandria = {
     },
 
     // Comments Engine Methods
-    getCommentKey(content = this.state.activeContent) {
+    // series=true: series-wide key ("tv_123") for the details page; the player
+    // keeps per-episode keys ("tv_123_s2_e5") so episode comments stay scoped.
+    getCommentKey(content = this.state.activeContent, series = false) {
         const { id, type, season, episode } = content || {};
         if (!id || !type) return null;
-        if (type === 'tv') {
+        if (type === 'tv' && !series) {
             const s = season || 1;
             const e = episode || 1;
             return `tv_${id}_s${s}_e${e}`;
         }
+        if (type === 'tv') return `tv_${id}`;
         return `movie_${id}`;
     },
 
@@ -4220,23 +4286,37 @@ const Alexandria = {
         }
     },
 
-    getComments(commentKey) {
+    getComments(commentKey, series = false) {
         if (!commentKey) return Promise.resolve([]);
         const localComments = () => {
             try {
                 const allComments = JSON.parse(localStorage.getItem('alexandria_comments')) || {};
-                return allComments[commentKey] || [];
+                if (!series) return allComments[commentKey] || [];
+                // Series view: gather the series key plus every per-episode key under it.
+                const prefix = commentKey + '_';
+                const out = [];
+                for (const [k, v] of Object.entries(allComments)) {
+                    if (k === commentKey || k.startsWith(prefix)) {
+                        if (Array.isArray(v)) out.push(...v);
+                    }
+                }
+                return out;
             } catch {
                 return [];
             }
         };
         if (!this.supabase) return Promise.resolve(localComments());
-        return this.supabase
+        let query = this.supabase
             .from('comments')
             .select('*')
-            .eq('comment_key', commentKey)
             .order('created_at', { ascending: false })
-            .limit(100)
+            .limit(100);
+        if (series) {
+            query = query.or(`comment_key.eq.${commentKey},comment_key.like.${commentKey}_%`);
+        } else {
+            query = query.eq('comment_key', commentKey);
+        }
+        return query
             .then(({ data, error }) => {
                 if (error) throw error;
                 const rows = (data || []).map(row => ({
@@ -4665,10 +4745,10 @@ const Alexandria = {
         }
         if (token !== this._renderToken) return;
 
-        const key = this.getCommentKey(this.state.activeContent);
+        const key = this.getCommentKey(this.state.activeContent, true);
         this.setupCommentsRealtime(key);
 
-        const comments = key ? await this.getComments(key) : [];
+        const comments = key ? await this.getComments(key, true) : [];
         if (token !== this._renderToken) return;
 
         const profileById = {};
@@ -4864,8 +4944,9 @@ const Alexandria = {
         }
 
         // Post the review text as a comment in the same submission.
+        // Reviews are series-wide for TV, so use the series key (not the player's per-episode key).
         if (review) {
-            const key = this.getCommentKey(this.state.activeContent);
+            const key = this.getCommentKey(this.state.activeContent, true);
             if (key) {
                 try {
                     await this.migrateLocalComments(key);
@@ -5133,18 +5214,19 @@ const Alexandria = {
         `;
     },
 
-    async checkUsernameUnique(username) {
+    async checkUsernameUnique(username, excludeId = null) {
         const clean = username.trim().toLowerCase();
         if (!this.supabase) {
             const usedNames = JSON.parse(localStorage.getItem('alexandria_claimed_usernames')) || [];
             return !usedNames.includes(clean);
         }
         try {
-            const { data, error } = await this.supabase
+            let query = this.supabase
                 .from('profiles')
                 .select('username')
-                .eq('username_lower', clean)
-                .maybeSingle();
+                .eq('username_lower', clean);
+            if (excludeId) query = query.neq('id', excludeId);
+            const { data, error } = await query.maybeSingle();
             if (error && error.code !== 'PGRST116') console.warn("Supabase username check:", error);
             return !data;
         } catch {
