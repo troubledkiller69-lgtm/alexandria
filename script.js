@@ -2980,7 +2980,7 @@ const Alexandria = {
                     <div class="pulse-heatmap">${heatHtml}</div>
                     <div class="pulse-heat-legend">LESS <span class="pulse-heat-cell heat-1"></span><span class="pulse-heat-cell heat-2"></span><span class="pulse-heat-cell heat-3"></span><span class="pulse-heat-cell heat-4"></span> MORE</div>
                 </div>
-                ${badges.length ? `<div class="pulse-badges"><span class="pulse-badge-title">BADGES</span>${badges.map(([name, desc]) => `<span class="pulse-badge" title="${this.escapeHtml(desc)}">${this.escapeHtml(name)}</span>`).join('')}</div>` : '<p class="pulse-empty">Start watching to earn badges.</p>'}
+                ${badges.length ? `<div class="pulse-badges"><span class="pulse-badge-title">BADGES</span>${badges.map(([name, desc]) => `<span class="pulse-badge" data-desc="${this.escapeHtml(desc)}">${this.escapeHtml(name)}</span>`).join('')}</div>` : '<p class="pulse-empty">Start watching to earn badges.</p>'}
             `;
         } catch (e) {
             console.warn("Alexandria Protocol: Pulse stats failed", e);
