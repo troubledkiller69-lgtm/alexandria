@@ -549,8 +549,17 @@ const Alexandria = {
             }
         });
 
+        document.addEventListener('click', (e) => {
+            const menu = document.getElementById('account-menu');
+            const trigger = document.getElementById('auth-trigger');
+            if (menu && !menu.hasAttribute('hidden') && !menu.contains(e.target) && !trigger?.contains(e.target)) {
+                menu.setAttribute('hidden', '');
+            }
+        });
+
         document.addEventListener('keydown', event => {
             if (event.key === 'Escape' && sidebar?.classList.contains('open')) toggleSidebar(false);
+            if (event.key === 'Escape') this.closeAccountMenu();
             if ((event.key === 'Enter' || event.key === ' ') && event.target.matches('.cast-card, .episode-item, .resume-widget, .person-result-card')) {
                 event.preventDefault();
                 event.target.click();
@@ -1838,7 +1847,7 @@ const Alexandria = {
                                 ${poster ? `<img class="franchise-tile-poster" src="${poster}" alt="${safeName}" loading="lazy" decoding="async">` : `<div class="franchise-tile-placeholder" aria-hidden="true"><span>A</span></div>`}
                                 <span class="franchise-tile-scrim" aria-hidden="true"></span>
                                 <span class="franchise-tile-count">${f.items.length}</span>
-                                <span class="franchise-tile-name">${f.name}</span>
+                                <span class="franchise-tile-name">${safeName}</span>
                             </button>
                             <button class="franchise-tile-arrow" type="button" aria-expanded="false" aria-label="Expand ${safeName}" onclick="Alexandria.toggleFranchise(this)">
                                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>
@@ -1847,8 +1856,8 @@ const Alexandria = {
                         <div class="franchise-tile-panel" id="franchise-panel-${i}">
                             <div class="franchise-panel-header">
                                 <span class="franchise-panel-bar" style="background:${f.accent}" aria-hidden="true"></span>
-                                <span class="franchise-panel-name">${f.name}</span>
-                                <span class="franchise-panel-quote">&ldquo;${f.subtitle}&rdquo;</span>
+                                <span class="franchise-panel-name">${safeName}</span>
+                                <span class="franchise-panel-quote">&ldquo;${this.escapeHtml(f.subtitle)}&rdquo;</span>
                                 <button class="franchise-panel-close" type="button" aria-label="Collapse ${safeName}" onclick="Alexandria.toggleFranchise(this)">
                                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
                                 </button>
@@ -1956,7 +1965,7 @@ const Alexandria = {
                             <input type="number" id="discover-runtime" class="compact-input" placeholder="MAX MIN" min="30" max="400" onchange="Alexandria.executeDiscover()">
                         </div>
                         <div class="filter-group">
-                            <button type="button" class="compact-btn" onclick="Alexandria.openRouletteModal()">Surprise Me</button>
+                            <button type="button" class="roulette-btn" onclick="Alexandria.openRouletteModal()">Roulette</button>
                         </div>
                     </div>
                 `;
@@ -2549,9 +2558,7 @@ const Alexandria = {
                         </div>
                     </div>` : ''}
 
-                    <section id="ratings-section-container"></section>
-
-                    <section class="comments-section-container" id="comments-section-container"></section>
+                    <section id="community-section"></section>
                 </section>
             `;
             
@@ -2561,8 +2568,7 @@ const Alexandria = {
                 });
                 this.renderResults(data.similar.results, 'similar-results');
             }
-            this.renderRatings(type, id);
-            this.renderComments();
+            this.renderCommunitySection(type, id);
         } catch(e) {
             console.error("Alexandria Protocol: Details Render Failed", e);
             if (token === this._renderToken) this.renderError('This title could not be decrypted', e.message, 'details');
@@ -2755,7 +2761,7 @@ const Alexandria = {
         const token = this._renderToken;
         this.main.innerHTML = '<div class="placeholder-msg"><span class="pulse-dot"></span> LOADING PROFILE...</div>';
 
-        const safeQuery = promise => promise.catch(() => ({ data: [] }));
+        const safeQuery = promise => Promise.resolve(promise).catch(() => ({ data: [] }));
 
         try {
             const me = this.state.authUser?.id;
@@ -2772,7 +2778,7 @@ const Alexandria = {
                     safeQuery(this.supabase.from('follows').select('follower_id').eq('followee_id', targetUid)),
                     safeQuery(this.supabase.from('follows').select('followee_id').eq('follower_id', targetUid)),
                     (me && me !== targetUid)
-                        ? this.supabase.from('follows').select('follower_id').eq('follower_id', me).eq('followee_id', targetUid).maybeSingle().catch(() => ({ data: null }))
+                        ? Promise.resolve(this.supabase.from('follows').select('follower_id').eq('follower_id', me).eq('followee_id', targetUid).maybeSingle()).catch(() => ({ data: null }))
                         : Promise.resolve({ data: null })
                 ])
                 : [{ data: [] }, { data: [] }, { data: null }];
@@ -2870,8 +2876,8 @@ const Alexandria = {
 
         if (this.state.profileTab === 'reviews') {
             container.innerHTML = ratings.length ? ratings.map(r => {
-                const n = Math.max(0, Math.min(10, Math.round(Number(r.rating) || 0)));
-                const stars = '★'.repeat(n) + '☆'.repeat(10 - n);
+                const n = Math.max(1, Math.min(5, Math.round(Number(r.rating) || 0)));
+                const stars = '★'.repeat(n) + '☆'.repeat(5 - n);
                 return `
                     <div class="profile-section-item">
                         ${avatar(36)}
@@ -3023,7 +3029,7 @@ const Alexandria = {
             return;
         }
 
-        const safeQuery = promise => promise.catch(() => ({ data: [] }));
+        const safeQuery = promise => Promise.resolve(promise).catch(() => ({ data: [] }));
         try {
             let rows = [];
             if (tab === 'all') {
@@ -3908,6 +3914,16 @@ const Alexandria = {
         return `movie_${id}`;
     },
 
+    // Re-render whichever community surface is on screen (details merged section or player comments).
+    refreshCommunity() {
+        const { type, id } = this.state.activeContent || {};
+        if (this.state.view === 'details' && type && id) {
+            this.renderCommunitySection(type, id);
+        } else {
+            this.renderComments();
+        }
+    },
+
     getComments(commentKey) {
         if (!commentKey) return Promise.resolve([]);
         const localComments = () => {
@@ -4046,7 +4062,7 @@ const Alexandria = {
                 return;
             }
         }
-        this.renderComments();
+        this.refreshCommunity();
         this.showToast('Comment deleted');
     },
 
@@ -4094,7 +4110,7 @@ const Alexandria = {
         }
 
         input.value = '';
-        this.renderComments();
+        this.refreshCommunity();
         this.showToast('Comment posted!');
 
         if (cloudPosted) {
@@ -4117,7 +4133,7 @@ const Alexandria = {
             const clean = name.trim().slice(0, 24);
             sessionStorage.setItem('alexandria_nickname', clean);
             localStorage.setItem('alexandria_username', clean);
-            this.renderComments();
+            this.refreshCommunity();
             this.showToast(`Nickname updated to "${clean}"`);
         }
     },
@@ -4259,7 +4275,12 @@ const Alexandria = {
                 filter: 'comment_key=eq.' + key
             }, payload => {
                 if (payload.new && payload.new.user_id !== this.state.authUser?.id) {
-                    this.renderComments({ quiet: true });
+                    const { type, id } = this.state.activeContent || {};
+                    if (this.state.view === 'details' && type && id) {
+                        this.renderCommunitySection(type, id, { quiet: true });
+                    } else {
+                        this.renderComments({ quiet: true });
+                    }
                 }
             })
             .subscribe();
@@ -4274,8 +4295,8 @@ const Alexandria = {
         this._commentsChannelKey = null;
     },
 
-    captureCommentDraft() {
-        const input = document.getElementById('comment-input');
+    captureCommentDraft(inputId = 'comment-input') {
+        const input = document.getElementById(inputId);
         if (!input) return null;
         return {
             value: input.value,
@@ -4285,9 +4306,9 @@ const Alexandria = {
         };
     },
 
-    restoreCommentDraft(draft) {
+    restoreCommentDraft(draft, inputId = 'comment-input') {
         if (!draft) return;
-        const input = document.getElementById('comment-input');
+        const input = document.getElementById(inputId);
         if (!input) return;
         input.value = draft.value;
         try { input.setSelectionRange(draft.start, draft.end); } catch { /* ignore */ }
@@ -4295,10 +4316,15 @@ const Alexandria = {
     },
 
     // Community Ratings & Reviews Engine
-    async renderRatings(type, id) {
-        const container = document.getElementById('ratings-section-container');
+    async renderCommunitySection(type, id, opts = {}) {
+        const container = document.getElementById('community-section');
         if (!container) return;
         const token = this._renderToken;
+        if (!opts.quiet) {
+            container.innerHTML = '<div class="placeholder-msg"><span class="pulse-dot"></span> LOADING COMMUNITY...</div>';
+        }
+        const reviewDraft = opts.quiet ? this.captureCommentDraft('review-input') : null;
+
         let rows = [];
         let ownRow = null;
         if (this.supabase) {
@@ -4318,6 +4344,24 @@ const Alexandria = {
                 console.warn("Alexandria: Ratings fetch failed", e);
             }
         }
+        if (token !== this._renderToken) return;
+
+        const key = this.getCommentKey(this.state.activeContent);
+        this.setupCommentsRealtime(key);
+
+        const comments = key ? await this.getComments(key) : [];
+        if (token !== this._renderToken) return;
+
+        const profileById = {};
+        if (this.supabase) {
+            const uids = [...new Set([
+                ...rows.map(r => r.user_id).filter(Boolean),
+                ...(comments || []).map(c => c.userId).filter(Boolean)
+            ])];
+            const profiles = await Promise.all(uids.map(uid => this.fetchProfile(uid).catch(() => null)));
+            uids.forEach((uid, i) => { if (profiles[i]) profileById[uid] = profiles[i]; });
+        }
+        if (token !== this._renderToken) return;
 
         const avg = rows.length ? rows.reduce((sum, r) => sum + (Number(r.rating) || 0), 0) / rows.length : 0;
 
@@ -4331,13 +4375,6 @@ const Alexandria = {
             }
         }
 
-        const profileById = {};
-        if (this.supabase) {
-            const uids = [...new Set(rows.map(r => r.user_id).filter(Boolean))];
-            const profiles = await Promise.all(uids.map(uid => this.fetchProfile(uid).catch(() => null)));
-            uids.forEach((uid, i) => { if (profiles[i]) profileById[uid] = profiles[i]; });
-        }
-
         const displayName = uid => {
             const p = profileById[uid];
             return p ? (p.nickname || p.username || 'Member') : 'Member';
@@ -4349,16 +4386,20 @@ const Alexandria = {
                 : `<span class="review-author">${this.escapeHtml(name)}</span>`;
         };
 
-        this.state._ratingDraft = Math.max(0, Math.min(10, Math.round(Number(ownRow?.rating) || 0)));
+        if (!opts.quiet) {
+            this.state._ratingDraft = Math.max(0, Math.min(5, Math.round(Number(ownRow?.rating) || 0)));
+        }
+        const ownReview = this.state._suppressReviewPrefill ? '' : (ownRow?.review || '');
+        if (this.state._suppressReviewPrefill) this.state._suppressReviewPrefill = false;
 
         const composer = this.state.authUser ? `
             <div class="ratings-composer" id="ratings-composer">
                 <div class="rate-stars-row">
-                    ${Array.from({ length: 10 }, (_, i) => i + 1).map(n => `
-                        <span class="rate-star ${n <= this.state._ratingDraft ? 'filled' : ''}" data-rating="${n}" onclick="Alexandria.setRatingDraft(${n})" role="button" tabindex="0" aria-label="Rate ${n} of 10">${n <= this.state._ratingDraft ? '★' : '☆'}</span>
+                    ${Array.from({ length: 5 }, (_, i) => i + 1).map(n => `
+                        <span class="rate-star ${n <= this.state._ratingDraft ? 'filled' : ''}" data-rating="${n}" onclick="Alexandria.setRatingDraft(${n})" role="button" tabindex="0" aria-label="Rate ${n} of 5">${n <= this.state._ratingDraft ? '★' : '☆'}</span>
                     `).join('')}
                 </div>
-                <textarea id="review-input" placeholder="Write your review of this title..." maxlength="1000" rows="4">${this.escapeHtml(ownRow?.review || '')}</textarea>
+                <textarea id="review-input" placeholder="Write your review or comment..." maxlength="1000" rows="4">${this.escapeHtml(ownReview)}</textarea>
                 <div class="ratings-composer-footer">
                     <button type="button" class="btn-primary" onclick="Alexandria.submitRating('${type}', ${id})">${ownRow ? 'UPDATE REVIEW' : 'SUBMIT'}</button>
                     ${ownRow ? `<button type="button" class="btn-secondary" onclick="Alexandria.deleteRating('${ownRow.id}')">DELETE MY REVIEW</button>` : ''}
@@ -4371,46 +4412,86 @@ const Alexandria = {
             </div>
         `;
 
-        const reviewsHtml = rows.map(r => {
-            const n = Math.max(0, Math.min(10, Math.round(Number(r.rating) || 0)));
+        const safeKey = this.escapeHtml(key || '');
+        const ratingEntries = rows.map(r => {
+            const n = Math.max(0, Math.min(5, Math.round(Number(r.rating) || 0)));
             const isMine = Boolean(this.state.authUser && r.user_id === this.state.authUser.id);
-            return `
+            return {
+                ts: new Date(r.created_at || 0).getTime(),
+                html: `
                 <div class="review-card">
                     ${r.user_id ? `<a class="review-avatar-link" href="#profile/${this.escapeHtml(r.user_id)}">${this.avatarHtml(profileById[r.user_id], 36)}</a>` : this.avatarHtml(null, 36)}
                     <div class="review-body">
                         <div class="review-meta">
                             ${nameNode(r.user_id)}
-                            <span class="review-stars" aria-label="Rated ${n} of 10">${'★'.repeat(n)}${'☆'.repeat(10 - n)}</span>
+                            <span class="review-stars" aria-label="Rated ${n} of 5">${'★'.repeat(n)}${'☆'.repeat(5 - n)}</span>
                             <span class="review-time">${this.escapeHtml(this.timeago(r.created_at))}</span>
                         </div>
                         ${r.review ? `<p class="review-text">${this.escapeHtml(r.review)}</p>` : ''}
                     </div>
                     ${isMine ? `
                         <div class="review-actions">
-                            <button type="button" class="btn-text-link" onclick="Alexandria.setRatingDraft(${n}, true)">EDIT</button>
                             <button type="button" class="btn-text-link" onclick="Alexandria.deleteRating('${r.id}')">DELETE</button>
                         </div>
                     ` : ''}
                 </div>
-            `;
-        }).join('');
+            `};
+        });
+
+        const commentEntries = (comments || []).map(c => {
+            const profile = c.userId ? profileById[c.userId] : null;
+            const authorName = profile ? (profile.nickname || profile.username || c.author || 'Member') : (c.author || 'Member');
+            const initial = (c.author || 'G').charAt(0).toUpperCase();
+            const safeId = this.escapeHtml(c.id);
+            const avatar = c.userId && profile
+                ? `<a class="comment-avatar-link" href="#profile/${this.escapeHtml(c.userId)}" aria-label="${this.escapeHtml(authorName)}">${this.avatarHtml(profile, 38)}</a>`
+                : `<div class="comment-avatar" aria-hidden="true">${initial}</div>`;
+            const authorNode = c.userId
+                ? `<a class="comment-author comment-author-link" href="#profile/${this.escapeHtml(c.userId)}">${this.escapeHtml(authorName)}</a>`
+                : `<span class="comment-author">${this.escapeHtml(authorName)}</span>`;
+            return {
+                ts: new Date(c.createdAt || 0).getTime(),
+                html: `
+                <div class="comment-card">
+                    ${avatar}
+                    <div class="comment-body">
+                        <div class="comment-meta">
+                            ${authorNode}
+                            <span class="comment-time">${this.escapeHtml(this.timeago(c.createdAt))}</span>
+                            ${c.isMine ? `
+                                <button type="button" class="comment-delete-btn" aria-label="Delete comment" title="Delete comment" data-key="${safeKey}" data-id="${safeId}" onclick="Alexandria.deleteComment('${safeKey}', '${safeId}')">✕</button>
+                            ` : ''}
+                        </div>
+                        <p class="comment-text">${this.escapeHtml(c.text)}</p>
+                    </div>
+                </div>
+            `};
+        });
+
+        const mergedHtml = [...ratingEntries, ...commentEntries]
+            .sort((a, b) => b.ts - a.ts)
+            .map(e => e.html)
+            .join('');
+
+        const scopeBadge = type === 'tv' ? 'SERIES' : 'MOVIE';
 
         container.innerHTML = `
-            <div class="ratings-section">
+            <div class="community-section">
                 <div class="ratings-header">
-                    <h3>COMMUNITY RATINGS</h3>
-                    <span class="ratings-average">${rows.length ? `★ ${avg.toFixed(1)} · ${rows.length} rating${rows.length === 1 ? '' : 's'}` : 'NO RATINGS YET — be the first'}</span>
+                    <h3>COMMUNITY <span class="comments-scope-badge">${scopeBadge}</span></h3>
+                    <span class="ratings-average">${rows.length ? `★ ${avg.toFixed(1)} · ${rows.length} RATING${rows.length === 1 ? '' : 'S'}` : 'NO RATINGS YET — be the first'}</span>
                 </div>
                 ${composer}
-                <div class="reviews-list">
-                    ${reviewsHtml || '<div class="placeholder-msg comments-empty">No reviews yet for this title.</div>'}
+                <div class="community-list">
+                    ${mergedHtml || '<div class="placeholder-msg comments-empty">No ratings or comments yet. Be the first to rate and start the discussion!</div>'}
                 </div>
             </div>
         `;
+        if (reviewDraft) this.restoreCommentDraft(reviewDraft, 'review-input');
     },
 
     setRatingDraft(n, scrollToComposer = false) {
-        const val = Math.max(0, Math.min(10, Math.round(Number(n) || 0)));
+        const val = Math.max(0, Math.min(5, Math.round(Number(n) || 0)));
         this.state._ratingDraft = (this.state._ratingDraft === val) ? 0 : val;
         document.querySelectorAll('.rate-star').forEach(star => {
             const rating = Number(star.dataset.rating);
@@ -4455,9 +4536,27 @@ const Alexandria = {
             this.showToast('Could not save your rating.');
             return;
         }
+
+        // Post the review text as a comment in the same submission.
+        if (review) {
+            const key = this.getCommentKey(this.state.activeContent);
+            if (key) {
+                try {
+                    await this.migrateLocalComments(key);
+                    const u = this.state.authUser;
+                    const nickname = u.user_metadata?.username || u.email?.split('@')[0] || sessionStorage.getItem('alexandria_nickname') || 'Member';
+                    const profile = await this.fetchProfile(u.id).catch(() => null);
+                    await this.saveComment(key, { author: profile?.nickname || nickname, text: review });
+                } catch (e) {
+                    console.warn("Alexandria: Comment insert after review failed", e);
+                }
+            }
+        }
+
         this.showToast(review ? 'Review posted!' : 'Rating saved!');
-        this.state._ratingDraft = 0;
-        this.renderRatings(type, id);
+        if (input) input.value = '';
+        this.state._suppressReviewPrefill = true;
+        this.renderCommunitySection(type, id);
         this.logActivity(review ? 'reviewed' : 'rated', {
             contentId: id,
             contentType: type,
@@ -4482,7 +4581,7 @@ const Alexandria = {
         this.showToast('Review deleted');
         this.state._ratingDraft = 0;
         const { id, type } = this.state.activeContent;
-        this.renderRatings(type, id);
+        this.renderCommunitySection(type, id);
     },
 
     // User Auth & Unique Username Engine
@@ -4496,6 +4595,37 @@ const Alexandria = {
         } else {
             modal.setAttribute('hidden', '');
         }
+    },
+
+    toggleAccountMenu() {
+        const menu = document.getElementById('account-menu');
+        if (!menu) return;
+        if (!menu.hasAttribute('hidden')) {
+            this.closeAccountMenu();
+            return;
+        }
+        const signedIn = Boolean(this.state.authUser);
+        menu.innerHTML = `
+            <a href="#community" class="account-menu-item" onclick="Alexandria.closeAccountMenu()">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
+                Community
+            </a>
+            <div class="account-menu-divider"></div>
+            ${signedIn
+                ? `<button type="button" class="account-menu-item" onclick="Alexandria.signOut()">Sign Out</button>`
+                : `<button type="button" class="account-menu-item" onclick="Alexandria.closeAccountMenu(); Alexandria.toggleAuthModal(true, 'login')">Sign In / Create Account</button>`}
+        `;
+        menu.removeAttribute('hidden');
+    },
+
+    closeAccountMenu() {
+        const menu = document.getElementById('account-menu');
+        if (menu) menu.setAttribute('hidden', '');
+    },
+
+    signOut() {
+        this.closeAccountMenu();
+        this.handleSignOut();
     },
 
     renderAuthModal(tab = 'login') {
@@ -4687,7 +4817,7 @@ const Alexandria = {
         this.updateAuthUI();
         this.toggleAuthModal(false);
         if (this.state.view === 'details' || this.state.view === 'player') {
-            this.renderComments();
+            this.refreshCommunity();
         }
         this.showToast("Logged out successfully.");
     },
@@ -4772,7 +4902,7 @@ const Alexandria = {
             this.updateAuthUI();
             await this.syncFromCloud();
             if (this.state.view === 'details' || this.state.view === 'player') {
-                this.renderComments();
+                this.refreshCommunity();
             }
         });
     },

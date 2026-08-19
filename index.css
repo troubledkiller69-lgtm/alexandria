@@ -1583,6 +1583,38 @@ h1, h2, h3, h4 {
     border-color: var(--primary-accent);
 }
 
+.roulette-btn {
+    height: 42px;
+    min-height: 42px;
+    padding: 0.45rem 1.3rem;
+    font-family: var(--font-body);
+    font-size: 0.85rem;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    line-height: 1.25;
+    text-transform: uppercase;
+    color: #fff;
+    background: #8a0303;
+    border: 1px solid rgba(255, 255, 255, 0.28);
+    border-radius: 6px;
+    cursor: pointer;
+    white-space: nowrap;
+    outline: none;
+    box-sizing: border-box;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 0 16px rgba(138, 3, 3, 0.45), inset 0 0 12px rgba(255, 255, 255, 0.06);
+    transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.roulette-btn:hover {
+    background: #a30404;
+    border-color: rgba(255, 255, 255, 0.4);
+    box-shadow: 0 0 24px rgba(163, 4, 4, 0.65), inset 0 0 12px rgba(255, 255, 255, 0.08);
+    transform: translateY(-1px);
+}
+
 .filter-btn {
     background: rgba(255, 255, 255, 0.04);
     border: 1px solid rgba(255, 255, 255, 0.12);
@@ -2048,6 +2080,15 @@ h1, h2, h3, h4 {
     background: transparent;
     display: block;
     text-align: left;
+    transition: background 0.25s ease, box-shadow 0.25s ease;
+}
+.franchise-tile-toggle:hover {
+    background: rgba(138, 3, 3, 0.18);
+    box-shadow: inset 0 0 0 1px rgba(138, 3, 3, 0.55), 0 0 14px rgba(138, 3, 3, 0.35);
+}
+.franchise-tile-toggle:active {
+    background: rgba(138, 3, 3, 0.3);
+    box-shadow: inset 0 0 0 1px rgba(138, 3, 3, 0.75), 0 0 8px rgba(138, 3, 3, 0.3);
 }
 .franchise-tile-poster {
     position: absolute;
@@ -2071,6 +2112,10 @@ h1, h2, h3, h4 {
     inset: 0;
     background: linear-gradient(180deg, rgba(0, 0, 0, 0) 42%, rgba(0, 0, 0, 0.88));
     pointer-events: none;
+    transition: background 0.25s ease;
+}
+.franchise-tile-toggle:hover .franchise-tile-scrim {
+    background: linear-gradient(180deg, rgba(138, 3, 3, 0.16) 42%, rgba(0, 0, 0, 0.88));
 }
 .franchise-tile-count {
     position: absolute;
@@ -2084,6 +2129,13 @@ h1, h2, h3, h4 {
     padding: 0.15rem 0.45rem;
     border-radius: 999px;
     pointer-events: none;
+    border: 1px solid transparent;
+    transition: border-color 0.25s ease, background 0.25s ease, box-shadow 0.25s ease;
+}
+.franchise-tile-toggle:hover .franchise-tile-count {
+    border-color: rgba(138, 3, 3, 0.6);
+    background: rgba(138, 3, 3, 0.35);
+    box-shadow: 0 0 8px rgba(138, 3, 3, 0.3);
 }
 .franchise-tile-name {
     position: absolute;
@@ -2110,8 +2162,8 @@ h1, h2, h3, h4 {
     width: 34px;
     height: 34px;
     border-radius: 50%;
-    border: 1px solid rgba(255, 255, 255, 0.28);
-    background: rgba(15, 15, 20, 0.45);
+    border: 1px solid rgba(138, 3, 3, 0.55);
+    background: rgba(138, 3, 3, 0.3);
     backdrop-filter: blur(8px);
     -webkit-backdrop-filter: blur(8px);
     color: #fff;
@@ -2119,12 +2171,19 @@ h1, h2, h3, h4 {
     place-items: center;
     cursor: pointer;
     z-index: 4;
-    transition: background 0.2s ease, color 0.2s ease, transform 0.2s ease;
+    transition: background 0.25s ease, border-color 0.25s ease, color 0.25s ease, box-shadow 0.25s ease, transform 0.25s ease;
 }
 .franchise-tile-arrow:hover {
-    background: rgba(212, 175, 55, 0.9);
-    color: var(--bg-base);
+    background: rgba(138, 3, 3, 0.55);
+    border-color: rgba(138, 3, 3, 0.85);
+    box-shadow: 0 0 14px rgba(138, 3, 3, 0.45);
     transform: translateY(-50%) scale(1.08);
+}
+.franchise-tile-arrow:active {
+    background: rgba(138, 3, 3, 0.8);
+    border-color: rgba(138, 3, 3, 1);
+    box-shadow: 0 0 6px rgba(138, 3, 3, 0.35);
+    transform: translateY(-50%) scale(0.96);
 }
 
 /* Expanded panel */
@@ -2635,6 +2694,7 @@ h1, h2, h3, h4 {
 @media (max-width: 620px) {
     .brand-logo { height: 23px; max-width: 180px; }
     .top-nav-actions { gap: 0.5rem; }
+    .account-menu { right: 1rem; }
     .cyber-sidebar { width: min(86vw, 320px); height: 100vh; height: 100dvh; }
     .hero-featured { min-height: 610px; padding: 2rem 1.25rem 9.5rem; background-position: 58% center; }
     .featured-content p { font-size: 0.98rem; margin-bottom: 1.5rem; -webkit-line-clamp: 4; }
@@ -3485,12 +3545,12 @@ h1, h2, h3, h4 {
 }
 
 /* Community Ratings & Reviews Styles */
-#ratings-section-container {
+#community-section {
     width: 100%;
     margin-top: 2rem;
 }
 
-.ratings-section {
+.community-section {
     background: var(--bg-panel, #0d0e14);
     border: 1px solid rgba(255, 255, 255, 0.08);
     border-radius: 8px;
@@ -3542,11 +3602,11 @@ h1, h2, h3, h4 {
 
 .rate-stars-row {
     display: flex;
-    gap: 0.2rem;
+    gap: 0.35rem;
 }
 
 .rate-star {
-    font-size: 1.25rem;
+    font-size: 1.5rem;
     line-height: 1;
     color: rgba(255, 255, 255, 0.28);
     cursor: pointer;
@@ -3606,7 +3666,7 @@ h1, h2, h3, h4 {
     color: var(--text-muted, #9ca3af);
 }
 
-.reviews-list {
+.community-list {
     display: flex;
     flex-direction: column;
     gap: 1rem;
@@ -3694,6 +3754,56 @@ h1, h2, h3, h4 {
     font-size: 0.8rem;
     font-weight: 600;
     color: #fff;
+}
+
+.account-menu {
+    position: absolute;
+    top: calc(100% + 0.35rem);
+    right: 2rem;
+    min-width: 240px;
+    background: rgba(15, 17, 24, 0.97);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 8px;
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.55);
+    padding: 0.4rem;
+    z-index: 90;
+}
+
+.account-menu[hidden] {
+    display: none;
+}
+
+.account-menu-item {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    width: 100%;
+    padding: 0.6rem 0.8rem;
+    background: transparent;
+    border: 0;
+    border-radius: 5px;
+    font-family: var(--font-body);
+    font-size: 0.8rem;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: #fff;
+    text-decoration: none;
+    cursor: pointer;
+    transition: background 0.15s ease, color 0.15s ease;
+}
+
+.account-menu-item:hover {
+    background: rgba(255, 255, 255, 0.07);
+    color: #ff5a5a;
+}
+
+.account-menu-divider {
+    height: 1px;
+    background: rgba(255, 255, 255, 0.12);
+    margin: 0.35rem 0.4rem;
 }
 
 .auth-modal-overlay {

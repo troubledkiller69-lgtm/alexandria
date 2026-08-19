@@ -89,7 +89,9 @@ create table if not exists public.ratings (
   user_id uuid not null references auth.users(id) on delete cascade,
   content_id integer not null,
   content_type text not null check (content_type in ('movie', 'tv')),
-  rating smallint not null check (rating between 1 and 10),
+  -- 1-5 star scale (migration `ratings_scale_to_five_stars` converted
+  -- legacy 1-10 values: round(rating / 2), clamped to >= 1)
+  rating smallint not null check (rating between 1 and 5),
   review text,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
