@@ -5317,6 +5317,10 @@ const Alexandria = {
                     return;
                 }
                 const username = data.user?.user_metadata?.username || email.split('@')[0];
+                // Self-heal: users who signed up under email verification have no
+                // profile row (signup returned no session, so the client could not
+                // insert one). Ensure it exists now that we have a session.
+                await this.ensureUserProfile(data.user, username);
                 sessionStorage.setItem('alexandria_nickname', username);
                 localStorage.setItem('alexandria_username', username);
                 this.state.authUser = data.user;
