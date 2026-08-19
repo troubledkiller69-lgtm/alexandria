@@ -822,6 +822,20 @@ const Alexandria = {
                         cleanHistory = this.dedupeItems([...cloudHist, ...cleanHistory]);
                     }
 
+                    // Push local-only episode marks up so per-episode progress
+                    // transfers too (same pull-only gap as the watchlist).
+                    const cloudEpKeys = new Set((dbEpisodes || []).map(ep => `${ep.tmdb_id}_s${ep.season}e${ep.episode}`));
+                    const epToPush = [];
+                    for (const [key, val] of Object.entries(localEpisodes)) {
+                        if (!val || cloudEpKeys.has(key)) continue;
+                        const m = key.match(/^(\d+)_s(\d+)e(\d+)$/);
+                        if (!m) continue;
+                        epToPush.push({ user_id: uid, tmdb_id: Number(m[1]), season: Number(m[2]), episode: Number(m[3]) });
+                    }
+                    if (epToPush.length > 0) {
+                        await this.supabase.from('watched_episodes').upsert(epToPush, { onConflict: 'user_id, tmdb_id, season, episode' });
+                    }
+
                     // Push local-only items and status differences up so the
                     // watchlist transfers across devices even for titles added
                     // while signed out (they never reached the cloud before).
