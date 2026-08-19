@@ -77,7 +77,16 @@ const Alexandria = {
         { id: 'wolf', emoji: '🐺' },
         { id: 'raven', emoji: '🐦‍⬛' },
         { id: 'panda', emoji: '🐼' },
-        { id: 'tiger', emoji: '🐯' }
+        { id: 'tiger', emoji: '🐯' },
+        // The Walking Dead survivors — real photos (TMDB profile images, CSP-safe)
+        { id: 'walker', img: '/aN29llVoCFtBTwDZFtqdD9d8dHb.jpg', twd: true },
+        { id: 'rick', img: '/gR4RzQTDsMfVv8oEh2VRbO8LkFz.jpg', twd: true },
+        { id: 'daryl', img: '/ozHPdO5jAt7ozzdZUgyRAMNPSDW.jpg', twd: true },
+        { id: 'michonne', img: '/z7H7QeQvr24vskGlANQhG43vozQ.jpg', twd: true },
+        { id: 'glenn', img: '/fOMFO2Xx4duzpNgS9Q5ytO44yGb.jpg', twd: true },
+        { id: 'maggie', img: '/8WPbj506873QzrKwUFbjjniLuvD.jpg', twd: true },
+        { id: 'carol', img: '/2omPfeMdnicJqqvgKAU2iqVyD4Z.jpg', twd: true },
+        { id: 'negan', img: '/m8bdrmh6ExDCGQ64E83mHg002YV.jpg', twd: true }
     ],
 
     escapeHtml(value = '') {
@@ -2682,10 +2691,14 @@ const Alexandria = {
     // #region Community profiles
     avatarHtml(profile, sizePx = 32) {
         const preset = this.AVATAR_PRESETS.find(p => p.id === profile?.avatar_id);
+        const px = Math.max(16, Number(sizePx) || 32);
+        if (preset?.img) {
+            const src = this.imageUrl(preset.img, 'w185') || '';
+            return `<span class="alexandria-avatar" style="width:${px}px;height:${px}px;"><img src="${src}" alt="" loading="lazy" decoding="async"></span>`;
+        }
         const content = preset
             ? preset.emoji
             : (profile?.nickname || profile?.username || profile?.email || '?').charAt(0).toUpperCase();
-        const px = Math.max(16, Number(sizePx) || 32);
         return `<span class="alexandria-avatar" style="width:${px}px;height:${px}px;font-size:${Math.round(px * 0.5)}px;">${this.escapeHtml(content)}</span>`;
     },
 
@@ -3179,9 +3192,15 @@ const Alexandria = {
         this.state.profileAvatarSelection = profile.avatar_id || 'python';
         const picker = document.getElementById('avatar-picker');
         if (picker) {
-            picker.innerHTML = this.AVATAR_PRESETS.map(p => `
-                <button type="button" class="avatar-picker-btn ${profile.avatar_id === p.id ? 'selected' : ''}" data-avatar="${p.id}" aria-label="${p.id}" onclick="Alexandria.selectProfileAvatar('${p.id}', this)">${p.emoji}</button>
-            `).join('');
+            picker.innerHTML = this.AVATAR_PRESETS.map((p, i) => {
+                const label = p.twd && !this.AVATAR_PRESETS[i - 1]?.twd
+                    ? '<span class="avatar-picker-label">THE WALKING DEAD</span>'
+                    : '';
+                const body = p.img
+                    ? `<img src="${this.imageUrl(p.img, 'w185')}" alt="" loading="lazy" decoding="async">`
+                    : p.emoji;
+                return `${label}<button type="button" class="avatar-picker-btn ${profile.avatar_id === p.id ? 'selected' : ''}" data-avatar="${p.id}" aria-label="${p.id}" onclick="Alexandria.selectProfileAvatar('${p.id}', this)">${body}</button>`;
+            }).join('');
         }
         this.state.profileGenreSelection = new Set(
             (profile.fav_genres || '').split(',').map(s => s.trim()).filter(Boolean)
