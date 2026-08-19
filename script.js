@@ -333,8 +333,8 @@ const Alexandria = {
     },
 
     playerIframeFlags() {
-        // No allow-popups / allow-top-navigation: embed ads open tabs and steal the page.
-        return 'allowfullscreen="true" webkitallowfullscreen="true" mozallowfullscreen="true" allow="autoplay *; fullscreen *; picture-in-picture *; encrypted-media *" referrerpolicy="no-referrer-when-downgrade" sandbox="allow-scripts allow-same-origin allow-forms allow-presentation allow-fullscreen"';
+        // EmbedMaster (and most mirrors) refuse to play if the iframe has sandbox at all.
+        return 'allowfullscreen="true" webkitallowfullscreen="true" mozallowfullscreen="true" allow="autoplay *; fullscreen *; picture-in-picture *; encrypted-media *" referrerpolicy="no-referrer-when-downgrade"';
     },
 
     isAllowedExternalLink(href) {
