@@ -29,6 +29,36 @@ const Alexandria = {
             supportsApi: true,
             getMovie: id => `https://embedmaster.link/9gis39azyhxlvq5t/movie/${id}`,
             getTv: (id, s, e) => `https://embedmaster.link/9gis39azyhxlvq5t/tv/${id}/${s}/${e}`
+        },
+        {
+            name: 'EmbedMaster Public',
+            supportsApi: true,
+            getMovie: id => `https://embedmaster.link/movie/${id}`,
+            getTv: (id, s, e) => `https://embedmaster.link/tv/${id}/${s}/${e}`
+        },
+        {
+            name: 'VidSrc',
+            supportsApi: false,
+            getMovie: id => `https://vidsrc.cc/v2/embed/movie/${id}`,
+            getTv: (id, s, e) => `https://vidsrc.cc/v2/embed/tv/${id}/${s}/${e}`
+        },
+        {
+            name: 'VidSrc TO',
+            supportsApi: false,
+            getMovie: id => `https://vidsrc.to/embed/movie/${id}`,
+            getTv: (id, s, e) => `https://vidsrc.to/embed/tv/${id}/${s}/${e}`
+        },
+        {
+            name: 'EmbedSU',
+            supportsApi: false,
+            getMovie: id => `https://embed.su/embed/movie/${id}`,
+            getTv: (id, s, e) => `https://embed.su/embed/tv/${id}/${s}/${e}`
+        },
+        {
+            name: 'VidLink',
+            supportsApi: false,
+            getMovie: id => `https://vidlink.pro/movie/${id}`,
+            getTv: (id, s, e) => `https://vidlink.pro/tv/${id}/${s}/${e}`
         }
     ],
 
@@ -123,7 +153,7 @@ const Alexandria = {
     isTrustedEmbedOrigin(origin) {
         try {
             const host = new URL(origin).hostname;
-            const trusted = ['embedmaster.link', 'embdmstrplayer.com', 'vidsrcme.ru', 'vsembed.ru', 'vidsrc.cc', 'vidsrc.me', 'vsrc.su', 'vidlink.pro', 'autoembed.co', 'embed.su'];
+            const trusted = ['embedmaster.link', 'embdmstrplayer.com', 'vidsrcme.ru', 'vsembed.ru', 'vidsrc.cc', 'vidsrc.me', 'vidsrc.to', 'vidsrc.net', 'vsrc.su', 'vidlink.pro', 'autoembed.co', 'embed.su'];
             return trusted.some(d => host === d || host.endsWith('.' + d));
         } catch {
             return false;
@@ -3776,6 +3806,7 @@ const Alexandria = {
                             <select id="server-selector" class="server-select-dropdown" onchange="Alexandria.handleServerChange(this.value)">
                                 ${this.servers.map((s, i) => `<option value="${i}" ${i === this.state.activeServer ? 'selected' : ''}>${s.name}</option>`).join('')}
                             </select>
+                            <button type="button" class="btn-secondary server-next-btn" onclick="Alexandria.failoverToNextServer(true)" title="Try the next mirror">NEXT SERVER</button>
                             <span id="server-status" class="server-status" aria-live="polite">Connecting to ${this.escapeHtml(server.name)}…</span>
                         </div>
                         <div class="player-frame-container">

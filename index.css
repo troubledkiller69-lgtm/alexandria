@@ -1254,16 +1254,16 @@ h1, h2, h3, h4 {
     border-color: rgba(255, 255, 255, 0.28);
 }
 
-.server-select-dropdown option {
-    background-color: #0a0a0c;
-    color: #f8fafc;
-}
-
 .server-next-btn {
     padding: 0.45rem 0.9rem;
     font-size: 0.75rem;
     letter-spacing: 0.08em;
     white-space: nowrap;
+}
+
+.server-select-dropdown option {
+    background-color: #0a0a0c;
+    color: #f8fafc;
 }
 
 .server-status {
