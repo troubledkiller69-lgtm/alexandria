@@ -492,7 +492,7 @@ const Alexandria = {
             this.state.activeListId = listId;
             this.setView('list');
         } else {
-            const allowedViews = new Set(['home', 'movies', 'tv', 'anime', 'franchises', 'search', 'history', 'watchlist', 'community']);
+            const allowedViews = new Set(['home', 'movies', 'tv', 'anime', 'franchises', 'search', 'history', 'watchlist', 'community', 'calendar']);
             this.setView(allowedViews.has(path) ? path : 'home');
         }
     },
@@ -881,6 +881,7 @@ const Alexandria = {
 
         // Main View Routing
         if (this.state.view === 'home') this.renderHome();
+        else if (this.state.view === 'calendar') this.renderCalendar();
         else if (this.state.view === 'movies') this.renderFiltered('movie');
         else if (this.state.view === 'tv') this.renderFiltered('tv');
         else if (this.state.view === 'anime') this.renderAnime();
@@ -1376,6 +1377,7 @@ const Alexandria = {
                         </div>` : ''}
                     </div>
                     <div id="continue-watching-section"></div>
+                    <div id="because-you-watched-section"></div>
                     <div id="priority-archive-section"></div>
                     <div class="view-section">
                         <div class="genre-dropdown-wrapper" id="genre-dropdown-wrapper">
@@ -1407,6 +1409,7 @@ const Alexandria = {
                 </section>`;
             
             this.renderHistory();
+            this.renderBecauseYouWatched();
             this.renderWatchlist();
             this.renderResults(genreData.results, 'genre-explorer-grid');
             this.renderResults(specialsData, 'alexandria-specials');
@@ -1442,6 +1445,137 @@ const Alexandria = {
             this.renderResults(this.state.history, 'history-results', true);
         } else {
             container.innerHTML = '';
+        }
+    },
+
+    async renderBecauseYouWatched() {
+        const container = document.getElementById('because-you-watched-section');
+        if (!container || !this.state.history || !this.state.history.length) {
+            if (container) container.innerHTML = '';
+            return;
+        }
+
+        const seeds = (this.state.history || [])
+            .filter(h => h && (h.type === 'movie' || h.type === 'tv') && h.id != null)
+            .slice(0, 2);
+        if (!seeds.length) {
+            container.innerHTML = '';
+            return;
+        }
+
+        const token = this._renderToken;
+        const blockKeys = new Set();
+        (this.state.history || []).forEach(h => {
+            if (h && h.id != null && h.type) blockKeys.add(String(h.id) + '_' + h.type);
+        });
+        (this.state.watchlist || []).forEach(w => {
+            if (w && w.id != null && w.type) blockKeys.add(String(w.id) + '_' + w.type);
+        });
+
+        const collected = [];
+        const seen = new Set();
+        for (const seed of seeds) {
+            let data = null;
+            try {
+                data = await this.getJson(seed.type + '/' + seed.id + '/recommendations');
+            } catch (error) {
+                data = null;
+            }
+            if (token !== this._renderToken) return;
+
+            const results = (data && data.results) || [];
+            for (const item of results) {
+                if (!item || !item.poster_path) continue;
+                const type = item.media_type === 'tv' || item.media_type === 'movie'
+                    ? item.media_type
+                    : (item.name && !item.title ? 'tv' : 'movie');
+                const key = String(item.id) + '_' + type;
+                if (blockKeys.has(key) || seen.has(key)) continue;
+                seen.add(key);
+                collected.push({ ...item, type });
+            }
+            if (collected.length >= 14) break;
+        }
+        if (token !== this._renderToken) return;
+
+        const capped = collected.slice(0, 14);
+        if (!capped.length) {
+            container.innerHTML = '';
+            return;
+        }
+
+        const seedTitle = seeds[0].title || seeds[0].name || 'YOUR HISTORY';
+        container.innerHTML = `<div class="view-section"><h3>BECAUSE YOU WATCHED ${this.escapeHtml(seedTitle)}</h3><div class="carousel-container"><button class="carousel-arrow left" onclick="Alexandria.scrollCarousel(this, -800)">&#10094;</button><div class="carousel-wrapper"><div class="carousel-grid" id="because-you-watched-results"></div></div><button class="carousel-arrow right" onclick="Alexandria.scrollCarousel(this, 800)">&#10095;</button></div></div>`;
+        this.renderResults(capped, 'because-you-watched-results');
+    },
+
+    async renderCalendar() {
+        const token = this._renderToken;
+        this.main.innerHTML = '<div class="placeholder-msg"><span class="pulse-dot"></span> SYNCING AIRTIME...</div>';
+
+        try {
+            const [airingData, onAirData] = await Promise.all([
+                this.getJson('tv/airing_today'),
+                this.getJson('tv/on_the_air')
+            ]);
+            if (token !== this._renderToken) return;
+
+            const localISO = (d) => d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+            const days = [];
+            for (let i = 0; i < 7; i++) {
+                const date = new Date(Date.now() + i * 86400000);
+                days.push({
+                    iso: localISO(date),
+                    label: ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'][date.getDay()] + ' ' + date.getDate()
+                });
+            }
+            const todayISO = days[0].iso;
+            const lastISO = days[6].iso;
+
+            const seen = new Set();
+            const shows = [];
+            for (const data of [airingData, onAirData]) {
+                const results = (data && data.results) || [];
+                for (const show of results) {
+                    if (!show || !show.air_date) continue;
+                    if (show.air_date < todayISO || show.air_date > lastISO) continue;
+                    if (seen.has(show.id)) continue;
+                    seen.add(show.id);
+                    shows.push(show);
+                }
+            }
+
+            const groups = {};
+            days.forEach(d => { groups[d.iso] = []; });
+            shows.forEach(show => {
+                if (groups[show.air_date]) groups[show.air_date].push(show);
+            });
+
+            this.main.innerHTML = `
+                <section class="view-section calendar-view">
+                    <div class="calendar-header">
+                        <h3>AIRTIME CALENDAR</h3>
+                        <p class="calendar-range">${this.escapeHtml(days[0].label)} &mdash; ${this.escapeHtml(days[6].label)}</p>
+                    </div>
+                    <div class="calendar-grid">
+                        ${days.map((d, i) => `
+                            <div class="calendar-day${i === 0 ? ' today' : ''}">
+                                <div class="calendar-day-head">${this.escapeHtml(d.label)}${i === 0 ? ' <span class="calendar-today-tag">TODAY</span>' : ''}</div>
+                                ${groups[d.iso].length
+                                    ? groups[d.iso].map(show => {
+                                        const safeId = this.escapeHtml(String(show.id));
+                                        const safeTitle = this.escapeHtml(show.name || show.original_name || 'Untitled');
+                                        const poster = this.imageUrl(show.poster_path, 'w185');
+                                        return `<div class="calendar-item">${poster ? `<img src="${poster}" alt="${safeTitle} poster" loading="lazy" decoding="async">` : `<div class="poster-placeholder" role="img" aria-label="No poster available"><span>A</span><small>NO POSTER</small></div>`}<a class="calendar-item-title" href="#details/tv/${safeId}">${safeTitle}</a></div>`;
+                                    }).join('')
+                                    : '<div class="calendar-empty">NO SIGNALS</div>'}
+                            </div>
+                        `).join('')}
+                    </div>
+                </section>`;
+        } catch (error) {
+            console.error("Alexandria Protocol: Calendar Sync Failed -", error);
+            if (token === this._renderToken) this.renderError('CALENDAR OFFLINE', error.message, 'calendar');
         }
     },
 
