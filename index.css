@@ -2802,7 +2802,7 @@ h1, h2, h3, h4 {
     .player-page-container { padding: 1rem; gap: 1.5rem; }
     .player-stage-grid.has-sidebar { grid-template-columns: 1fr; grid-template-rows: auto; }
     .player-main { flex: none; border-radius: 8px; }
-    .player-frame-container { flex: none; aspect-ratio: 16 / 9; }
+    .player-stage-grid.has-sidebar .player-frame-container { flex: none; min-height: auto; aspect-ratio: 16 / 9; }
     .episode-sidebar {
         width: 100%;
         height: auto;
