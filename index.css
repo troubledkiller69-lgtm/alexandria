@@ -3997,3 +3997,132 @@ h1, h2, h3, h4 {
     }
 }
 
+/* Community activity feed */
+.community-view .view-section {
+    padding-bottom: 0;
+}
+
+.feed-tabs {
+    display: flex;
+    gap: 0.25rem;
+    margin-bottom: 0.5rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.feed-tab {
+    background: none;
+    border: none;
+    padding: 0.65rem 1.1rem;
+    color: var(--text-muted);
+    font-size: 0.85rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    transition: color 0.2s ease, border-color 0.2s ease;
+}
+
+.feed-tab.active {
+    color: #fff;
+    border-bottom-color: #ef4444;
+}
+
+#feed-list {
+    padding: 1rem 5rem 3rem;
+}
+
+#feed-list .placeholder-msg {
+    min-height: 180px;
+}
+
+.feed-item {
+    display: flex;
+    gap: 0.85rem;
+    align-items: flex-start;
+    background: var(--bg-panel);
+    border: var(--glass-border);
+    border-radius: 10px;
+    padding: 1rem 1.15rem;
+    margin-bottom: 0.75rem;
+}
+
+.feed-item-avatar {
+    display: inline-flex;
+    border-radius: 50%;
+    flex-shrink: 0;
+    text-decoration: none;
+}
+
+.feed-item-body {
+    flex: 1;
+    min-width: 0;
+}
+
+.feed-item-line {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 0.4rem;
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+    line-height: 1.5;
+}
+
+.feed-item-user {
+    color: var(--text-primary);
+    text-decoration: none;
+    font-weight: 700;
+}
+
+.feed-item-user:hover,
+.feed-item-title:hover {
+    color: #ef4444;
+}
+
+.feed-item-title {
+    color: var(--text-primary);
+    text-decoration: none;
+    font-weight: 600;
+}
+
+.feed-item-time {
+    display: block;
+    color: var(--text-muted);
+    font-size: 0.75rem;
+    margin-top: 0.25rem;
+}
+
+.feed-poster-thumb {
+    width: 40px;
+    height: 60px;
+    object-fit: cover;
+    border-radius: 6px;
+    flex-shrink: 0;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.feed-empty {
+    color: var(--text-muted);
+    padding: 2.5rem 0;
+    text-align: center;
+    font-size: 0.9rem;
+}
+
+.feed-empty p {
+    margin: 0 0 1rem;
+}
+
+@media (max-width: 1300px) {
+    #feed-list {
+        padding-left: 2rem;
+        padding-right: 2rem;
+    }
+}
+
+@media (max-width: 900px) {
+    #feed-list {
+        padding-left: 1.25rem;
+        padding-right: 1.25rem;
+    }
+}
+
