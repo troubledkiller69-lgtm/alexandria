@@ -2081,6 +2081,8 @@ const Alexandria = {
             if (token !== this._renderToken) return;
             
             const title = data.title || data.name;
+            this.state.detailsTitle = title;
+            this.state.detailsPoster = data.poster_path;
             const year = (data.release_date || data.first_air_date || '').split('-')[0];
             const runtime = data.runtime ? `${Math.floor(data.runtime/60)}h ${data.runtime%60}m` : (data.episode_run_time?.[0] ? `${data.episode_run_time[0]}m` : '');
             const tmdbScore = data.vote_average ? data.vote_average.toFixed(1) : null;
@@ -2114,6 +2116,7 @@ const Alexandria = {
                                 <h1>${this.escapeHtml(title)} ${year ? `<span class="year-span">(${this.escapeHtml(year)})</span>` : ''}</h1>
                                 <div class="details-meta">
                                     ${this.ratingsHtml(tmdbScore)}
+                                    <span class="avg-badge" id="details-avg-badge" hidden></span>
                                     ${runtime ? `<span>${this.escapeHtml(runtime)}</span>` : ''}
                                     ${genres ? `<span>${this.escapeHtml(genres)}</span>` : ''}
                                 </div>
@@ -2164,6 +2167,8 @@ const Alexandria = {
                         </div>
                     </div>` : ''}
 
+                    <section id="ratings-section-container"></section>
+
                     <section class="comments-section-container" id="comments-section-container"></section>
                 </section>
             `;
@@ -2174,6 +2179,7 @@ const Alexandria = {
                 });
                 this.renderResults(data.similar.results, 'similar-results');
             }
+            this.renderRatings(type, id);
             this.renderComments();
         } catch(e) {
             console.error("Alexandria Protocol: Details Render Failed", e);
@@ -3678,6 +3684,199 @@ const Alexandria = {
                 </div>
             </div>
         `;
+    },
+
+    // Community Ratings & Reviews Engine
+    async renderRatings(type, id) {
+        const container = document.getElementById('ratings-section-container');
+        if (!container) return;
+        const token = this._renderToken;
+        let rows = [];
+        let ownRow = null;
+        if (this.supabase) {
+            try {
+                const { data } = await this.supabase
+                    .from('ratings')
+                    .select('*')
+                    .eq('content_id', Number(id))
+                    .eq('content_type', type)
+                    .order('created_at', { ascending: false })
+                    .limit(50);
+                if (token !== this._renderToken) return;
+                rows = data || [];
+                ownRow = rows.find(r => r.user_id === this.state.authUser?.id) || null;
+                this.state._ownRatingRow = ownRow || null;
+            } catch (e) {
+                console.warn("Alexandria: Ratings fetch failed", e);
+            }
+        }
+
+        const avg = rows.length ? rows.reduce((sum, r) => sum + (Number(r.rating) || 0), 0) / rows.length : 0;
+
+        const badge = document.getElementById('details-avg-badge');
+        if (badge) {
+            if (rows.length) {
+                badge.textContent = 'COMMUNITY ★ ' + avg.toFixed(1);
+                badge.removeAttribute('hidden');
+            } else {
+                badge.setAttribute('hidden', '');
+            }
+        }
+
+        const profileById = {};
+        if (this.supabase) {
+            const uids = [...new Set(rows.map(r => r.user_id).filter(Boolean))];
+            const profiles = await Promise.all(uids.map(uid => this.fetchProfile(uid).catch(() => null)));
+            uids.forEach((uid, i) => { if (profiles[i]) profileById[uid] = profiles[i]; });
+        }
+
+        const displayName = uid => {
+            const p = profileById[uid];
+            return p ? (p.nickname || p.username || 'Member') : 'Member';
+        };
+        const nameNode = uid => {
+            const name = displayName(uid);
+            return uid
+                ? `<a class="review-author" href="#profile/${this.escapeHtml(uid)}">${this.escapeHtml(name)}</a>`
+                : `<span class="review-author">${this.escapeHtml(name)}</span>`;
+        };
+
+        if (this.state._ratingDraft === undefined) {
+            this.state._ratingDraft = Math.max(0, Math.min(10, Math.round(Number(ownRow?.rating) || 0)));
+        }
+
+        const composer = this.state.authUser ? `
+            <div class="ratings-composer" id="ratings-composer">
+                <div class="rate-stars-row">
+                    ${Array.from({ length: 10 }, (_, i) => i + 1).map(n => `
+                        <span class="rate-star ${n <= this.state._ratingDraft ? 'filled' : ''}" data-rating="${n}" onclick="Alexandria.setRatingDraft(${n})" role="button" tabindex="0" aria-label="Rate ${n} of 10">${n <= this.state._ratingDraft ? '★' : '☆'}</span>
+                    `).join('')}
+                </div>
+                <textarea id="review-input" placeholder="Write your review of this title..." maxlength="1000" rows="4">${this.escapeHtml(ownRow?.review || '')}</textarea>
+                <div class="ratings-composer-footer">
+                    <button type="button" class="btn-primary" onclick="Alexandria.submitRating('${type}', ${id})">${ownRow ? 'UPDATE REVIEW' : 'SUBMIT'}</button>
+                    ${ownRow ? `<button type="button" class="btn-secondary" onclick="Alexandria.deleteRating('${ownRow.id}')">DELETE MY REVIEW</button>` : ''}
+                </div>
+            </div>
+        ` : `
+            <div class="ratings-locked-banner">
+                <span class="ratings-locked-text">SIGN IN to rate and review this title.</span>
+                <button type="button" class="btn-primary" onclick="Alexandria.toggleAuthModal(true, 'signup')">SIGN IN / CREATE ACCOUNT</button>
+            </div>
+        `;
+
+        const reviewsHtml = rows.map(r => {
+            const n = Math.max(0, Math.min(10, Math.round(Number(r.rating) || 0)));
+            const isMine = Boolean(this.state.authUser && r.user_id === this.state.authUser.id);
+            return `
+                <div class="review-card">
+                    ${r.user_id ? `<a class="review-avatar-link" href="#profile/${this.escapeHtml(r.user_id)}">${this.avatarHtml(profileById[r.user_id], 36)}</a>` : this.avatarHtml(null, 36)}
+                    <div class="review-body">
+                        <div class="review-meta">
+                            ${nameNode(r.user_id)}
+                            <span class="review-stars" aria-label="Rated ${n} of 10">${'★'.repeat(n)}${'☆'.repeat(10 - n)}</span>
+                            <span class="review-time">${this.escapeHtml(this.timeago(r.created_at))}</span>
+                        </div>
+                        ${r.review ? `<p class="review-text">${this.escapeHtml(r.review)}</p>` : ''}
+                    </div>
+                    ${isMine ? `
+                        <div class="review-actions">
+                            <button type="button" class="btn-text-link" onclick="Alexandria.setRatingDraft(${n}, true)">EDIT</button>
+                            <button type="button" class="btn-text-link" onclick="Alexandria.deleteRating('${r.id}')">DELETE</button>
+                        </div>
+                    ` : ''}
+                </div>
+            `;
+        }).join('');
+
+        container.innerHTML = `
+            <div class="ratings-section">
+                <div class="ratings-header">
+                    <h3>COMMUNITY RATINGS</h3>
+                    <span class="ratings-average">${rows.length ? `★ ${avg.toFixed(1)} · ${rows.length} rating${rows.length === 1 ? '' : 's'}` : 'NO RATINGS YET — be the first'}</span>
+                </div>
+                ${composer}
+                <div class="reviews-list">
+                    ${reviewsHtml || '<div class="placeholder-msg comments-empty">No reviews yet for this title.</div>'}
+                </div>
+            </div>
+        `;
+    },
+
+    setRatingDraft(n, scrollToComposer = false) {
+        const val = Math.max(0, Math.min(10, Math.round(Number(n) || 0)));
+        this.state._ratingDraft = (this.state._ratingDraft === val) ? 0 : val;
+        document.querySelectorAll('.rate-star').forEach(star => {
+            const rating = Number(star.dataset.rating);
+            star.classList.toggle('filled', rating <= this.state._ratingDraft);
+            star.textContent = rating <= this.state._ratingDraft ? '★' : '☆';
+        });
+        if (scrollToComposer) {
+            const composer = document.getElementById('ratings-composer');
+            if (composer) composer.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+    },
+
+    async submitRating(type, id) {
+        const rating = this.state._ratingDraft;
+        if (!rating || rating < 1) {
+            this.showToast('Pick a star rating first');
+            return;
+        }
+        if (!this.supabase || !this.state.authUser) {
+            this.showToast('Please sign in or create an account to rate titles.');
+            this.toggleAuthModal(true, 'signup');
+            return;
+        }
+        const input = document.getElementById('review-input');
+        const review = (input?.value || '').trim();
+        const existing = this.state._ownRatingRow;
+        try {
+            const { error } = await this.supabase.from('ratings').upsert({
+                user_id: this.state.authUser.id,
+                content_id: Number(id),
+                content_type: type,
+                rating,
+                review,
+                created_at: existing ? existing.created_at : new Date().toISOString(),
+                updated_at: new Date().toISOString()
+            }, { onConflict: 'user_id,content_id,content_type' });
+            if (error) {
+                this.showToast('Could not save your rating.');
+                return;
+            }
+        } catch {
+            this.showToast('Could not save your rating.');
+            return;
+        }
+        this.showToast(review ? 'Review posted!' : 'Rating saved!');
+        this.state._ratingDraft = 0;
+        this.renderRatings(type, id);
+        this.logActivity(review ? 'reviewed' : 'rated', {
+            contentId: id,
+            contentType: type,
+            title: this.state.detailsTitle,
+            posterPath: this.state.detailsPoster,
+            meta: JSON.stringify({ rating })
+        });
+    },
+
+    async deleteRating(rowId) {
+        if (!this.supabase || !this.state.authUser) return;
+        try {
+            const { error } = await this.supabase.from('ratings').delete().eq('id', rowId);
+            if (error) {
+                this.showToast('Could not delete your review.');
+                return;
+            }
+        } catch {
+            this.showToast('Could not delete your review.');
+            return;
+        }
+        this.showToast('Review deleted');
+        this.state._ratingDraft = 0;
+        const { id, type } = this.state.activeContent;
+        this.renderRatings(type, id);
     },
 
     // User Auth & Unique Username Engine
