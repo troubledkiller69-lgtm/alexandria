@@ -790,7 +790,9 @@ const Alexandria = {
                             status: w.status || 'want',
                             watched_at: w.watched_at || null
                         }));
-                        localWatchlist = this.dedupeItems([...cloudList, ...localWatchlist]);
+                        // Local first: changes made on this device (even signed out)
+                        // win over the cloud copy; fresh devices still inherit the cloud.
+                        localWatchlist = this.dedupeItems([...localWatchlist, ...cloudList]);
                     }
 
                     const { data: dbEpisodes } = await this.supabase
@@ -818,6 +820,29 @@ const Alexandria = {
                             poster_path: h.poster_path
                         }));
                         cleanHistory = this.dedupeItems([...cloudHist, ...cleanHistory]);
+                    }
+
+                    // Push local-only items and status differences up so the
+                    // watchlist transfers across devices even for titles added
+                    // while signed out (they never reached the cloud before).
+                    const cloudKeys = new Set((dbWatchlist || []).map(w => `${w.media_type}_${String(w.tmdb_id)}`));
+                    const toPush = localWatchlist
+                        .filter(i => {
+                            const key = `${i.type}_${String(i.id)}`;
+                            const cloudRow = (dbWatchlist || []).find(w => `${w.media_type}_${String(w.tmdb_id)}` === key);
+                            return !cloudRow || cloudRow.status !== (i.status || 'want');
+                        })
+                        .map(i => ({
+                            user_id: uid,
+                            tmdb_id: Number(i.id),
+                            media_type: i.type,
+                            title: i.title || null,
+                            poster_path: i.poster_path || null,
+                            status: i.status || 'want',
+                            watched_at: i.watched_at || null
+                        }));
+                    if (toPush.length > 0) {
+                        await this.supabase.from('survival_cache').upsert(toPush, { onConflict: 'user_id, tmdb_id, media_type' });
                     }
                 } catch (err) {
                     console.warn("Alexandria: Cloud sync warning:", err);
@@ -1234,7 +1259,7 @@ const Alexandria = {
                                 <button class="btn-primary" onclick="Alexandria.playContent(${featured.id}, '${featured.type || 'movie'}')">
                                     <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg> WATCH NOW
                                 </button>
-                                <button class="btn-secondary" onclick="window.location.hash = '#details/${featured.type || 'movie'}/${featured.id}'">DETAILS</button>
+                                <button class="btn-secondary wl-details-btn" onclick="window.location.hash = '#details/${featured.type || 'movie'}/${featured.id}'">DETAILS</button>
                             ` : ''}
                             ${watchlist.length > 0 ? `
                                 <button class="btn-secondary" onclick="Alexandria.clearWatchlistPage()">CLEAR WATCHLIST</button>
