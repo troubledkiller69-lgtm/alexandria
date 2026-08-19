@@ -4345,3 +4345,419 @@ h1, h2, h3, h4 {
     }
 }
 
+/* Shared movie night lists */
+.list-page {
+    padding: 0 5rem 3rem;
+    max-width: 1400px;
+    margin: 0 auto;
+}
+
+.list-hero {
+    display: flex;
+    gap: 1.5rem;
+    align-items: flex-start;
+    background: var(--bg-panel);
+    border: var(--glass-border);
+    border-radius: 12px;
+    padding: 2rem;
+    margin-bottom: 1.5rem;
+}
+
+.list-hero-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.list-hero-info h1 {
+    font-size: 1.9rem;
+    color: var(--text-primary);
+    margin: 0 0 0.5rem;
+    text-transform: uppercase;
+}
+
+.list-desc {
+    color: var(--text-secondary);
+    white-space: pre-wrap;
+    margin: 0 0 1rem;
+    line-height: 1.55;
+}
+
+.list-owner-line {
+    display: flex;
+    align-items: center;
+}
+
+.list-owner-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    color: var(--text-secondary);
+    text-decoration: none;
+    font-size: 0.9rem;
+    font-weight: 600;
+    transition: color 0.2s ease;
+}
+
+.list-owner-link:hover {
+    color: #ef4444;
+}
+
+.list-hero-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    align-items: stretch;
+    flex-shrink: 0;
+}
+
+.list-delete-btn {
+    border-color: rgba(239, 68, 68, 0.5);
+    color: #ef4444;
+}
+
+.list-add-box {
+    background: var(--bg-panel);
+    border: var(--glass-border);
+    border-radius: 12px;
+    padding: 1.25rem 1.5rem;
+    margin-bottom: 1.5rem;
+}
+
+.list-add-search-wrap {
+    position: relative;
+}
+
+.list-add-search-wrap input {
+    width: 100%;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 8px;
+    padding: 0.85rem 1rem;
+    color: #fff;
+    font-family: inherit;
+    font-size: 0.95rem;
+}
+
+.list-add-search-wrap input:focus {
+    outline: none;
+    border-color: rgba(239, 68, 68, 0.6);
+}
+
+.list-add-results {
+    position: absolute;
+    top: calc(100% + 0.5rem);
+    left: 0;
+    right: 0;
+    z-index: 30;
+    background: #0f1118;
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    border-radius: 10px;
+    box-shadow: 0 18px 36px rgba(0, 0, 0, 0.75);
+    overflow: hidden;
+    padding: 0.4rem;
+}
+
+.list-add-results[hidden] {
+    display: none;
+}
+
+.list-add-result {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    width: 100%;
+    text-align: left;
+    background: none;
+    border: none;
+    border-radius: 8px;
+    padding: 0.5rem;
+    color: var(--text-primary);
+    font-family: inherit;
+    cursor: pointer;
+    transition: background 0.15s ease;
+}
+
+.list-add-result:hover,
+.list-add-result:focus-visible {
+    background: rgba(255, 255, 255, 0.06);
+}
+
+.list-add-result img {
+    width: 40px;
+    height: 60px;
+    object-fit: cover;
+    border-radius: 6px;
+    flex-shrink: 0;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.list-add-result-ph {
+    width: 40px;
+    height: 60px;
+    flex-shrink: 0;
+    border-radius: 6px;
+    display: grid;
+    place-items: center;
+    background: rgba(255, 255, 255, 0.05);
+    color: var(--accent-gold);
+    font-weight: 700;
+}
+
+.list-add-result-info {
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+    min-width: 0;
+}
+
+.list-add-result-title {
+    font-weight: 600;
+    font-size: 0.92rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.list-add-result-meta {
+    color: var(--text-muted);
+    font-size: 0.75rem;
+    letter-spacing: 0.05em;
+}
+
+.list-add-empty {
+    color: var(--text-muted);
+    padding: 1rem;
+    text-align: center;
+    font-size: 0.85rem;
+}
+
+.list-guest-hint {
+    color: var(--text-muted);
+    text-align: center;
+    font-size: 0.9rem;
+    letter-spacing: 0.05em;
+    padding: 0.25rem 0;
+}
+
+.list-items {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+    gap: 1.25rem;
+}
+
+.list-item-card {
+    position: relative;
+    background: var(--bg-panel);
+    border: var(--glass-border);
+    border-radius: 12px;
+    overflow: hidden;
+    transition: transform 0.2s ease, border-color 0.2s ease;
+}
+
+.list-item-card:hover {
+    transform: translateY(-3px);
+    border-color: rgba(239, 68, 68, 0.4);
+}
+
+.list-item-poster {
+    display: block;
+    aspect-ratio: 2 / 3;
+    background: rgba(255, 255, 255, 0.03);
+}
+
+.list-item-poster img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+
+.list-item-poster-ph {
+    width: 100%;
+    height: 100%;
+    display: grid;
+    place-items: center;
+    color: var(--accent-gold);
+    font-size: 1.4rem;
+    font-weight: 700;
+}
+
+.list-item-body {
+    padding: 0.85rem 1rem 1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+}
+
+.list-item-title {
+    color: var(--text-primary);
+    text-decoration: none;
+    font-weight: 700;
+    font-size: 1rem;
+    line-height: 1.3;
+    transition: color 0.2s ease;
+}
+
+.list-item-title:hover {
+    color: #ef4444;
+}
+
+.list-item-meta {
+    color: var(--text-muted);
+    font-size: 0.72rem;
+    letter-spacing: 0.08em;
+}
+
+.list-item-added {
+    display: inline-flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.35rem;
+    color: var(--text-muted);
+    font-size: 0.78rem;
+    margin-top: 0.2rem;
+}
+
+.list-item-added a {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    color: var(--text-secondary);
+    text-decoration: none;
+}
+
+.list-item-added a:hover {
+    color: #ef4444;
+}
+
+.list-item-remove {
+    position: absolute;
+    top: 0.5rem;
+    right: 0.5rem;
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    display: grid;
+    place-items: center;
+    background: rgba(0, 0, 0, 0.65);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    color: #fff;
+    font-size: 0.85rem;
+    cursor: pointer;
+    transition: background 0.15s ease, color 0.15s ease;
+}
+
+.list-item-remove:hover {
+    background: #ef4444;
+}
+
+.list-empty {
+    grid-column: 1 / -1;
+    color: var(--text-muted);
+    padding: 3rem 0;
+    text-align: center;
+}
+
+.list-picker-modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.75);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    z-index: 10001;
+    display: grid;
+    place-items: center;
+    padding: 1rem;
+    overflow-y: auto;
+}
+
+.list-picker-modal-overlay[hidden] {
+    display: none !important;
+}
+
+.list-picker-modal-card {
+    background: #0f1118;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 10px;
+    width: 100%;
+    max-width: 460px;
+    padding: 2rem;
+    position: relative;
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.8);
+    max-height: calc(100vh - 2rem);
+    overflow-y: auto;
+}
+
+.list-picker-row {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 8px;
+    padding: 0.6rem 0.75rem;
+    margin-bottom: 0.5rem;
+}
+
+.list-picker-row-info {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+}
+
+.list-picker-row-title {
+    color: var(--text-primary);
+    font-weight: 600;
+    font-size: 0.9rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.list-picker-row-desc {
+    color: var(--text-muted);
+    font-size: 0.75rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.list-picker-empty {
+    color: var(--text-muted);
+    padding: 1rem 0;
+    text-align: center;
+    font-size: 0.85rem;
+}
+
+@media (max-width: 1300px) {
+    .list-page {
+        padding-left: 2rem;
+        padding-right: 2rem;
+    }
+}
+
+@media (max-width: 900px) {
+    .list-page {
+        padding-left: 1.25rem;
+        padding-right: 1.25rem;
+    }
+
+    .list-hero {
+        flex-direction: column;
+        align-items: center;
+        text-align: center;
+    }
+
+    .list-hero-actions {
+        flex-direction: row;
+        justify-content: center;
+        flex-wrap: wrap;
+    }
+
+    .list-owner-line {
+        justify-content: center;
+    }
+}
+
