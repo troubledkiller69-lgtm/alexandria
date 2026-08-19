@@ -332,9 +332,53 @@ const Alexandria = {
         });
     },
 
+    playerIframeFlags() {
+        // No allow-popups / allow-top-navigation: embed ads open tabs and steal the page.
+        return 'allowfullscreen="true" webkitallowfullscreen="true" mozallowfullscreen="true" allow="autoplay *; fullscreen *; picture-in-picture *; encrypted-media *" referrerpolicy="no-referrer-when-downgrade" sandbox="allow-scripts allow-same-origin allow-forms allow-presentation allow-fullscreen"';
+    },
+
+    isAllowedExternalLink(href) {
+        try {
+            const dest = new URL(String(href || ''), location.href);
+            if (dest.origin === location.origin) return true;
+            const host = dest.hostname;
+            return host === 't.me'
+                || host === 'telegram.me'
+                || host.endsWith('.telegram.org')
+                || host === 'discord.gg'
+                || host === 'discord.com'
+                || host.endsWith('.discord.com')
+                || host.endsWith('.discord.gg');
+        } catch {
+            return false;
+        }
+    },
+
+    bindPopupGuard() {
+        const nativeOpen = window.open.bind(window);
+        window.open = (...args) => {
+            const url = args[0];
+            if (url && this.isAllowedExternalLink(url)) return nativeOpen(...args);
+            return null;
+        };
+
+        document.addEventListener('click', (e) => {
+            const link = this.eventElement(e.target)?.closest?.('a[target="_blank"], a[href]');
+            if (!link) return;
+            const href = link.getAttribute('href') || '';
+            if (!href || href.startsWith('#') || href.startsWith('javascript:')) return;
+            const blank = link.getAttribute('target') === '_blank';
+            if (blank && !this.isAllowedExternalLink(href)) {
+                e.preventDefault();
+                e.stopPropagation();
+            }
+        }, true);
+    },
+
     async init() {
         console.log("Alexandria Protocol: Initializing Handshake...");
         this.bindSecurityGuard();
+        this.bindPopupGuard();
         // #region agent log
         this._dbg('E', 'script.js:init', 'app boot', { href: typeof location !== 'undefined' ? location.href : null });
         // #endregion
@@ -2640,7 +2684,7 @@ const Alexandria = {
         }).catch(() => { this._trailerInflight--; });
 
         function trailerFrame(key) {
-            return '<iframe class="trailer-preview" src="https://www.youtube-nocookie.com/embed/' + key + '?autoplay=1&mute=1&controls=0&modestbranding=1&rel=0&playsinline=1" allow="autoplay; encrypted-media" loading="lazy" tabindex="-1"></iframe>';
+            return '<iframe class="trailer-preview" src="https://www.youtube-nocookie.com/embed/' + key + '?autoplay=1&mute=1&controls=0&modestbranding=1&rel=0&playsinline=1" allow="autoplay; encrypted-media" loading="lazy" tabindex="-1" sandbox="allow-scripts allow-same-origin allow-presentation allow-fullscreen"></iframe>';
         }
     },
 
@@ -2790,7 +2834,7 @@ const Alexandria = {
                     <div class="view-section details-trailer-section">
                         <h3>OFFICIAL TRAILER</h3>
                         <div class="trailer-container">
-                            <iframe src="https://www.youtube-nocookie.com/embed/${trailer.key}?controls=1&modestbranding=1&rel=0" title="${this.escapeHtml(title)} official trailer" loading="lazy" allow="autoplay; encrypted-media; picture-in-picture; fullscreen" referrerpolicy="strict-origin-when-cross-origin"></iframe>
+                            <iframe src="https://www.youtube-nocookie.com/embed/${trailer.key}?controls=1&modestbranding=1&rel=0" title="${this.escapeHtml(title)} official trailer" loading="lazy" allow="autoplay; encrypted-media; picture-in-picture; fullscreen" referrerpolicy="strict-origin-when-cross-origin" sandbox="allow-scripts allow-same-origin allow-presentation allow-fullscreen"></iframe>
                         </div>
                     </div>` : ''}
 
@@ -3810,7 +3854,7 @@ const Alexandria = {
                             <span id="server-status" class="server-status" aria-live="polite">Connecting to ${this.escapeHtml(server.name)}…</span>
                         </div>
                         <div class="player-frame-container">
-                            <iframe id="video-iframe" title="Alexandria video player" src="${embedUrl}" width="100%" height="100%" scrolling="no" allowfullscreen="true" webkitallowfullscreen="true" mozallowfullscreen="true" allow="autoplay *; fullscreen *; picture-in-picture *; encrypted-media *" referrerpolicy="no-referrer-when-downgrade"></iframe>
+                            <iframe id="video-iframe" title="Alexandria video player" src="${embedUrl}" width="100%" height="100%" scrolling="no" ${this.playerIframeFlags()}></iframe>
                         </div>
                     </div>
                     ${type === 'tv' ? `
@@ -5678,7 +5722,7 @@ const Alexandria = {
                     </header>
 
                     <div class="party-screen">
-                        <iframe id="embedmaster_iframe" title="Watch Party" src="${embedUrl}" allow="autoplay *; fullscreen *; picture-in-picture *; encrypted-media *" allowfullscreen="true" webkitallowfullscreen="true" mozallowfullscreen="true" referrerpolicy="no-referrer-when-downgrade"></iframe>
+                        <iframe id="embedmaster_iframe" title="Watch Party" src="${embedUrl}" ${this.playerIframeFlags()}></iframe>
                         <div id="party-spectate-veil" class="party-hint" style="display: ${this.isHost ? 'none' : 'block'};">
                             Hit <strong>Play Now</strong> in the player, then Sync if needed
                         </div>
