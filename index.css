@@ -5771,3 +5771,41 @@ h1, h2, h3, h4 {
     border-color: rgba(239, 68, 68, 0.5);
     background: rgba(239, 68, 68, 0.06);
 }
+
+/* ============ MOBILE DECLUTTER — tighter heroes, fewer stacked rows ============ */
+@media (max-width: 620px) {
+    /* Home: the watchlist preview row duplicates the sidebar; drop it on phones */
+    #priority-archive-section { display: none; }
+
+    /* Shorter heroes on phones (home, watchlist, franchise, anime all share .hero-featured) */
+    .hero-featured {
+        height: auto;
+        min-height: 420px;
+        padding: 2rem 1.25rem 7rem;
+    }
+    .hero-featured .featured-content h1,
+    .hero-featured .featured-content h2 {
+        font-size: clamp(1.9rem, 9vw, 2.6rem);
+    }
+    .featured-content p { -webkit-line-clamp: 3; }
+
+    /* Watchlist page: the "X Titles Saved" widget duplicates the hero + toolbar */
+    .sector-widget { display: none; }
+
+    /* DETAILS is one tap away on every grid card; drop the duplicate hero button */
+    .wl-details-btn { display: none; }
+
+    /* Watchlist filter pills scroll sideways instead of stacking three rows deep */
+    .watchlist-toolbar-filters {
+        display: flex;
+        flex-wrap: nowrap;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        scrollbar-width: none;
+        padding-bottom: 0.15rem;
+        width: 100%;
+    }
+    .watchlist-toolbar-filters::-webkit-scrollbar { display: none; }
+    .watchlist-toolbar-filters .filter-btn { flex: 0 0 auto; }
+    .watchlist-toolbar-actions { width: 100%; justify-content: space-between; }
+}
