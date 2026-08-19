@@ -208,6 +208,65 @@ const Alexandria = {
         }
     },
 
+    readStorage(storage, key, fallback = null) {
+        try {
+            const raw = storage.getItem(key);
+            return raw == null ? fallback : raw;
+        } catch {
+            return fallback;
+        }
+    },
+
+    readStorageJson(storage, key, fallback) {
+        try {
+            const raw = storage.getItem(key);
+            if (raw == null || raw === '') return fallback;
+            const parsed = JSON.parse(raw);
+            return parsed == null ? fallback : parsed;
+        } catch {
+            return fallback;
+        }
+    },
+
+    writeStorage(storage, key, value) {
+        try {
+            storage.setItem(key, value);
+            return true;
+        } catch {
+            return false;
+        }
+    },
+
+    eventElement(target) {
+        if (target instanceof Element) return target;
+        return target && target.parentElement instanceof Element ? target.parentElement : null;
+    },
+
+    async copyText(text) {
+        try {
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                await navigator.clipboard.writeText(text);
+                return true;
+            }
+        } catch { /* Firefox / Safari without a user-gesture clipboard grant */ }
+        try {
+            const input = document.createElement('textarea');
+            input.value = text;
+            input.setAttribute('readonly', '');
+            input.setAttribute('aria-hidden', 'true');
+            input.style.cssText = 'position:fixed;left:-9999px;top:0';
+            document.body.appendChild(input);
+            input.focus();
+            input.select();
+            input.setSelectionRange(0, text.length);
+            const ok = document.execCommand('copy');
+            input.remove();
+            return ok;
+        } catch {
+            return false;
+        }
+    },
+
     renderError(title, message, retryView = this.state.view) {
         const safeTitle = this.escapeHtml(title);
         const safeMessage = this.escapeHtml(message);
@@ -227,9 +286,10 @@ const Alexandria = {
     bindSecurityGuard() {
         // Anti-tamper & inspect protection guard
         document.addEventListener('contextmenu', e => {
-            if (e.target.tagName !== 'INPUT' && e.target.tagName !== 'TEXTAREA') {
-                e.preventDefault();
-            }
+            // Firefox often targets the text node inside the field, not the input itself.
+            const node = this.eventElement(e.target);
+            if (node?.closest('input, textarea, select, [contenteditable="true"]')) return;
+            e.preventDefault();
         });
         document.addEventListener('keydown', e => {
             if (
@@ -299,8 +359,12 @@ const Alexandria = {
         const a = document.createElement('a');
         a.href = url;
         a.download = `alexandria-lists-${Date.now()}.json`;
+        a.rel = 'noopener';
+        a.style.display = 'none';
+        document.body.appendChild(a);
         a.click();
-        URL.revokeObjectURL(url);
+        a.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
         this.showToast('Lists exported.');
     },
 
@@ -370,12 +434,8 @@ const Alexandria = {
         } catch {
             /* fall through to clipboard */
         }
-        try {
-            await navigator.clipboard.writeText(url);
-            this.showToast('Link copied.');
-        } catch {
-            this.showToast('Could not share this link.');
-        }
+        if (await this.copyText(url)) this.showToast('Link copied.');
+        else this.showToast('Could not share this link.');
     },
 
     async initNetwork() {
@@ -599,9 +659,10 @@ const Alexandria = {
         document.addEventListener('keydown', event => {
             if (event.key === 'Escape' && sidebar?.classList.contains('open')) toggleSidebar(false);
             if (event.key === 'Escape') { this.closeAccountMenu(); this.closeChangelogMenu(); }
-            if ((event.key === 'Enter' || event.key === ' ') && event.target.matches('.cast-card, .episode-item, .resume-widget, .person-result-card')) {
+            const keyEl = this.eventElement(event.target);
+            if ((event.key === 'Enter' || event.key === ' ') && keyEl?.matches('.cast-card, .episode-item, .resume-widget, .person-result-card')) {
                 event.preventDefault();
-                event.target.click();
+                keyEl.click();
             }
         });
 
@@ -789,17 +850,12 @@ const Alexandria = {
 
     async syncFromCloud() {
         try {
-            let localWatchlist = JSON.parse(localStorage.getItem('alexandria_watchlist')) || [];
-            let rawHistory = JSON.parse(localStorage.getItem('alexandria_history')) || [];
+            let localWatchlist = this.readStorageJson(localStorage, 'alexandria_watchlist', []) || [];
+            let rawHistory = this.readStorageJson(localStorage, 'alexandria_history', []) || [];
             let cleanHistory = Array.isArray(rawHistory)
                 ? rawHistory.filter(i => i && i.id != null && i.type !== 'sports' && String(i.id).match(/^\d+$/))
                 : [];
-            let localEpisodes = {};
-            try {
-                localEpisodes = JSON.parse(localStorage.getItem('alexandria_watched_episodes')) || {};
-            } catch {
-                localEpisodes = {};
-            }
+            let localEpisodes = this.readStorageJson(localStorage, 'alexandria_watched_episodes', {}) || {};
 
             localWatchlist = this.dedupeItems(localWatchlist);
             cleanHistory = this.dedupeItems(cleanHistory);
@@ -1880,7 +1936,7 @@ const Alexandria = {
             const FRANCHISE_CACHE_KEY = 'alexandria_franchise_cache_v5';
             let cached = null;
             try {
-                cached = JSON.parse(sessionStorage.getItem(FRANCHISE_CACHE_KEY));
+                cached = this.readStorageJson(sessionStorage, FRANCHISE_CACHE_KEY, null);
             } catch {
                 cached = null;
             }
@@ -2580,7 +2636,7 @@ const Alexandria = {
             return;
         }
         const roomId = Math.random().toString(36).substring(2, 8);
-        sessionStorage.setItem('alexandria_party_creator_' + roomId, '1');
+        this.writeStorage(sessionStorage, 'alexandria_party_creator_' + roomId, '1');
         if (type === 'tv') {
             const saved = this.state.history.find(h => String(h.id) === String(id) && h.type === 'tv');
             const season = Math.max(1, Number.parseInt(saved?.season, 10) || Number.parseInt(this.state.activeContent?.season, 10) || 1);
@@ -3723,7 +3779,7 @@ const Alexandria = {
                             <span id="server-status" class="server-status" aria-live="polite">Connecting to ${this.escapeHtml(server.name)}…</span>
                         </div>
                         <div class="player-frame-container">
-                            <iframe id="video-iframe" title="Alexandria video player" src="${embedUrl}" width="100%" height="100%" scrolling="no" allowfullscreen allow="autoplay *; fullscreen *; picture-in-picture *; encrypted-media *" referrerpolicy="strict-origin-when-cross-origin"></iframe>
+                            <iframe id="video-iframe" title="Alexandria video player" src="${embedUrl}" width="100%" height="100%" scrolling="no" allowfullscreen="true" webkitallowfullscreen="true" mozallowfullscreen="true" allow="autoplay *; fullscreen *; picture-in-picture *; encrypted-media *" referrerpolicy="strict-origin-when-cross-origin"></iframe>
                         </div>
                     </div>
                     ${type === 'tv' ? `
@@ -4385,7 +4441,7 @@ const Alexandria = {
         if (!commentKey) return Promise.resolve([]);
         const localComments = () => {
             try {
-                const allComments = JSON.parse(localStorage.getItem('alexandria_comments')) || {};
+                const allComments = this.readStorageJson(localStorage, 'alexandria_comments', {}) || {};
                 if (!series) return allComments[commentKey] || [];
                 // Series view: gather the series key plus every per-episode key under it.
                 const prefix = commentKey + '_';
@@ -4439,7 +4495,7 @@ const Alexandria = {
         this._migratedCommentKeys.add(key);
         let entries = [];
         try {
-            const all = JSON.parse(localStorage.getItem('alexandria_comments')) || {};
+            const all = this.readStorageJson(localStorage, 'alexandria_comments', {}) || {};
             entries = Array.isArray(all[key]) ? all[key].filter(e => e && e.text) : [];
         } catch {
             return;
@@ -4463,7 +4519,7 @@ const Alexandria = {
         }
         if (!failed) {
             try {
-                const all = JSON.parse(localStorage.getItem('alexandria_comments')) || {};
+                const all = this.readStorageJson(localStorage, 'alexandria_comments', {}) || {};
                 if (all[key]) {
                     delete all[key];
                     localStorage.setItem('alexandria_comments', JSON.stringify(all));
@@ -4504,7 +4560,7 @@ const Alexandria = {
             }
         }
         try {
-            const allComments = JSON.parse(localStorage.getItem('alexandria_comments')) || {};
+            const allComments = this.readStorageJson(localStorage, 'alexandria_comments', {}) || {};
             if (!allComments[commentKey]) allComments[commentKey] = [];
             allComments[commentKey].unshift(commentObj);
             localStorage.setItem('alexandria_comments', JSON.stringify(allComments));
@@ -4519,7 +4575,7 @@ const Alexandria = {
         const isLegacyLocal = String(commentId).startsWith('c_');
         if (isLegacyLocal || !this.supabase || !this.state.authUser) {
             try {
-                const allComments = JSON.parse(localStorage.getItem('alexandria_comments')) || {};
+                const allComments = this.readStorageJson(localStorage, 'alexandria_comments', {}) || {};
                 if (allComments[commentKey]) {
                     allComments[commentKey] = allComments[commentKey].filter(c => c.id !== commentId);
                     localStorage.setItem('alexandria_comments', JSON.stringify(allComments));
@@ -5312,7 +5368,7 @@ const Alexandria = {
     async checkUsernameUnique(username, excludeId = null) {
         const clean = username.trim().toLowerCase();
         if (!this.supabase) {
-            const usedNames = JSON.parse(localStorage.getItem('alexandria_claimed_usernames')) || [];
+            const usedNames = this.readStorageJson(localStorage, 'alexandria_claimed_usernames', []) || [];
             return !usedNames.includes(clean);
         }
         try {
@@ -5384,7 +5440,7 @@ const Alexandria = {
                 this.showToast("Registration error. Check network connection.");
             }
         } else {
-            const usedNames = JSON.parse(localStorage.getItem('alexandria_claimed_usernames')) || [];
+            const usedNames = this.readStorageJson(localStorage, 'alexandria_claimed_usernames', []) || [];
             usedNames.push(username.toLowerCase());
             localStorage.setItem('alexandria_claimed_usernames', JSON.stringify(usedNames));
             sessionStorage.setItem('alexandria_nickname', username);
@@ -5591,7 +5647,7 @@ const Alexandria = {
                     </header>
 
                     <div class="party-screen">
-                        <iframe id="embedmaster_iframe" title="Watch Party" src="${embedUrl}" allow="autoplay *; fullscreen *; picture-in-picture *; encrypted-media *" allowfullscreen referrerpolicy="strict-origin-when-cross-origin"></iframe>
+                        <iframe id="embedmaster_iframe" title="Watch Party" src="${embedUrl}" allow="autoplay *; fullscreen *; picture-in-picture *; encrypted-media *" allowfullscreen="true" webkitallowfullscreen="true" mozallowfullscreen="true" referrerpolicy="strict-origin-when-cross-origin"></iframe>
                         <div id="party-spectate-veil" class="party-hint" style="display: ${this.isHost ? 'none' : 'block'};">
                             Hit <strong>Play Now</strong> in the player, then Sync if needed
                         </div>
@@ -5626,7 +5682,7 @@ const Alexandria = {
                 </aside>
             </section>`;
 
-        if (!sessionStorage.getItem('alexandria_nickname')) {
+        if (!this.readStorage(sessionStorage, 'alexandria_nickname')) {
             let nickname = '';
             try {
                 nickname = prompt('Enter a nickname for the Watch Party:') || '';
@@ -5634,10 +5690,11 @@ const Alexandria = {
                 nickname = '';
             }
             if (!nickname.trim()) nickname = 'Guest_' + Math.floor(Math.random() * 1000);
-            sessionStorage.setItem('alexandria_nickname', nickname.trim().slice(0, 24));
+            this.writeStorage(sessionStorage, 'alexandria_nickname', nickname.trim().slice(0, 24));
         }
-        if (!sessionStorage.getItem('alexandria_party_uid')) {
-            sessionStorage.setItem(
+        if (!this.readStorage(sessionStorage, 'alexandria_party_uid')) {
+            this.writeStorage(
+                sessionStorage,
                 'alexandria_party_uid',
                 (typeof crypto !== 'undefined' && crypto.randomUUID)
                     ? crypto.randomUUID()
@@ -6888,22 +6945,8 @@ const Alexandria = {
 
     async copyPartyLink() {
         const url = window.location.href;
-        try {
-            await navigator.clipboard.writeText(url);
-            this.showToast('Invite link copied to clipboard!');
-        } catch {
-            try {
-                const input = document.createElement('input');
-                input.value = url;
-                document.body.appendChild(input);
-                input.select();
-                document.execCommand('copy');
-                input.remove();
-                this.showToast('Invite link copied to clipboard!');
-            } catch {
-                this.showToast('Could not copy link. Copy from the address bar.');
-            }
-        }
+        if (await this.copyText(url)) this.showToast('Invite link copied to clipboard!');
+        else this.showToast('Could not copy link. Copy from the address bar.');
     },
 
     async renderList() {
@@ -7165,16 +7208,10 @@ const Alexandria = {
         }
     },
 
-    copyListLink() {
+    async copyListLink() {
         const url = window.location.href;
-        try {
-            navigator.clipboard.writeText(url).then(
-                () => this.showToast('Link copied'),
-                () => this.showToast('Copy the address bar URL')
-            );
-        } catch {
-            this.showToast('Copy the address bar URL');
-        }
+        if (await this.copyText(url)) this.showToast('Link copied');
+        else this.showToast('Copy the address bar URL');
     },
 
     editListMode() {
