@@ -24,6 +24,7 @@ create table if not exists public.comments (
   comment_key text not null,
   author text not null,
   content text not null,
+  spoiler boolean not null default false,
   created_at timestamptz not null default now()
 );
 
@@ -93,6 +94,7 @@ create table if not exists public.ratings (
   -- legacy 1-10 values: round(rating / 2), clamped to >= 1)
   rating smallint not null check (rating between 1 and 5),
   review text,
+  spoiler boolean not null default false,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
   unique (user_id, content_id, content_type)
