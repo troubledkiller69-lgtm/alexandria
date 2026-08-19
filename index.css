@@ -4893,3 +4893,225 @@ h1, h2, h3, h4 {
     }
 }
 
+
+/* Roulette Discovery Modal */
+.roulette-modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.75);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    z-index: 9999;
+    display: grid;
+    place-items: center;
+    padding: 1rem;
+}
+
+.roulette-modal-overlay[hidden] {
+    display: none !important;
+}
+
+.roulette-modal-card {
+    background: #0f1118;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 10px;
+    width: 100%;
+    max-width: 560px;
+    max-height: 90vh;
+    overflow-y: auto;
+    padding: 2rem;
+    position: relative;
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.8);
+}
+
+.roulette-title {
+    margin: 0 0 1.25rem;
+    font-size: 1.5rem;
+    font-weight: 800;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--text-primary);
+}
+
+.roulette-type-toggle {
+    display: flex;
+    gap: 0.5rem;
+    margin-bottom: 1.25rem;
+}
+
+.roulette-type-btn {
+    flex: 1;
+    background: none;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 6px;
+    padding: 0.6rem;
+    color: var(--text-muted);
+    font-family: var(--font-body);
+    font-size: 0.9rem;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.roulette-type-btn:hover {
+    color: var(--text-primary);
+    border-color: rgba(255, 255, 255, 0.3);
+}
+
+.roulette-type-btn.active {
+    color: var(--accent-gold);
+    border-color: var(--accent-gold);
+    background: rgba(212, 175, 55, 0.12);
+}
+
+.roulette-controls {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.85rem 0.75rem;
+    margin-bottom: 1.25rem;
+}
+
+.roulette-label {
+    display: block;
+    margin: 0 0 0.35rem;
+    font-family: var(--font-body);
+    font-size: 0.68rem;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+}
+
+.roulette-control {
+    width: 100%;
+}
+
+.roulette-spin-btn {
+    width: 100%;
+    padding: 0.9rem;
+    background: var(--accent-gold);
+    border: 1px solid var(--accent-gold);
+    border-radius: 8px;
+    color: #0f1118;
+    font-family: var(--font-body);
+    font-size: 1rem;
+    font-weight: 800;
+    letter-spacing: 0.16em;
+    cursor: pointer;
+    transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.roulette-spin-btn:hover {
+    background: #e2c25c;
+    border-color: #e2c25c;
+    transform: translateY(-1px);
+    box-shadow: 0 6px 24px rgba(212, 175, 55, 0.35);
+}
+
+#roulette-result {
+    margin-top: 1.25rem;
+}
+
+#roulette-result .placeholder-msg {
+    min-height: 120px;
+    padding: 2rem 1rem;
+}
+
+.roulette-result {
+    display: flex;
+    gap: 1.25rem;
+    align-items: flex-start;
+}
+
+.roulette-result-poster {
+    width: 200px;
+    height: 300px;
+    flex-shrink: 0;
+    object-fit: cover;
+    border-radius: 8px;
+    border: var(--glass-border);
+    background: var(--bg-panel);
+}
+
+.roulette-result-info h3 {
+    margin: 0.5rem 0 0.35rem;
+    font-size: 1.3rem;
+    color: var(--text-primary);
+    line-height: 1.25;
+}
+
+.roulette-result-meta {
+    margin: 0 0 0.4rem;
+    font-family: var(--font-body);
+    font-size: 0.85rem;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    color: var(--text-muted);
+}
+
+.roulette-result-overview {
+    margin: 0;
+    font-size: 0.88rem;
+    line-height: 1.55;
+    color: var(--text-secondary);
+}
+
+.roulette-rating-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    padding: 0.2rem 0.6rem;
+    border-radius: 999px;
+    background: rgba(212, 175, 55, 0.12);
+    border: 1px solid rgba(212, 175, 55, 0.4);
+    color: var(--accent-gold);
+    font-family: var(--font-body);
+    font-size: 0.85rem;
+    font-weight: 700;
+}
+
+.roulette-result-btns {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.6rem;
+    margin-top: 1rem;
+}
+
+.roulette-result-btns .btn-primary,
+.roulette-result-btns .btn-secondary {
+    padding: 0.6rem 1.1rem;
+    font-size: 0.78rem;
+}
+
+.roulette-retry-btn {
+    display: block;
+    margin: 0.75rem auto 0;
+    padding: 0.6rem 1.4rem;
+    background: rgba(138, 3, 3, 0.25);
+    border: 1px solid rgba(138, 3, 3, 0.5);
+    border-radius: 6px;
+    color: #fff;
+    font-family: var(--font-body);
+    font-size: 0.85rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.roulette-retry-btn:hover {
+    background: var(--accent-primary);
+    border-color: var(--accent-primary);
+}
+
+@media (max-width: 700px) {
+    .roulette-result {
+        flex-direction: column;
+    }
+    .roulette-result-poster {
+        width: 100%;
+        max-width: 200px;
+        margin: 0 auto;
+    }
+}

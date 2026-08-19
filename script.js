@@ -491,6 +491,9 @@ const Alexandria = {
             if (!listId) { this.setView('home'); return; }
             this.state.activeListId = listId;
             this.setView('list');
+        } else if (path === 'roulette') {
+            this.openRouletteModal();
+            return;
         } else {
             const allowedViews = new Set(['home', 'movies', 'tv', 'anime', 'franchises', 'search', 'history', 'watchlist', 'community', 'calendar']);
             this.setView(allowedViews.has(path) ? path : 'home');
@@ -1904,7 +1907,30 @@ const Alexandria = {
                             <input type="number" id="discover-year" class="compact-input" placeholder="Year (e.g. 2024)" min="1900" max="2030" onchange="Alexandria.executeDiscover()">
                         </div>
                         <div class="filter-group">
-                            <button type="button" class="compact-btn" onclick="Alexandria.surpriseMe()">Surprise Me</button>
+                            <label class="sr-only" for="discover-rating">Minimum Rating</label>
+                            <select id="discover-rating" class="compact-select" onchange="Alexandria.executeDiscover()">
+                                <option value="0">ANY</option>
+                                <option value="5">5+ STARS</option>
+                                <option value="6">6+ STARS</option>
+                                <option value="7">7+ STARS</option>
+                                <option value="8">8+ STARS</option>
+                            </select>
+                        </div>
+                        <div class="filter-group">
+                            <label class="sr-only" for="discover-votes">Minimum Votes</label>
+                            <select id="discover-votes" class="compact-select" onchange="Alexandria.executeDiscover()">
+                                <option value="0">ANY VOTES</option>
+                                <option value="100">100+ VOTES</option>
+                                <option value="200">200+ VOTES</option>
+                                <option value="500">500+ VOTES</option>
+                            </select>
+                        </div>
+                        <div class="filter-group">
+                            <label class="sr-only" for="discover-runtime">Max Runtime</label>
+                            <input type="number" id="discover-runtime" class="compact-input" placeholder="MAX MIN" min="30" max="400" onchange="Alexandria.executeDiscover()">
+                        </div>
+                        <div class="filter-group">
+                            <button type="button" class="compact-btn" onclick="Alexandria.openRouletteModal()">Surprise Me</button>
                         </div>
                     </div>
                 `;
@@ -2005,19 +2031,32 @@ const Alexandria = {
         const genre = document.getElementById('discover-genre')?.value;
         const sort = document.getElementById('discover-sort')?.value || 'popularity.desc';
         const year = document.getElementById('discover-year')?.value;
+        const rating = Number(document.getElementById('discover-rating')?.value) || 0;
+        const votes = Number(document.getElementById('discover-votes')?.value) || 0;
+        const runtime = document.getElementById('discover-runtime')?.value;
         const type = this.state.searchFilter === 'tv' ? 'tv' : 'movie';
 
         this.setDiscoverVisible(true);
         container.innerHTML = '<div class="search-loading"><div class="elegant-spinner"></div></div>';
 
         try {
-            let endpoint = `discover/${type}?sort_by=${sort}`;
-            if (genre) endpoint += `&with_genres=${genre}`;
-            if (year) {
-                if (type === 'movie') endpoint += `&primary_release_year=${year}`;
-                else endpoint += `&first_air_date_year=${year}`;
+            const params = [`sort_by=${sort}`];
+            if (genre) params.push(`with_genres=${genre}`);
+            if (year) params.push(type === 'movie' ? `primary_release_year=${year}` : `first_air_date_year=${year}`);
+            if (rating > 0) params.push(`vote_average.gte=${rating}`);
+            const minVotes = Math.max(votes, sort.includes('vote_average') ? 200 : 0);
+            if (minVotes > 0) params.push(`vote_count.gte=${minVotes}`);
+            if (type === 'movie' && runtime) params.push(`with_runtime.lte=${runtime}`);
+            let endpoint = `discover/${type}?${params.join('&')}`;
+            if (endpoint.length > 480) {
+                for (const prefix of ['with_runtime', 'vote_count']) {
+                    if (endpoint.length <= 480) break;
+                    if (params[params.length - 1].startsWith(prefix)) {
+                        params.pop();
+                        endpoint = `discover/${type}?${params.join('&')}`;
+                    }
+                }
             }
-            if (sort.includes('vote_average')) endpoint += `&vote_count.gte=200`;
 
             const data = await this.getJson(endpoint);
             if (requestId !== this._searchRequestId || !document.body.contains(container)) return;
@@ -2036,16 +2075,149 @@ const Alexandria = {
     },
 
     async surpriseMe() {
-        const type = this.state.searchFilter === 'tv' ? 'tv' : 'movie';
-        const page = Math.floor(Math.random() * 10) + 1;
+        this.openRouletteModal();
+    },
+
+    openRouletteModal() {
+        let modal = document.getElementById('roulette-modal');
+        if (!modal) {
+            modal = document.createElement('div');
+            modal.id = 'roulette-modal';
+            modal.className = 'roulette-modal-overlay';
+            modal.setAttribute('hidden', '');
+            modal.onclick = (event) => { if (event.target === modal) this.closeRouletteModal(); };
+            modal.innerHTML = `
+                <div class="roulette-modal-card">
+                    <button class="auth-close-btn" type="button" onclick="Alexandria.closeRouletteModal()">✕</button>
+                    <div id="roulette-modal-body"></div>
+                </div>`;
+            document.body.appendChild(modal);
+        }
+        modal.removeAttribute('hidden');
+        this.renderRouletteModal();
+    },
+
+    closeRouletteModal() {
+        const modal = document.getElementById('roulette-modal');
+        if (modal) modal.setAttribute('hidden', '');
+    },
+
+    renderRouletteModal() {
+        const body = document.getElementById('roulette-modal-body');
+        if (!body) return;
+        const r = this.state.roulette = this.state.roulette || { type: 'movie', genre: '', rating: 0, votes: 0, runtime: '', yearFrom: '', yearTo: '' };
+        const genres = r.type === 'tv' ? this._tvGenres : this._movieGenres;
+        if (r.genre && !genres.some(([value]) => String(value) === String(r.genre))) r.genre = '';
+        const ratingOptions = [[0, 'ANY'], [5, '5+ STARS'], [6, '6+ STARS'], [7, '7+ STARS'], [8, '8+ STARS']];
+        const genreOptions = genres.map(([value, label]) => `<option value="${value}" ${String(value) === String(r.genre) ? 'selected' : ''}>${label}</option>`).join('');
+        const ratingOptionsHtml = ratingOptions.map(([value, label]) => `<option value="${value}" ${Number(value) === Number(r.rating) ? 'selected' : ''}>${label}</option>`).join('');
+
+        body.innerHTML = `
+            <h2 class="roulette-title">Roulette</h2>
+            <div class="roulette-type-toggle">
+                <button type="button" class="roulette-type-btn ${r.type === 'movie' ? 'active' : ''}" onclick="Alexandria.setRouletteType('movie')">MOVIE</button>
+                <button type="button" class="roulette-type-btn ${r.type === 'tv' ? 'active' : ''}" onclick="Alexandria.setRouletteType('tv')">TV</button>
+            </div>
+            <div class="roulette-controls">
+                <div>
+                    <label class="roulette-label" for="roulette-genre">Genre</label>
+                    <select id="roulette-genre" class="compact-select roulette-control">${genreOptions}</select>
+                </div>
+                <div>
+                    <label class="roulette-label" for="roulette-rating">Min Rating</label>
+                    <select id="roulette-rating" class="compact-select roulette-control">${ratingOptionsHtml}</select>
+                </div>
+                <div>
+                    <label class="roulette-label" for="roulette-year-from">Year From</label>
+                    <input type="number" id="roulette-year-from" class="compact-input roulette-control" min="1900" max="2030" placeholder="ANY" value="${this.escapeHtml(String(r.yearFrom || ''))}">
+                </div>
+                <div>
+                    <label class="roulette-label" for="roulette-year-to">Year To</label>
+                    <input type="number" id="roulette-year-to" class="compact-input roulette-control" min="1900" max="2030" placeholder="ANY" value="${this.escapeHtml(String(r.yearTo || ''))}">
+                </div>
+                ${r.type === 'movie' ? `
+                <div>
+                    <label class="roulette-label" for="roulette-runtime">Max Runtime</label>
+                    <input type="number" id="roulette-runtime" class="compact-input roulette-control" min="30" max="400" placeholder="MAX MIN" value="${this.escapeHtml(String(r.runtime || ''))}">
+                </div>` : ''}
+            </div>
+            <button type="button" class="roulette-spin-btn" onclick="Alexandria.spinRoulette()">SPIN THE WHEEL</button>
+            <div id="roulette-result"></div>
+        `;
+    },
+
+    setRouletteType(t) {
+        const r = this.state.roulette = this.state.roulette || { type: 'movie', genre: '', rating: 0, votes: 0, runtime: '', yearFrom: '', yearTo: '' };
+        r.type = t === 'tv' ? 'tv' : 'movie';
+        this._rouletteSpinId = (this._rouletteSpinId || 0) + 1;
+        this.renderRouletteModal();
+    },
+
+    async spinRoulette() {
+        const r = this.state.roulette = this.state.roulette || { type: 'movie', genre: '', rating: 0, votes: 0, runtime: '', yearFrom: '', yearTo: '' };
+        const read = id => document.getElementById(id)?.value || '';
+        r.genre = read('roulette-genre');
+        r.rating = Number(read('roulette-rating')) || 0;
+        r.votes = Number(read('roulette-votes')) || 0;
+        r.runtime = read('roulette-runtime');
+        r.yearFrom = read('roulette-year-from');
+        r.yearTo = read('roulette-year-to');
+        const type = r.type;
+
+        this._rouletteSpinId = (this._rouletteSpinId || 0) + 1;
+        const spin = this._rouletteSpinId;
+
+        const result = document.getElementById('roulette-result');
+        if (result) result.innerHTML = '<div class="placeholder-msg"><span class="pulse-dot"></span>SPINNING THE WHEEL...</div>';
+
+        const params = [`sort_by=popularity.desc`, `page=${1 + Math.floor(Math.random() * 15)}`];
+        if (r.genre) params.push(`with_genres=${r.genre}`);
+        if (r.rating > 0) params.push(`vote_average.gte=${r.rating}`);
+        if (r.votes > 0) params.push(`vote_count.gte=${r.votes}`);
+        if (type === 'movie' && r.runtime) params.push(`with_runtime.lte=${r.runtime}`);
+        if (r.yearFrom) params.push(type === 'movie' ? `primary_release_year.gte=${r.yearFrom}` : `first_air_date_year.gte=${r.yearFrom}`);
+        if (r.yearTo) params.push(type === 'movie' ? `primary_release_year.lte=${r.yearTo}` : `first_air_date_year.lte=${r.yearTo}`);
+        let endpoint = `discover/${type}?${params.join('&')}`;
+        if (endpoint.length > 480 && params[params.length - 1]?.includes('year.lte')) {
+            params.pop();
+            endpoint = `discover/${type}?${params.join('&')}`;
+        }
+
         try {
-            const data = await this.getJson(`discover/${type}?sort_by=popularity.desc&page=${page}`, { noCache: true });
-            const pool = (data.results || []).filter(r => r.id);
-            if (!pool.length) throw new Error('No titles found.');
+            const data = await this.getJson(endpoint, { noCache: true });
+            const pool = (data.results || []).filter(item => item.id && item.poster_path);
+            if (!pool.length) throw new Error('No matches found.');
             const pick = pool[Math.floor(Math.random() * pool.length)];
-            window.location.hash = `#details/${type}/${pick.id}`;
+            const resultEl = document.getElementById('roulette-result');
+            if (spin !== this._rouletteSpinId || !resultEl) return;
+            const title = pick.title || pick.name || 'Untitled';
+            const year = (pick.release_date || pick.first_air_date || '').slice(0, 4);
+            const ratingText = Number(pick.vote_average || 0).toFixed(1);
+            const poster = this.imageUrl(pick.poster_path, 'w342');
+            const overview = (pick.overview || '').slice(0, 240);
+            const watchItem = { id: pick.id, type: type, title: title, poster_path: pick.poster_path || '' };
+            resultEl.innerHTML = `
+                <div class="roulette-result">
+                    <img class="roulette-result-poster" src="${this.escapeHtml(poster)}" alt="${this.escapeHtml(title)} poster" loading="lazy">
+                    <div class="roulette-result-info">
+                        <span class="roulette-rating-badge">★ ${ratingText}</span>
+                        <h3>${this.escapeHtml(title)}</h3>
+                        ${year ? `<p class="roulette-result-meta">${this.escapeHtml(year)}</p>` : ''}
+                        <p class="roulette-result-overview">${this.escapeHtml(overview)}</p>
+                        <div class="roulette-result-btns">
+                            <button type="button" class="btn-primary" onclick="Alexandria.closeRouletteModal(); window.location.hash = '#details/${type}/${pick.id}'">PLAY NOW</button>
+                            <button type="button" class="btn-secondary" onclick="Alexandria.toggleWatchlist(${this.escapeHtml(JSON.stringify(watchItem))})">WATCHLIST</button>
+                            <button type="button" class="btn-secondary" onclick="Alexandria.spinRoulette()">SPIN AGAIN</button>
+                        </div>
+                    </div>
+                </div>`;
         } catch (error) {
-            this.showToast(error.message || 'Surprise failed.');
+            const resultEl = document.getElementById('roulette-result');
+            if (spin === this._rouletteSpinId && resultEl) {
+                resultEl.innerHTML = `
+                    <div class="placeholder-msg">WHEEL JAMMED — TRY AGAIN</div>
+                    <button type="button" class="roulette-retry-btn" onclick="Alexandria.spinRoulette()">RETRY</button>`;
+            }
         }
     },
 
