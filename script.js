@@ -2597,9 +2597,13 @@ const Alexandria = {
 
     scheduleHostPartyResync() {
         if (this.state.view !== 'party' || !this.isHost || !this.partyChannel) return;
+        const now = Date.now();
+        // Repeated ready/load echoes were stacking a dozen force syncs — that was
+        // the "constantly syncing" hammer. Collapse them into one calm burst.
+        if (this._lastHostResyncAt && now - this._lastHostResyncAt < 1500) return;
+        this._lastHostResyncAt = now;
         this.clearHostPartyResyncTimers();
-        // ready + load can be flaky after a mirror swap — hammer a few force syncs.
-        const delays = [450, 1000, 3000, 5000];
+        const delays = [600, 2200];
         this._partyHostResyncTimers = delays.map((ms) => setTimeout(async () => {
             if (this.state.view !== 'party' || !this.isHost || !this.partyChannel) return;
             this._suppressHostBroadcastUntil = 0;
@@ -4047,8 +4051,9 @@ const Alexandria = {
     requestPlayerTime(frame) {
         if (!frame?.contentWindow) return;
         const win = frame.contentWindow;
-        // PlayerJS getter for current position. `time`/`getTime` are not valid
-        // PlayerJS methods and returned nothing, collapsing the host clock.
+        // Standard PlayerJS getter — needs the `context` field or a strict
+        // player ignores it. `time`/`getTime`/bare `{api:...}` all returned nothing.
+        win.postMessage({ context: 'player.js', version: '0.0.10', method: 'getCurrentTime', listener: 'alexandria_time' }, '*');
         win.postMessage({ api: 'getCurrentTime' }, '*');
         win.postMessage({ method: 'getCurrentTime' }, '*');
     },
@@ -4056,8 +4061,22 @@ const Alexandria = {
     requestPlayerPaused(frame) {
         if (!frame?.contentWindow) return;
         const win = frame.contentWindow;
+        win.postMessage({ context: 'player.js', version: '0.0.10', method: 'getPaused', listener: 'alexandria_paused' }, '*');
         win.postMessage({ api: 'getPaused' }, '*');
         win.postMessage({ method: 'getPaused' }, '*');
+    },
+
+    // PlayerJS only fires events after the parent subscribes (except play/pause,
+    // which EmbedMaster emits on its own). Subscribe so `timeupdate`/`progress`
+    // actually fire — without them the host clock never gets a real timestamp.
+    subscribeToPlayerEvents(frame) {
+        if (!frame?.contentWindow) return;
+        const win = frame.contentWindow;
+        const events = ['timeupdate', 'progress', 'play', 'pause', 'seek', 'ended'];
+        for (const name of events) {
+            win.postMessage({ context: 'player.js', version: '0.0.10', method: 'addEventListener', value: name }, '*');
+            win.postMessage({ api: 'addEventListener', set: name }, '*');
+        }
     },
 
     collectHostTime(ms = 900) {
@@ -4113,7 +4132,10 @@ const Alexandria = {
 
     scheduleEmbedTheme(frame) {
         if (!frame) return;
-        const paint = () => this.themeEmbedPlayer(frame);
+        const paint = () => {
+            this.themeEmbedPlayer(frame);
+            this.subscribeToPlayerEvents(frame);
+        };
         paint();
         setTimeout(paint, 400);
         setTimeout(paint, 1200);
@@ -4258,12 +4280,18 @@ const Alexandria = {
         if (eventName === 'start') eventName = 'play';
 
         const info = data.info;
+        const val = data.value;
         const time = asNum(info)
             ?? asNum(info?.time)
+            ?? asNum(info?.seconds)
+            ?? asNum(info?.currentTime)
             ?? asNum(data.time)
             ?? asNum(data.data)
             ?? asNum(data.data?.time)
-            ?? asNum(data.value)
+            ?? asNum(val)
+            ?? asNum(val?.time)
+            ?? asNum(val?.seconds)
+            ?? asNum(val?.currentTime)
             ?? asNum(data.answer);
 
         return { event: eventName, time };
@@ -4570,7 +4598,9 @@ const Alexandria = {
 
         if (ev === 'ready' || ev === 'init' || ev === 'start') {
             this.markPartyEmbedHealthy();
-            this.themeEmbedPlayer(document.getElementById('embedmaster_iframe'));
+            const readyFrame = document.getElementById('embedmaster_iframe');
+            this.themeEmbedPlayer(readyFrame);
+            this.subscribeToPlayerEvents(readyFrame);
             if (this.isHost) this.resyncPartyAfterPlayerReady();
         }
 
