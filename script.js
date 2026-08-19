@@ -52,6 +52,9 @@ const Alexandria = {
     // Guests always land a beat behind (network + seek settle). Lead play timestamps so they match the host.
     _PARTY_SYNC_LEAD_SEC: 0.85,
     _currentSeasonEpisodes: [],
+    commentsChannel: null,
+    _commentsChannelKey: null,
+    _migratedCommentKeys: new Set(),
     _movieGenres: [
         ['', 'All Genres'], ['28', 'Action'], ['12', 'Adventure'], ['16', 'Animation'], ['35', 'Comedy'],
         ['80', 'Crime'], ['99', 'Documentary'], ['18', 'Drama'], ['10751', 'Family'], ['14', 'Fantasy'],
@@ -664,6 +667,11 @@ const Alexandria = {
             this.supabase.removeChannel(this.feedChannel);
             this.feedChannel = null;
         }
+        if (this.commentsChannel && this.supabase) {
+            this.supabase.removeChannel(this.commentsChannel);
+            this.commentsChannel = null;
+        }
+        this._commentsChannelKey = null;
         if (this.state.view === 'player' && view !== 'player') {
             this.writeLocalList('alexandria_history', this.state.history);
         }
@@ -3527,17 +3535,109 @@ const Alexandria = {
     },
 
     getComments(commentKey) {
-        if (!commentKey) return [];
+        if (!commentKey) return Promise.resolve([]);
+        const localComments = () => {
+            try {
+                const allComments = JSON.parse(localStorage.getItem('alexandria_comments')) || {};
+                return allComments[commentKey] || [];
+            } catch {
+                return [];
+            }
+        };
+        if (!this.supabase) return Promise.resolve(localComments());
+        return this.supabase
+            .from('comments')
+            .select('*')
+            .eq('comment_key', commentKey)
+            .order('created_at', { ascending: false })
+            .limit(100)
+            .then(({ data, error }) => {
+                if (error) throw error;
+                const rows = (data || []).map(row => ({
+                    id: row.id,
+                    author: row.author,
+                    text: row.content,
+                    createdAt: row.created_at,
+                    userId: row.user_id,
+                    isMine: row.user_id === this.state.authUser?.id
+                }));
+                // Pull any pre-auth localStorage comments up into the cloud once.
+                this.migrateLocalComments(commentKey).catch(() => {});
+                return rows;
+            })
+            .catch(e => {
+                console.warn("Alexandria: Cloud comments unavailable, using local", e);
+                return localComments();
+            });
+    },
+
+    async migrateLocalComments(key) {
+        if (!this.supabase || !this.state.authUser || !key) return;
+        if (this._migratedCommentKeys.has(key)) return;
+        this._migratedCommentKeys.add(key);
+        let entries = [];
         try {
-            const allComments = JSON.parse(localStorage.getItem('alexandria_comments')) || {};
-            return allComments[commentKey] || [];
+            const all = JSON.parse(localStorage.getItem('alexandria_comments')) || {};
+            entries = Array.isArray(all[key]) ? all[key].filter(e => e && e.text) : [];
         } catch {
-            return [];
+            return;
+        }
+        if (!entries.length) return;
+        const userId = this.state.authUser.id;
+        let failed = false;
+        for (const entry of entries) {
+            try {
+                const { error } = await this.supabase.from('comments').insert({
+                    comment_key: key,
+                    author: entry.author || 'Member',
+                    content: entry.text,
+                    user_id: userId
+                });
+                if (error) failed = true;
+            } catch {
+                failed = true;
+            }
+        }
+        if (!failed) {
+            try {
+                const all = JSON.parse(localStorage.getItem('alexandria_comments')) || {};
+                if (all[key]) {
+                    delete all[key];
+                    localStorage.setItem('alexandria_comments', JSON.stringify(all));
+                }
+            } catch { /* swallow */ }
         }
     },
 
-    saveComment(commentKey, commentObj) {
-        if (!commentKey || !commentObj) return;
+    async saveComment(commentKey, commentObj) {
+        if (!commentKey || !commentObj) return null;
+        if (this.supabase && this.state.authUser) {
+            try {
+                const { data, error } = await this.supabase
+                    .from('comments')
+                    .insert({
+                        comment_key: commentKey,
+                        author: commentObj.author,
+                        content: commentObj.text,
+                        user_id: this.state.authUser.id
+                    })
+                    .select();
+                if (!error && data && data.length) {
+                    const row = data[0];
+                    return {
+                        id: row.id,
+                        author: row.author,
+                        text: row.content,
+                        createdAt: row.created_at,
+                        userId: row.user_id,
+                        isMine: true,
+                        cloud: true
+                    };
+                }
+            } catch (e) {
+                console.warn("Alexandria: Cloud comment insert failed, using local", e);
+            }
+        }
         try {
             const allComments = JSON.parse(localStorage.getItem('alexandria_comments')) || {};
             if (!allComments[commentKey]) allComments[commentKey] = [];
@@ -3546,24 +3646,35 @@ const Alexandria = {
         } catch (e) {
             console.error("Alexandria: Failed to save comment", e);
         }
+        return commentObj;
     },
 
-    deleteComment(commentKey, commentId) {
+    async deleteComment(commentKey, commentId) {
         if (!commentKey || !commentId) return;
-        try {
-            const allComments = JSON.parse(localStorage.getItem('alexandria_comments')) || {};
-            if (allComments[commentKey]) {
-                allComments[commentKey] = allComments[commentKey].filter(c => c.id !== commentId);
-                localStorage.setItem('alexandria_comments', JSON.stringify(allComments));
+        const isLegacyLocal = String(commentId).startsWith('c_');
+        if (isLegacyLocal || !this.supabase || !this.state.authUser) {
+            try {
+                const allComments = JSON.parse(localStorage.getItem('alexandria_comments')) || {};
+                if (allComments[commentKey]) {
+                    allComments[commentKey] = allComments[commentKey].filter(c => c.id !== commentId);
+                    localStorage.setItem('alexandria_comments', JSON.stringify(allComments));
+                }
+            } catch (e) {
+                console.error("Alexandria: Failed to delete comment", e);
             }
-        } catch (e) {
-            console.error("Alexandria: Failed to delete comment", e);
+        } else {
+            try {
+                const { error } = await this.supabase.from('comments').delete().eq('id', commentId);
+                if (error) throw error;
+            } catch (e) {
+                console.warn("Alexandria: Cloud comment delete failed", e);
+            }
         }
         this.renderComments();
         this.showToast('Comment deleted');
     },
 
-    addComment() {
+    async addComment() {
         if (!this.state.authUser) {
             this.showToast('Please sign in or create an account to post comments.');
             this.toggleAuthModal(true, 'signup');
@@ -3589,10 +3700,36 @@ const Alexandria = {
             isMine: true
         };
 
-        this.saveComment(key, commentObj);
+        let cloudPosted = false;
+        try {
+            if (this.supabase) {
+                await this.migrateLocalComments(key);
+                const profile = await this.fetchProfile(u.id);
+                const saved = await this.saveComment(key, { ...commentObj, author: profile?.nickname || nickname });
+                cloudPosted = !!(saved && saved.cloud);
+            }
+        } catch (e) {
+            console.warn("Alexandria: Cloud comment post failed", e);
+        }
+        if (!cloudPosted) {
+            this.saveComment(key, commentObj);
+        }
+
         input.value = '';
         this.renderComments();
         this.showToast('Comment posted!');
+
+        if (cloudPosted) {
+            const tvMatch = /^tv_([0-9]+)/.exec(key);
+            const movieMatch = /^movie_([0-9]+)/.exec(key);
+            const match = tvMatch || movieMatch;
+            this.logActivity('comment', {
+                contentId: match ? parseInt(match[1], 10) : null,
+                contentType: tvMatch ? 'tv' : (movieMatch ? 'movie' : null),
+                title: this.state.detailsTitle || this.state.activeContent?.title || '',
+                meta: JSON.stringify({ commentKey: key })
+            });
+        }
     },
 
     editNickname() {
@@ -3607,25 +3744,84 @@ const Alexandria = {
         }
     },
 
-    renderComments() {
+    async renderComments(opts = {}) {
         const container = document.getElementById('comments-section-container');
         if (!container) return;
 
         const content = this.state.activeContent;
         if (!content || !content.id) {
             container.innerHTML = '';
+            this.teardownCommentsRealtime();
             return;
         }
 
         const key = this.getCommentKey(content);
-        const comments = this.getComments(key);
+        if (!key) {
+            container.innerHTML = '';
+            this.teardownCommentsRealtime();
+            return;
+        }
+
+        this.setupCommentsRealtime(key);
+
+        const token = this._renderToken;
+        if (!opts.quiet) {
+            container.innerHTML = '<div class="placeholder-msg"><span class="pulse-dot"></span> LOADING COMMENTS...</div>';
+        }
+        const draft = opts.quiet ? this.captureCommentDraft() : null;
+
+        const comments = await this.getComments(key);
+        if (token !== this._renderToken) return;
+
+        const uids = [...new Set((comments || []).map(c => c.userId).filter(Boolean))];
+        const profiles = await Promise.all(uids.map(uid => this.fetchProfile(uid).catch(() => null)));
+        if (token !== this._renderToken) return;
+        const profileById = {};
+        uids.forEach((uid, i) => { if (profiles[i]) profileById[uid] = profiles[i]; });
+
+        const me = this.state.authUser?.id;
+        const myProfile = me ? await this.fetchProfile(me).catch(() => null) : null;
+        if (token !== this._renderToken) return;
+
         const isLoggedIn = !!this.state.authUser;
-        const nickname = this.state.authUser?.user_metadata?.username
+        const nickname = myProfile?.nickname
+            || this.state.authUser?.user_metadata?.username
             || sessionStorage.getItem('alexandria_nickname')
             || 'Member';
         const scopeBadge = content.type === 'tv'
             ? `S${content.season || 1}:E${content.episode || 1}`
             : 'MOVIE';
+
+        const safeKey = this.escapeHtml(key);
+        const rowsHtml = comments.length > 0 ? comments.map(c => {
+            const profile = c.userId ? profileById[c.userId] : null;
+            const authorName = profile ? (profile.nickname || profile.username || c.author || 'Member') : (c.author || 'Member');
+            const initial = (c.author || 'G').charAt(0).toUpperCase();
+            const safeId = this.escapeHtml(c.id);
+            const avatar = c.userId && profile
+                ? `<a class="comment-avatar-link" href="#profile/${this.escapeHtml(c.userId)}" aria-label="${this.escapeHtml(authorName)}">${this.avatarHtml(profile, 38)}</a>`
+                : `<div class="comment-avatar" aria-hidden="true">${initial}</div>`;
+            const authorNode = c.userId
+                ? `<a class="comment-author comment-author-link" href="#profile/${this.escapeHtml(c.userId)}">${this.escapeHtml(authorName)}</a>`
+                : `<span class="comment-author">${this.escapeHtml(authorName)}</span>`;
+            return `
+                <div class="comment-card">
+                    ${avatar}
+                    <div class="comment-body">
+                        <div class="comment-meta">
+                            ${authorNode}
+                            <span class="comment-time">${this.escapeHtml(this.timeago(c.createdAt))}</span>
+                            ${c.isMine ? `
+                                <button type="button" class="comment-delete-btn" aria-label="Delete comment" title="Delete comment" data-key="${safeKey}" data-id="${safeId}" onclick="Alexandria.deleteComment('${safeKey}', '${safeId}')">✕</button>
+                            ` : ''}
+                        </div>
+                        <p class="comment-text">${this.escapeHtml(c.text)}</p>
+                    </div>
+                </div>
+            `;
+        }).join('') : `
+            <div class="placeholder-msg comments-empty">No comments yet. Be the first to start the discussion for ${scopeBadge}!</div>
+        `;
 
         container.innerHTML = `
             <div class="comments-widget">
@@ -3633,11 +3829,13 @@ const Alexandria = {
                     <h3>DISCUSSION & REVIEWS (${comments.length}) <span class="comments-scope-badge">${scopeBadge}</span></h3>
                     ${isLoggedIn ? `
                         <div class="comments-user-badge">
+                            ${this.avatarHtml(myProfile, 28)}
                             <span>Posting as <strong>${this.escapeHtml(nickname)}</strong></span>
+                            <button type="button" class="btn-text-link" onclick="Alexandria.editNickname()">CHANGE</button>
                         </div>
                     ` : ''}
                 </div>
-                
+
                 ${isLoggedIn ? `
                     <div class="comments-composer">
                         <textarea id="comment-input" placeholder="Share your thoughts on this episode or movie..." maxlength="500" rows="3"></textarea>
@@ -3660,30 +3858,62 @@ const Alexandria = {
                 `}
 
                 <div class="comments-list">
-                    ${comments.length > 0 ? comments.map(c => {
-                        const dateStr = new Date(c.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
-                        const initial = (c.author || 'G').charAt(0).toUpperCase();
-                        return `
-                            <div class="comment-card">
-                                <div class="comment-avatar">${initial}</div>
-                                <div class="comment-body">
-                                    <div class="comment-meta">
-                                        <span class="comment-author">${this.escapeHtml(c.author)}</span>
-                                        <span class="comment-time">${dateStr}</span>
-                                        ${c.isMine ? `
-                                            <button type="button" class="comment-delete-btn" aria-label="Delete comment" title="Delete comment" onclick="Alexandria.deleteComment('${key}', '${c.id}')">✕</button>
-                                        ` : ''}
-                                    </div>
-                                    <p class="comment-text">${this.escapeHtml(c.text)}</p>
-                                </div>
-                            </div>
-                        `;
-                    }).join('') : `
-                        <div class="placeholder-msg comments-empty">No comments yet. Be the first to start the discussion for ${scopeBadge}!</div>
-                    `}
+                    ${rowsHtml}
                 </div>
             </div>
         `;
+        if (draft) this.restoreCommentDraft(draft);
+    },
+
+    setupCommentsRealtime(key) {
+        if (!this.supabase || !key) return;
+        if (this._commentsChannelKey === key && this.commentsChannel) return;
+        if (this.commentsChannel) {
+            this.supabase.removeChannel(this.commentsChannel);
+            this.commentsChannel = null;
+        }
+        this.commentsChannel = this.supabase.channel('comments_' + key);
+        this.commentsChannel
+            .on('postgres_changes', {
+                event: 'INSERT',
+                schema: 'public',
+                table: 'comments',
+                filter: 'comment_key=eq.' + key
+            }, payload => {
+                if (payload.new && payload.new.user_id !== this.state.authUser?.id) {
+                    this.renderComments({ quiet: true });
+                }
+            })
+            .subscribe();
+        this._commentsChannelKey = key;
+    },
+
+    teardownCommentsRealtime() {
+        if (this.commentsChannel && this.supabase) {
+            this.supabase.removeChannel(this.commentsChannel);
+        }
+        this.commentsChannel = null;
+        this._commentsChannelKey = null;
+    },
+
+    captureCommentDraft() {
+        const input = document.getElementById('comment-input');
+        if (!input) return null;
+        return {
+            value: input.value,
+            start: input.selectionStart,
+            end: input.selectionEnd,
+            focused: document.activeElement === input
+        };
+    },
+
+    restoreCommentDraft(draft) {
+        if (!draft) return;
+        const input = document.getElementById('comment-input');
+        if (!input) return;
+        input.value = draft.value;
+        try { input.setSelectionRange(draft.start, draft.end); } catch { /* ignore */ }
+        if (draft.focused) input.focus();
     },
 
     // Community Ratings & Reviews Engine
