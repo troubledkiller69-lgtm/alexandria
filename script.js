@@ -78,15 +78,36 @@ const Alexandria = {
         { id: 'raven', emoji: '🐦‍⬛' },
         { id: 'panda', emoji: '🐼' },
         { id: 'tiger', emoji: '🐯' },
-        // The Walking Dead survivors — real photos (TMDB profile images, CSP-safe)
-        { id: 'walker', img: '/aN29llVoCFtBTwDZFtqdD9d8dHb.jpg', twd: true },
-        { id: 'rick', img: '/gR4RzQTDsMfVv8oEh2VRbO8LkFz.jpg', twd: true },
-        { id: 'daryl', img: '/ozHPdO5jAt7ozzdZUgyRAMNPSDW.jpg', twd: true },
-        { id: 'michonne', img: '/z7H7QeQvr24vskGlANQhG43vozQ.jpg', twd: true },
-        { id: 'glenn', img: '/fOMFO2Xx4duzpNgS9Q5ytO44yGb.jpg', twd: true },
-        { id: 'maggie', img: '/8WPbj506873QzrKwUFbjjniLuvD.jpg', twd: true },
-        { id: 'carol', img: '/2omPfeMdnicJqqvgKAU2iqVyD4Z.jpg', twd: true },
-        { id: 'negan', img: '/m8bdrmh6ExDCGQ64E83mHg002YV.jpg', twd: true }
+        // Franchise cast avatars — real photos (TMDB profile images, CSP-safe).
+        // `group` renders a section label in the picker (first of its group wins).
+        { id: 'walker', img: '/aN29llVoCFtBTwDZFtqdD9d8dHb.jpg', group: 'THE WALKING DEAD' },
+        { id: 'rick', img: '/gR4RzQTDsMfVv8oEh2VRbO8LkFz.jpg', group: 'THE WALKING DEAD' },
+        { id: 'daryl', img: '/ozHPdO5jAt7ozzdZUgyRAMNPSDW.jpg', group: 'THE WALKING DEAD' },
+        { id: 'michonne', img: '/z7H7QeQvr24vskGlANQhG43vozQ.jpg', group: 'THE WALKING DEAD' },
+        { id: 'glenn', img: '/fOMFO2Xx4duzpNgS9Q5ytO44yGb.jpg', group: 'THE WALKING DEAD' },
+        { id: 'maggie', img: '/8WPbj506873QzrKwUFbjjniLuvD.jpg', group: 'THE WALKING DEAD' },
+        { id: 'carol', img: '/2omPfeMdnicJqqvgKAU2iqVyD4Z.jpg', group: 'THE WALKING DEAD' },
+        { id: 'negan', img: '/m8bdrmh6ExDCGQ64E83mHg002YV.jpg', group: 'THE WALKING DEAD' },
+        // Suits
+        { id: 'harvey', img: '/lacMH4Ju1x9AsKXm7mDkklSsPyV.jpg', group: 'SUITS' },
+        { id: 'mike', img: '/uJiuAHTsZAbfMi9bKRksWn4oHLf.jpg', group: 'SUITS' },
+        { id: 'donna', img: '/Am3yPjKVbGWWn2Q1SB5wPz3yzgV.jpg', group: 'SUITS' },
+        { id: 'louis', img: '/c9CKBkLtGtW1T8GRNUid0tQHaJY.jpg', group: 'SUITS' },
+        { id: 'jessica', img: '/ukDNHgvEgdU95eaw6pngiAPucv4.jpg', group: 'SUITS' },
+        // Lost
+        { id: 'jack', img: '/6VIfueb4j3GCsIhxnstsXlY5C3Y.jpg', group: 'LOST' },
+        { id: 'kate', img: '/zgztLIWTJZm3vjGU7ezhF8GXESJ.jpg', group: 'LOST' },
+        { id: 'sawyer', img: '/biuhUJn5BDhXpfKvVW4dVUxvB44.jpg', group: 'LOST' },
+        { id: 'hurley', img: '/hIt31bI76cvwijImRZke3WCoEI4.jpg', group: 'LOST' },
+        { id: 'locke', img: '/kSweOGPprLe1vDvu38wJQaWIih7.jpg', group: 'LOST' },
+        // Breaking Bad
+        { id: 'walt', img: '/npIIZJGSrcJIJ6yHdmbqO6Jzo5I.jpg', group: 'BREAKING BAD' },
+        { id: 'jesse', img: '/8Ac9uuoYwZoYVAIJfRLzzLsGGJn.jpg', group: 'BREAKING BAD' },
+        { id: 'saul', img: '/rF0Lb6SBhGSTvjRffmlKRSeI3jE.jpg', group: 'BREAKING BAD' },
+        { id: 'gus', img: '/rcXnr82TwDzU4ZGdBeNXfG0ZQnZ.jpg', group: 'BREAKING BAD' },
+        { id: 'hank', img: '/mKRrEbsxAX3ro700HsViFArRM7l.jpg', group: 'BREAKING BAD' },
+        // Reacher
+        { id: 'reacher', img: '/92YNEEpCyugkTzPprJwZpvVtvuK.jpg', group: 'REACHER' }
     ],
 
     escapeHtml(value = '') {
@@ -1818,35 +1839,47 @@ const Alexandria = {
         this.main.innerHTML = '<div class="placeholder-msg"><span class="pulse-dot"></span> LOADING FRANCHISE ARCHIVES...</div>';
 
         const franchises = [
-            { name: 'Marvel Cinematic Universe', movieIds: [1726, 1724, 10138, 10195, 1771, 24428, 68721, 76338, 100402, 118340, 99861, 102899, 271110, 284052, 283995, 315635, 284053, 284054, 299536, 363088, 299537, 299534, 429617, 497698, 566525, 524434, 634649, 453395, 616037, 505642, 640146, 447365, 609681, 533535], accent: '#e23636', subtitle: 'The Infinity Saga & Beyond' },
-            { name: 'Transformers', movieIds: [1858, 8373, 38356, 91314, 335988, 424783, 667538, 698687], accent: '#0070f3', subtitle: 'More Than Meets the Eye' },
-            { name: 'Star Wars', collectionId: 10, accent: '#FFE81F', subtitle: 'A Galaxy Far, Far Away' },
-            { name: 'Harry Potter', collectionId: 1241, accent: '#946B2D', subtitle: 'The Wizarding World' },
-            { name: 'The Lord of the Rings', collectionId: 119, accent: '#C9A84C', subtitle: 'One Ring to Rule Them All' },
-            { name: 'DC Extended Universe', movieIds: [49521, 209112, 297761, 297762, 141052, 297802, 287947, 460465, 464052, 791373, 436969, 436270, 594767, 298618, 565770, 572802], accent: '#0078D7', subtitle: 'Gods Among Us' },
-            { name: 'The Walking Dead Universe', tvIds: [1402, 62286, 94305, 194583, 211684, 206586], accent: '#4a7c3f', subtitle: 'Fight the Dead. Fear the Living.', isTv: true },
-            { name: 'Fast & Furious', collectionId: 9485, accent: '#FF6B00', subtitle: 'Family. No Matter What.' },
-            { name: 'Jurassic Park', collectionId: 328, accent: '#2E8B57', subtitle: 'Life Finds a Way' },
-            { name: 'The Hunger Games', collectionId: 131635, accent: '#C4151C', subtitle: 'May The Odds Be Ever In Your Favor' },
-            { name: 'Pirates of the Caribbean', collectionId: 295, accent: '#8B6914', subtitle: 'Not All Treasure Is Silver and Gold' },
-            { name: 'The Conjuring Universe', collectionId: 313086, accent: '#7a1f1f', subtitle: 'Based on the True Case Files of the Warrens' },
-            { name: 'Saw', collectionId: 656, accent: '#8d9aa6', subtitle: 'Live or Die, Make Your Choice' },
-            { name: 'Scream', collectionId: 2602, accent: '#ff1744', subtitle: "What's Your Favorite Scary Movie?" },
-            { name: 'Halloween', collectionId: 91361, accent: '#ff8f00', subtitle: 'The Night He Came Home' },
-            { name: 'Friday the 13th', collectionId: 9735, accent: '#1b5e20', subtitle: 'Welcome to Crystal Lake' },
-            { name: 'A Nightmare on Elm Street', collectionId: 8581, accent: '#8e24aa', subtitle: "One, Two, Freddy's Coming for You" },
-            { name: 'The Evil Dead', collectionId: 1960, accent: '#795548', subtitle: 'Dead by Dawn' },
-            { name: 'Alien', collectionId: 8091, accent: '#00c853', subtitle: 'In Space No One Can Hear You Scream' },
-            { name: 'Predator', collectionId: 399, accent: '#ffb300', subtitle: 'If It Bleeds, We Can Kill It' },
-            { name: 'Final Destination', collectionId: 8864, accent: '#546e7a', subtitle: "You Can't Cheat Death" },
-            { name: 'Paranormal Activity', collectionId: 41437, accent: '#283593', subtitle: 'What Happens When You Sleep?' },
-            { name: 'Insidious', collectionId: 228446, accent: '#d32f2f', subtitle: "It's Not the House That's Haunted" },
-            { name: 'The Matrix', collectionId: 2344, accent: '#00e676', subtitle: 'There Is No Spoon' },
-            { name: 'Mission: Impossible', collectionId: 87359, accent: '#1e88e5', subtitle: 'Your Mission, Should You Choose to Accept It' }
+            { name: 'Marvel Cinematic Universe', movieIds: [1726, 1724, 10138, 10195, 1771, 24428, 68721, 76338, 100402, 118340, 99861, 102899, 271110, 284052, 283995, 315635, 284053, 284054, 299536, 363088, 299537, 299534, 429617, 497698, 566525, 524434, 634649, 453395, 616037, 505642, 640146, 447365, 609681, 533535], accent: '#e23636', subtitle: 'The Infinity Saga & Beyond', genre: 'Superhero' },
+            { name: 'Transformers', movieIds: [1858, 8373, 38356, 91314, 335988, 424783, 667538, 698687], accent: '#0070f3', subtitle: 'More Than Meets the Eye', genre: 'Action' },
+            { name: 'Star Wars', collectionId: 10, accent: '#FFE81F', subtitle: 'A Galaxy Far, Far Away', genre: 'Sci-Fi' },
+            { name: 'Harry Potter', collectionId: 1241, accent: '#946B2D', subtitle: 'The Wizarding World', genre: 'Fantasy' },
+            { name: 'The Lord of the Rings', collectionId: 119, accent: '#C9A84C', subtitle: 'One Ring to Rule Them All', genre: 'Fantasy' },
+            { name: 'DC Extended Universe', movieIds: [49521, 209112, 297761, 297762, 141052, 297802, 287947, 460465, 464052, 791373, 436969, 436270, 594767, 298618, 565770, 572802], accent: '#0078D7', subtitle: 'Gods Among Us', genre: 'Superhero' },
+            { name: 'The Walking Dead Universe', tvIds: [1402, 62286, 94305, 194583, 211684, 206586], accent: '#4a7c3f', subtitle: 'Fight the Dead. Fear the Living.', isTv: true, genre: 'Horror' },
+            { name: 'Fast & Furious', collectionId: 9485, accent: '#FF6B00', subtitle: 'Family. No Matter What.', genre: 'Action' },
+            { name: 'Jurassic Park', collectionId: 328, accent: '#2E8B57', subtitle: 'Life Finds a Way', genre: 'Sci-Fi' },
+            { name: 'The Hunger Games', collectionId: 131635, accent: '#C4151C', subtitle: 'May The Odds Be Ever In Your Favor', genre: 'Sci-Fi' },
+            { name: 'Pirates of the Caribbean', collectionId: 295, accent: '#8B6914', subtitle: 'Not All Treasure Is Silver and Gold', genre: 'Adventure' },
+            { name: 'The Conjuring Universe', collectionId: 313086, accent: '#7a1f1f', subtitle: 'Based on the True Case Files of the Warrens', genre: 'Horror' },
+            { name: 'Saw', collectionId: 656, accent: '#8d9aa6', subtitle: 'Live or Die, Make Your Choice', genre: 'Horror' },
+            { name: 'Scream', collectionId: 2602, accent: '#ff1744', subtitle: "What's Your Favorite Scary Movie?", genre: 'Horror' },
+            { name: 'Halloween', collectionId: 91361, accent: '#ff8f00', subtitle: 'The Night He Came Home', genre: 'Horror' },
+            { name: 'Friday the 13th', collectionId: 9735, accent: '#1b5e20', subtitle: 'Welcome to Crystal Lake', genre: 'Horror' },
+            { name: 'A Nightmare on Elm Street', collectionId: 8581, accent: '#8e24aa', subtitle: "One, Two, Freddy's Coming for You", genre: 'Horror' },
+            { name: 'The Evil Dead', collectionId: 1960, accent: '#795548', subtitle: 'Dead by Dawn', genre: 'Horror' },
+            { name: 'Alien', collectionId: 8091, accent: '#00c853', subtitle: 'In Space No One Can Hear You Scream', genre: 'Sci-Fi' },
+            { name: 'Predator', collectionId: 399, accent: '#ffb300', subtitle: 'If It Bleeds, We Can Kill It', genre: 'Sci-Fi' },
+            { name: 'Final Destination', collectionId: 8864, accent: '#546e7a', subtitle: "You Can't Cheat Death", genre: 'Horror' },
+            { name: 'Paranormal Activity', collectionId: 41437, accent: '#283593', subtitle: 'What Happens When You Sleep?', genre: 'Horror' },
+            { name: 'Insidious', collectionId: 228446, accent: '#d32f2f', subtitle: "It's Not the House That's Haunted", genre: 'Horror' },
+            { name: 'The Matrix', collectionId: 2344, accent: '#00e676', subtitle: 'There Is No Spoon', genre: 'Sci-Fi' },
+            { name: 'Mission: Impossible', collectionId: 87359, accent: '#1e88e5', subtitle: 'Your Mission, Should You Choose to Accept It', genre: 'Action' },
+            // --- added with the genre/sort pass ---
+            { name: 'John Wick', collectionId: 404609, accent: '#e5c27e', subtitle: 'With Pencil. With a Fucking Pencil.', genre: 'Action' },
+            { name: 'James Bond', collectionId: 645, accent: '#aeb6bf', subtitle: 'Licensed to Kill', genre: 'Action' },
+            { name: 'Indiana Jones', collectionId: 84, accent: '#8b5a2b', subtitle: 'Snakes. Why Did It Have to Be Snakes?', genre: 'Adventure' },
+            { name: 'Dune', collectionId: 726871, accent: '#d4a33c', subtitle: 'Fear Is the Mind-Killer', genre: 'Sci-Fi' },
+            { name: 'Mad Max', collectionId: 8945, accent: '#e0662e', subtitle: 'Witness Me!', genre: 'Action' },
+            { name: 'Reacher', tvIds: [108978], accent: '#7d8f9e', subtitle: 'You Do Not Mess with the Special Investigators', isTv: true, genre: 'Action' },
+            { name: 'Suits', tvIds: [37680], accent: '#28415c', subtitle: "When You're a Lawyer, You're Part of the Firm", isTv: true, genre: 'Drama' },
+            { name: 'Lost', tvIds: [4607], accent: '#3a6ea5', subtitle: 'We Have to Go Back', isTv: true, genre: 'Mystery' },
+            { name: 'Breaking Bad Universe', tvIds: [1396, 60059], accent: '#1b7f3a', subtitle: 'I Am the One Who Knocks', isTv: true, genre: 'Crime' },
+            { name: 'The Witcher', tvIds: [71912, 106541], accent: '#8e6b3f', subtitle: 'Toss a Coin to Your Witcher', isTv: true, genre: 'Fantasy' },
+            { name: 'The Boys', tvIds: [76479, 205715], accent: '#4a4a6a', subtitle: 'Fuck the Seven. Fuck Homelander.', isTv: true, genre: 'Superhero' }
         ];
 
         try {
-            const FRANCHISE_CACHE_KEY = 'alexandria_franchise_cache_v3';
+            const FRANCHISE_CACHE_KEY = 'alexandria_franchise_cache_v4';
             let cached = null;
             try {
                 cached = JSON.parse(sessionStorage.getItem(FRANCHISE_CACHE_KEY));
@@ -1902,14 +1935,44 @@ const Alexandria = {
                 throw new Error('No franchise collections were returned.');
             }
 
-            this.main.innerHTML = `
+            this.state.franchiseResults = results;
+            this.renderFranchiseGrid(results);
+        } catch (error) {
+            console.error("Alexandria: Franchise Archive Load Failed -", error);
+            if (token === this._renderToken) this.renderError('Franchise archives are unavailable', error.message, 'franchises');
+        }
+    },
+
+    renderFranchiseGrid(results) {
+        const genre = this.state.franchiseGenre || 'All';
+        const sort = this.state.franchiseSort || 'az';
+        const genres = ['All'].concat([...new Set(results.filter(f => f.items.length && f.genre).map(f => f.genre))]);
+        let visible = results.filter(f => f.items.length && (genre === 'All' || f.genre === genre));
+        visible = visible.slice().sort((a, b) => a.name.localeCompare(b.name));
+        if (sort === 'za') visible.reverse();
+        else if (sort === 'count') visible.sort((a, b) => b.items.length - a.items.length);
+
+        this.main.innerHTML = `
                 <section class="filtered-view franchise-section">
                     <div class="franchise-page-header">
                         <h2>FRANCHISE ARCHIVES</h2>
                         <p style="color:var(--text-muted);font-family:var(--font-display);letter-spacing:2px">CINEMATIC UNIVERSES & LEGENDARY SAGAS</p>
                     </div>
+                    <div class="franchise-toolbar">
+                        <div class="franchise-chips" role="group" aria-label="Filter franchises by genre">
+                            ${genres.map(g => `<button type="button" class="franchise-chip${g === genre ? ' active' : ''}" onclick="Alexandria.setFranchiseGenre('${this.escapeHtml(g)}')">${this.escapeHtml(g)}</button>`).join('')}
+                        </div>
+                        <label class="franchise-sort">
+                            <span class="sr-only">Sort franchises</span>
+                            <select onchange="Alexandria.setFranchiseSort(this.value)">
+                                <option value="az"${sort === 'az' ? ' selected' : ''}>A &rarr; Z</option>
+                                <option value="za"${sort === 'za' ? ' selected' : ''}>Z &rarr; A</option>
+                                <option value="count"${sort === 'count' ? ' selected' : ''}>Most Titles</option>
+                            </select>
+                        </label>
+                    </div>
                     <div class="franchise-grid">
-                    ${results.map((f, i) => {
+                    ${visible.map((f, i) => {
                         if (!f.items.length) return '';
                         const poster = this.imageUrl(f.items[0].poster_path, 'w342');
                         const safeName = this.escapeHtml(f.name);
@@ -1920,6 +1983,7 @@ const Alexandria = {
                                 ${poster ? `<img class="franchise-tile-poster" src="${poster}" alt="${safeName}" loading="lazy" decoding="async">` : `<div class="franchise-tile-placeholder" aria-hidden="true"><span>A</span></div>`}
                                 <span class="franchise-tile-scrim" aria-hidden="true"></span>
                                 <span class="franchise-tile-count">${f.items.length}</span>
+                                ${f.genre ? `<span class="franchise-tile-genre">${this.escapeHtml(f.genre)}</span>` : ''}
                                 <span class="franchise-tile-name">${safeName}</span>
                             </button>
                             <button class="franchise-tile-arrow" type="button" aria-expanded="false" aria-label="Expand ${safeName}" onclick="Alexandria.toggleFranchise(this)">
@@ -1946,18 +2010,25 @@ const Alexandria = {
                     </div>
                 </section>`;
 
-            results.forEach((f, i) => {
-                if (f.items.length > 0) {
-                    this.renderResults([f.items[0]], `franchise-first-${i}`);
-                    if (f.items.length > 1) {
-                        this.renderResults(f.items.slice(1), `franchise-rest-${i}`);
-                    }
+        visible.forEach((f, i) => {
+            if (f.items.length > 0) {
+                this.renderResults([f.items[0]], `franchise-first-${i}`);
+                if (f.items.length > 1) {
+                    this.renderResults(f.items.slice(1), `franchise-rest-${i}`);
                 }
-            });
-        } catch (error) {
-            console.error("Alexandria: Franchise Archive Load Failed -", error);
-            if (token === this._renderToken) this.renderError('Franchise archives are unavailable', error.message, 'franchises');
-        }
+            }
+        });
+    },
+
+    setFranchiseGenre(genre) {
+        // Clicking the active chip again clears the filter back to All.
+        this.state.franchiseGenre = this.state.franchiseGenre === genre ? 'All' : genre;
+        if (this.state.franchiseResults) this.renderFranchiseGrid(this.state.franchiseResults);
+    },
+
+    setFranchiseSort(value) {
+        this.state.franchiseSort = value;
+        if (this.state.franchiseResults) this.renderFranchiseGrid(this.state.franchiseResults);
     },
 
     toggleFranchise(btn) {
@@ -3506,8 +3577,9 @@ const Alexandria = {
         const picker = document.getElementById('avatar-picker');
         if (picker) {
             picker.innerHTML = this.AVATAR_PRESETS.map((p, i) => {
-                const label = p.twd && !this.AVATAR_PRESETS[i - 1]?.twd
-                    ? '<span class="avatar-picker-label">THE WALKING DEAD</span>'
+                const prev = this.AVATAR_PRESETS[i - 1];
+                const label = p.group && prev?.group !== p.group
+                    ? `<span class="avatar-picker-label">${this.escapeHtml(p.group)}</span>`
                     : '';
                 const body = p.img
                     ? `<img src="${this.imageUrl(p.img, 'w185')}" alt="" loading="lazy" decoding="async">`
