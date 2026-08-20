@@ -1871,8 +1871,8 @@ const Alexandria = {
                 this.getJson(type + '/popular'),
                 this.getJson(type + '/top_rated'),
                 this.getJson('discover/' + type + '?with_genres=' + (type === 'movie' ? '28' : '10759')),
-                this.getJson('discover/' + type + '?with_genres=27'),
-                this.getJson('discover/' + type + '?with_genres=878')
+                this.getJson(type === 'movie' ? 'discover/movie?with_genres=27' : 'discover/tv?with_keywords=315058'),
+                this.getJson('discover/' + type + '?with_genres=' + (type === 'movie' ? '878' : '10765'))
             ]);
             if (token !== this._renderToken) return;
 
