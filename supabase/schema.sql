@@ -1,7 +1,8 @@
 -- Alexandria schema — run this against your Supabase project (SQL editor) if
 -- you ever need to recreate the database from scratch.
 -- NOTE: live DB is managed via Supabase MCP migrations; this file mirrors
--- migration `community_features_and_schema_sync` plus the pre-existing tables.
+-- migrations `community_features_and_schema_sync`, `watch_time_tracking`,
+-- plus the pre-existing tables.
 
 create table if not exists public.profiles (
   id uuid primary key references auth.users(id) on delete cascade,
@@ -210,3 +211,41 @@ alter publication supabase_realtime add table public.activity;
 alter publication supabase_realtime add table public.movie_night_items;
 alter publication supabase_realtime add table public.comments;
 alter publication supabase_realtime add table public.ratings;
+
+-- Watch time (migration `watch_time_tracking`)
+create table if not exists public.watch_progress (
+  user_id uuid not null references auth.users(id) on delete cascade,
+  content_id integer not null,
+  content_type text not null check (content_type in ('movie', 'tv')),
+  season integer not null default 0,
+  episode integer not null default 0,
+  seconds double precision not null default 0,
+  updated_at timestamptz not null default now(),
+  primary key (user_id, content_id, content_type, season, episode)
+);
+
+alter table public.watch_progress enable row level security;
+
+create policy "watch_progress_select_own" on public.watch_progress
+  for select to authenticated using (auth.uid() = user_id);
+create policy "watch_progress_insert_own" on public.watch_progress
+  for insert to authenticated with check (auth.uid() = user_id);
+create policy "watch_progress_update_own" on public.watch_progress
+  for update to authenticated using (auth.uid() = user_id) with check (auth.uid() = user_id);
+create policy "watch_progress_delete_own" on public.watch_progress
+  for delete to authenticated using (auth.uid() = user_id);
+
+create or replace function public.add_watch_seconds(
+  p_content_id integer, p_content_type text, p_season integer, p_episode integer, p_delta double precision
+) returns void language plpgsql set search_path = public as $$
+begin
+  if auth.uid() is null then return; end if;
+  insert into public.watch_progress (user_id, content_id, content_type, season, episode, seconds)
+  values (auth.uid(), p_content_id, p_content_type, coalesce(p_season, 0), coalesce(p_episode, 0), greatest(p_delta, 0))
+  on conflict (user_id, content_id, content_type, season, episode)
+  do update set seconds = public.watch_progress.seconds + excluded.seconds, updated_at = now();
+end;
+$$;
+
+revoke execute on function public.add_watch_seconds(integer, text, integer, integer, double precision) from public;
+grant execute on function public.add_watch_seconds(integer, text, integer, integer, double precision) to authenticated;
