@@ -2476,11 +2476,49 @@ h1, h2, h3, h4 {
 
 /* Deck (fan-out) — shared */
 .franchise-deck {
+    position: relative;
     overflow-x: auto;
     overflow-y: hidden;
     padding-bottom: 1rem;
     scrollbar-width: none;
     -webkit-overflow-scrolling: touch;
+}
+.franchise-deck:hover .carousel-arrow,
+.franchise-deck:focus-within .carousel-arrow {
+    opacity: 1;
+}
+.franchise-group-heading {
+    display: flex;
+    align-items: baseline;
+    gap: 0.7rem;
+    margin: 1.6rem 0 0.9rem;
+    font-family: var(--font-display);
+    font-size: 0.95rem;
+    font-weight: 700;
+    letter-spacing: 3px;
+    color: var(--text-muted);
+}
+.franchise-group-heading span {
+    font-size: 0.7rem;
+    letter-spacing: 2px;
+    color: var(--accent-gold);
+}
+.franchise-search {
+    min-width: 0;
+    max-width: 220px;
+    width: 100%;
+    padding: 0.5rem 0.85rem;
+    font-family: var(--font-display);
+    font-size: 0.72rem;
+    letter-spacing: 1px;
+    color: var(--text-primary);
+    background: var(--bg-panel);
+    border: var(--glass-border);
+    border-radius: 8px;
+    outline: none;
+}
+.franchise-search:focus {
+    border-color: var(--accent-gold);
 }
 .franchise-deck::-webkit-scrollbar {
     display: none;
