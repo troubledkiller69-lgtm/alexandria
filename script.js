@@ -5289,6 +5289,18 @@ const Alexandria = {
     // ============ WHAT'S NEW — changelog bell ============
     CHANGELOG: [
         {
+            key: 'v1.7',
+            date: 'Aug 20, 2026',
+            title: 'Sharper Similar, Tighter Franchises, Fresh Feeds',
+            items: [
+                'Similar titles now skip the title you are already on, drop poster-less stragglers, and fall back to a MORE LIKE THIS genre scan when TMDB comes up empty',
+                'Franchises page trimmed to real franchises — single-show stragglers like Lost are gone; filter by genre and sort A→Z, Z→A, or by title count',
+                'New avatar sets from Suits, Lost, Breaking Bad, and Reacher in the profile picker',
+                'Community feed shows only the last 24h — stale comments and list events clear out on their own while watch hours, streaks, and heatmaps stay untouched',
+                'Player hardened: backup servers when Premium dies, embed pop-up and tab-hijack blocking, and Firefox/Safari stream fixes'
+            ]
+        },
+        {
             key: 'v1.6',
             date: 'Aug 19, 2026',
             title: 'Cross-Device Sync & Mobile',
