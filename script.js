@@ -2119,11 +2119,13 @@ const Alexandria = {
                                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
                                 </button>
                             </div>
-                            <div class="franchise-deck">
+                            <div class="franchise-deck-wrap">
                                 <button class="carousel-arrow left" type="button" aria-label="Scroll ${safeName} titles left" onclick="Alexandria.scrollCarousel(this, -800)">&#10094;</button>
-                                <div class="franchise-deck-scroller">
-                                    <div class="franchise-deck-first" id="franchise-first-${i}"></div>
-                                    <div class="franchise-deck-rest" id="franchise-rest-${i}"></div>
+                                <div class="franchise-deck">
+                                    <div class="franchise-deck-scroller">
+                                        <div class="franchise-deck-first" id="franchise-first-${i}"></div>
+                                        <div class="franchise-deck-rest" id="franchise-rest-${i}"></div>
+                                    </div>
                                 </div>
                                 <button class="carousel-arrow right" type="button" aria-label="Scroll ${safeName} titles right" onclick="Alexandria.scrollCarousel(this, 800)">&#10095;</button>
                             </div>
@@ -2736,9 +2738,9 @@ const Alexandria = {
         // Home rows scroll their .carousel-wrapper; the franchise deck is
         // itself the scroll container, so its arrows scroll the deck element.
         const parent = btn.parentElement;
-        const holder = parent.classList.contains('franchise-deck')
-            ? parent
-            : parent.querySelector('.carousel-wrapper');
+        const holder = parent.querySelector('.carousel-wrapper')
+            || parent.querySelector('.franchise-deck')
+            || (parent.classList.contains('franchise-deck') ? parent : null);
         if (holder) holder.scrollBy({left: amount, behavior: 'smooth'});
     },
 

@@ -541,22 +541,20 @@ h1, h2, h3, h4 {
     border: none;
     color: white;
     cursor: pointer;
-    z-index: 10;
-    opacity: 0;
-    transition: opacity 0.3s, color 0.3s;
+    /* Always visible on desktop so they stay put without hover games;
+       hidden on touch via the mobile media query below. */
+    z-index: 60; /* above hover-scaled cards (z-index 50) */
+    opacity: 1;
+    transition: color 0.3s;
     display: flex;
     align-items: center;
     justify-content: center;
 }
 
-.carousel-container:hover .carousel-arrow {
-    opacity: 1;
-}
-
 .carousel-arrow.left { left: 0; background: linear-gradient(to right, rgba(0,0,0,0.9), transparent); }
 .carousel-arrow.right { right: 0; background: linear-gradient(to left, rgba(0,0,0,0.9), transparent); }
 .carousel-arrow:hover { color: var(--accent-gold); }
-.carousel-arrow:focus-visible { opacity: 1; }
+.carousel-arrow:focus-visible { outline: 2px solid var(--accent-gold); }
 
 .carousel-wrapper {
     overflow-x: auto;
@@ -2475,17 +2473,18 @@ h1, h2, h3, h4 {
 }
 
 /* Deck (fan-out) — shared */
-.franchise-deck {
+.franchise-deck-wrap {
     position: relative;
+}
+.franchise-deck {
     overflow-x: auto;
     overflow-y: hidden;
     padding-bottom: 1rem;
     scrollbar-width: none;
     -webkit-overflow-scrolling: touch;
 }
-.franchise-deck:hover .carousel-arrow,
-.franchise-deck:focus-within .carousel-arrow {
-    opacity: 1;
+.franchise-deck-wrap .carousel-arrow {
+    bottom: 0.75rem; /* match the deck's bottom padding instead of the rows' 2rem */
 }
 .franchise-group-heading {
     display: flex;
