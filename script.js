@@ -4688,6 +4688,12 @@ const Alexandria = {
             }
 
             if (data.event === 'time' || data.event === 'seek' || data.event === 'timeupdate' || data.event === 'play' || data.event === 'pause') {
+                // EmbedMaster sometimes skips postMessage "ready" (see
+                // armFailoverWatch), which would lock fresh sessions (no saved
+                // progress) out of the _resumeSeekDone gate forever — tracking
+                // never starts. Unlock on the first playhead event; tryResumeSeek
+                // still honors _pendingResumeTime for real resumes.
+                if (!this._resumeSeekDone) this.tryResumeSeek();
                 const t = data.info?.time;
                 if (typeof t === 'number' && this._resumeSeekDone) {
                     this.persistProgress(t, data.event === 'pause' || data.event === 'seek');

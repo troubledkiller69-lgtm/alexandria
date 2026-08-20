@@ -2,7 +2,7 @@
 -- you ever need to recreate the database from scratch.
 -- NOTE: live DB is managed via Supabase MCP migrations; this file mirrors
 -- migrations `community_features_and_schema_sync`, `watch_time_tracking`,
--- plus the pre-existing tables.
+-- `watch_time_revoke_anon_execute`, plus the pre-existing tables.
 
 create table if not exists public.profiles (
   id uuid primary key references auth.users(id) on delete cascade,
@@ -249,3 +249,8 @@ $$;
 
 revoke execute on function public.add_watch_seconds(integer, text, integer, integer, double precision) from public;
 grant execute on function public.add_watch_seconds(integer, text, integer, integer, double precision) to authenticated;
+-- Supabase default privileges grant anon EXECUTE on every new function in
+-- public, so the revoke above alone leaves anon with per-role EXECUTE
+-- (migration `watch_time_revoke_anon_execute`). The auth.uid() guard already
+-- no-ops anon calls; this closes the grant entirely.
+revoke execute on function public.add_watch_seconds(integer, text, integer, integer, double precision) from anon;
