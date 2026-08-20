@@ -5225,7 +5225,16 @@ const Alexandria = {
             `};
         });
 
-        const commentEntries = (comments || []).map(c => {
+        // Reviews are ratings; legacy versions also mirrored the text into a
+        // comment. Skip comment cards that duplicate the author's own review
+        // so the community list shows each review once.
+        const reviewByUser = new Set();
+        rows.forEach(r => {
+            if (r.review && r.user_id) reviewByUser.add(r.user_id + '\u0000' + r.review);
+        });
+        const dedupedComments = (comments || []).filter(c => !c.userId || !reviewByUser.has(c.userId + '\u0000' + c.text));
+
+        const commentEntries = dedupedComments.map(c => {
             const profile = c.userId ? profileById[c.userId] : null;
             const authorName = profile ? (profile.nickname || profile.username || c.author || 'Member') : (c.author || 'Member');
             const initial = (c.author || 'G').charAt(0).toUpperCase();
@@ -5327,21 +5336,13 @@ const Alexandria = {
             return;
         }
 
-        // Post the review text as a comment in the same submission.
-        // Reviews are series-wide for TV, so use the series key (not the player's per-episode key).
-        if (review) {
-            const key = this.getCommentKey(this.state.activeContent, true);
-            if (key) {
-                try {
-                    await this.migrateLocalComments(key);
-                    const u = this.state.authUser;
-                    const nickname = u.user_metadata?.username || u.email?.split('@')[0] || sessionStorage.getItem('alexandria_nickname') || 'Member';
-                    const profile = await this.fetchProfile(u.id).catch(() => null);
-                    await this.saveComment(key, { author: profile?.nickname || nickname, text: review, spoiler });
-                } catch (e) {
-                    console.warn("Alexandria: Comment insert after review failed", e);
-                }
-            }
+        // Reviews live in the ratings table; the community list merges review
+        // cards and comments, so mirroring the text into a comment showed the
+        // same review twice. Legacy versions did post that mirror — sweep up
+        // the old comment when an existing review is edited (old text) so it
+        // doesn't resurface as an orphan.
+        if (existing && existing.review) {
+            await this.deleteAutoReviewComment(type, id, existing.review);
         }
 
         this.showToast(review ? 'Review posted!' : 'Rating saved!');
@@ -5369,10 +5370,31 @@ const Alexandria = {
             this.showToast('Could not delete your review.');
             return;
         }
+        // Legacy review submissions mirrored the text into a series comment;
+        // delete that mirror with the review so it can't resurface as an orphan.
+        const oldRow = this.state._ownRatingRow;
+        const { id, type } = this.state.activeContent;
+        if (oldRow && oldRow.id === rowId) {
+            await this.deleteAutoReviewComment(type, id, oldRow.review);
+        }
         this.showToast('Review deleted');
         this.state._ratingDraft = 0;
-        const { id, type } = this.state.activeContent;
         this.renderCommunitySection(type, id);
+    },
+
+    // Removes the auto-comment that legacy review submissions mirrored into
+    // the comment thread (series-wide key for TV). Best-effort cleanup.
+    async deleteAutoReviewComment(type, id, text) {
+        if (!this.supabase || !this.state.authUser || !text) return;
+        const key = type === 'tv' ? 'tv_' + id : 'movie_' + id;
+        try {
+            await this.supabase.from('comments').delete()
+                .eq('comment_key', key)
+                .eq('user_id', this.state.authUser.id)
+                .eq('content', text);
+        } catch (e) {
+            console.warn('Alexandria: Auto-comment cleanup failed', e);
+        }
     },
 
     // User Auth & Unique Username Engine
