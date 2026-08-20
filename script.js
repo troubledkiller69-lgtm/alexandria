@@ -406,7 +406,12 @@ const Alexandria = {
         });
 
         await Promise.all([loadingPromise, networkPromise]);
-        
+
+        // Once a session, clear stale community noise (comments, follows, list
+        // events) older than 24h. Watching/rating/review rows are kept — the
+        // profile stats (watch hours, streaks, heatmap) are derived from them.
+        this.pruneOldActivity();
+
         this.bindEvents();
         this.updateChangelogDot();
         window.addEventListener('hashchange', () => this.handleRouting());
@@ -3046,6 +3051,23 @@ const Alexandria = {
         }).then().catch(() => {});
     },
 
+    pruneOldActivity() {
+        if (!this.supabase || !this.supabase.from) return;
+        // Keep stats-critical rows (watching/rated/reviewed feed the watch
+        // hours, streaks, and heatmap); drop everything else after 24h so the
+        // community feed stays fresh without losing anyone's numbers.
+        const cutoff = new Date(Date.now() - 86400000).toISOString();
+        this.supabase
+            .from('activity')
+            .delete()
+            .lt('created_at', cutoff)
+            .not('kind', 'in', '("watching","rated","reviewed")')
+            .then(res => {
+                if (res && res.error) console.warn("Alexandria Protocol: Activity prune failed", res.error);
+            })
+            .catch(() => {});
+    },
+
     async renderProfile(uid) {
         const targetUid = uid || this.state.activeProfileId;
         if (!targetUid) {
@@ -3061,7 +3083,7 @@ const Alexandria = {
             const me = this.state.authUser?.id;
             const [profile, activityRes, ratingsRes, listsRes] = await Promise.all([
                 this.fetchProfile(targetUid),
-                this.supabase ? safeQuery(this.supabase.from('activity').select('*').eq('user_id', targetUid).order('created_at', { ascending: false }).limit(20)) : Promise.resolve({ data: [] }),
+                this.supabase ? safeQuery(this.supabase.from('activity').select('*').eq('user_id', targetUid).gte('created_at', new Date(Date.now() - 86400000).toISOString()).order('created_at', { ascending: false }).limit(20)) : Promise.resolve({ data: [] }),
                 this.supabase ? safeQuery(this.supabase.from('ratings').select('*').eq('user_id', targetUid).order('created_at', { ascending: false }).limit(20)) : Promise.resolve({ data: [] }),
                 this.supabase ? safeQuery(this.supabase.from('movie_night_lists').select('*').eq('owner_id', targetUid).order('created_at', { ascending: false })) : Promise.resolve({ data: [] })
             ]);
@@ -3556,10 +3578,11 @@ const Alexandria = {
         }
 
         const safeQuery = promise => Promise.resolve(promise).catch(() => ({ data: [] }));
+        const since = new Date(Date.now() - 86400000).toISOString();
         try {
             let rows = [];
             if (tab === 'all') {
-                const res = await safeQuery(this.supabase.from('activity').select('*').order('created_at', { ascending: false }).limit(60));
+                const res = await safeQuery(this.supabase.from('activity').select('*').gte('created_at', since).order('created_at', { ascending: false }).limit(60));
                 rows = res.data || [];
             } else {
                 const me = this.state.authUser?.id;
@@ -3578,7 +3601,7 @@ const Alexandria = {
                     container.innerHTML = '<div class="feed-empty">You are not following anyone yet. Visit a profile and hit FOLLOW.</div>';
                     return;
                 }
-                const res = await safeQuery(this.supabase.from('activity').select('*').in('user_id', ids).order('created_at', { ascending: false }).limit(60));
+                const res = await safeQuery(this.supabase.from('activity').select('*').in('user_id', ids).gte('created_at', since).order('created_at', { ascending: false }).limit(60));
                 rows = res.data || [];
             }
 
