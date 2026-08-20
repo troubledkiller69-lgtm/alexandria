@@ -80,6 +80,16 @@ const Alexandria = {
     _resumeIgnoreUntil: 0,
     _lastProgressWrite: 0,
     _PROGRESS_WRITE_MS: 5000,
+    _WATCH_SECS_WRITE_MS: 15000,
+    _WATCH_LOG_DEDUPE_MS: 15 * 60 * 1000,
+    _FINISH_CREDITS_MOVIE: 300,
+    _FINISH_CREDITS_TV: 90,
+    _sessionWatchSeconds: 0,
+    _lastWatchPos: null,
+    _lastWatchContentKey: null,
+    _finishedLoggedKey: null,
+    _activeRuntime: 0,
+    _lastWatchLog: null,
     // Guests always land a beat behind (network + seek settle). Lead play timestamps so they match the host.
     _PARTY_SYNC_LEAD_SEC: 0.85,
     _currentSeasonEpisodes: [],
@@ -137,7 +147,9 @@ const Alexandria = {
         { id: 'gus', img: '/rcXnr82TwDzU4ZGdBeNXfG0ZQnZ.jpg', group: 'BREAKING BAD' },
         { id: 'hank', img: '/mKRrEbsxAX3ro700HsViFArRM7l.jpg', group: 'BREAKING BAD' },
         // Reacher
-        { id: 'reacher', img: '/92YNEEpCyugkTzPprJwZpvVtvuK.jpg', group: 'REACHER' }
+        { id: 'reacher', img: '/92YNEEpCyugkTzPprJwZpvVtvuK.jpg', group: 'REACHER' },
+        // Tekken 8 — locally hosted art (not a TMDB CDN path, so flag it local).
+        { id: 'tekken8', img: '/avatars/tekken8.jpg', local: true, group: 'TEKKEN 8' }
     ],
 
     escapeHtml(value = '') {
@@ -1108,12 +1120,21 @@ const Alexandria = {
         }
 
         if (['movie', 'tv'].includes(item.type) && String(item.id).match(/^\d+$/)) {
-            this.logActivity('watching', {
-                contentId: item.id,
-                contentType: item.type,
-                title: item.title,
-                posterPath: item.poster_path
-            });
+            // Session dedupe: re-opening the same content within the window isn't a new "started watching".
+            const season = item.type === 'tv' ? (Number(item.season) || 0) : null;
+            const episode = item.type === 'tv' ? (Number(item.episode) || 0) : null;
+            const logKey = item.type + '_' + item.id + '_s' + (season || 0) + '_e' + (episode || 0);
+            const now = Date.now();
+            if (!this._lastWatchLog || this._lastWatchLog.key !== logKey || now - this._lastWatchLog.ts > this._WATCH_LOG_DEDUPE_MS) {
+                this._lastWatchLog = { key: logKey, ts: now };
+                this.logActivity('watching', {
+                    contentId: item.id,
+                    contentType: item.type,
+                    title: item.title,
+                    posterPath: item.poster_path,
+                    meta: item.type === 'tv' ? JSON.stringify({ season, episode }) : null
+                });
+            }
         }
     },
 
@@ -3052,7 +3073,7 @@ const Alexandria = {
         const preset = this.AVATAR_PRESETS.find(p => p.id === profile?.avatar_id);
         const px = Math.max(16, Number(sizePx) || 32);
         if (preset?.img) {
-            const src = this.imageUrl(preset.img, 'w185') || '';
+            const src = preset.local ? preset.img : this.imageUrl(preset.img, 'w185') || '';
             return `<span class="alexandria-avatar" style="width:${px}px;height:${px}px;"><img src="${src}" alt="" loading="lazy" decoding="async"></span>`;
         }
         const content = preset
@@ -3078,6 +3099,27 @@ const Alexandria = {
         const d = new Date(then);
         const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
         return `${months[d.getMonth()]} ${d.getDate()}, ${d.getFullYear()}`;
+    },
+
+    parseActivityMeta(meta) {
+        if (!meta || typeof meta !== 'string') return null;
+        try {
+            const obj = JSON.parse(meta);
+            return (obj && typeof obj === 'object') ? obj : null;
+        } catch {
+            return null;
+        }
+    },
+
+    episodeContext(row) {
+        if (!row || row.content_type !== 'tv' || row.content_id == null) return null;
+        const meta = this.parseActivityMeta(row.meta);
+        const season = Number(meta && meta.season);
+        const episode = Number(meta && meta.episode);
+        if (isFinite(season) && season > 0 && isFinite(episode) && episode > 0) {
+            return { season, episode };
+        }
+        return null;
     },
 
     async fetchProfile(uid) {
@@ -3245,10 +3287,11 @@ const Alexandria = {
         const token = this._renderToken;
         const safeQuery = promise => Promise.resolve(promise).catch(() => ({ data: [] }));
         try {
-            const [actRes, ratingRes, commentRes] = await Promise.all([
+            const [actRes, ratingRes, commentRes, watchRes] = await Promise.all([
                 safeQuery(this.supabase.from('activity').select('kind, content_id, content_type, created_at').eq('user_id', uid).order('created_at', { ascending: false }).limit(1000)),
                 safeQuery(this.supabase.from('ratings').select('rating').eq('user_id', uid).limit(1000)),
-                safeQuery(this.supabase.from('comments').select('id', { count: 'exact', head: true }).eq('user_id', uid))
+                safeQuery(this.supabase.from('comments').select('id', { count: 'exact', head: true }).eq('user_id', uid)),
+                safeQuery(this.supabase.from('watch_progress').select('seconds').eq('user_id', uid).limit(5000))
             ]);
             if (token !== this._renderToken) return;
 
@@ -3294,19 +3337,14 @@ const Alexandria = {
             let cursor = daySet.has(today) ? today : this.dayKeyOffset(today, -1);
             while (daySet.has(cursor)) { current++; cursor = this.dayKeyOffset(cursor, -1); }
 
-            // Approx hours: per watch event, movie runtime / avg episode runtime
+            // Real watch hours: sum of tracked seconds from watch_progress (RPC-backed, per-player session deltas).
             let hours = 0;
-            const titleKeys = Object.keys(perTitle);
-            if (titleKeys.length > 0) {
-                const targets = titleKeys.map(k => {
-                    const i = k.indexOf('_');
-                    return { key: k, type: k.slice(0, i), id: Number(k.slice(i + 1)) };
-                });
-                await this.mapWithConcurrency(targets, 4, async t => {
-                    const rt = await this.runtimeFor(t.type, t.id);
-                    hours += (rt / 60) * perTitle[t.key];
-                });
+            for (const w of (watchRes.data || [])) {
+                const s = Number(w.seconds);
+                if (isFinite(s) && s > 0) hours += s;
             }
+            hours /= 3600;
+            const titleKeys = Object.keys(perTitle);
             if (token !== this._renderToken) return;
 
             const episodes = Object.values(tvPerDay).reduce((s, n) => s + n, 0);
@@ -3350,7 +3388,7 @@ const Alexandria = {
             const hoursText = hours >= 10 ? String(Math.round(hours)) : hours.toFixed(1);
             container.innerHTML = `
                 <div class="pulse-stats-grid">
-                    <div class="pulse-stat-card"><span class="pulse-stat-value">${hoursText}</span><span class="pulse-stat-label">HRS WATCHED <span class="pulse-stat-sub">APPROX</span></span></div>
+                    <div class="pulse-stat-card"><span class="pulse-stat-value">${hoursText}</span><span class="pulse-stat-label">HRS WATCHED</span></div>
                     <div class="pulse-stat-card"><span class="pulse-stat-value">${episodes}</span><span class="pulse-stat-label">EPISODES</span></div>
                     <div class="pulse-stat-card"><span class="pulse-stat-value">${titles}</span><span class="pulse-stat-label">TITLES</span></div>
                     <div class="pulse-stat-card"><span class="pulse-stat-value">${current}</span><span class="pulse-stat-label">DAY STREAK${longest > current ? ` <span class="pulse-stat-sub">LONGEST ${longest}</span>` : ''}</span></div>
@@ -3422,9 +3460,16 @@ const Alexandria = {
         const displayName = profile.nickname || profile.username || 'Member';
         const avatar = size => `<a class="profile-avatar-link" href="#profile/${this.escapeHtml(targetUid)}">${this.avatarHtml(profile, size)}</a>`;
         const nameLink = `<a href="#profile/${this.escapeHtml(targetUid)}">${this.escapeHtml(displayName)}</a>`;
-        const titleLink = item => (item.content_id && (item.content_type === 'movie' || item.content_type === 'tv'))
-            ? `<a href="#details/${this.escapeHtml(item.content_type)}/${this.escapeHtml(item.content_id)}">${this.escapeHtml(item.title || 'this title')}</a>`
-            : (item.title ? this.escapeHtml(item.title) : '');
+        const titleLink = item => {
+            if (item.content_id && (item.content_type === 'movie' || item.content_type === 'tv')) {
+                const ctx = this.episodeContext(item);
+                if (ctx) {
+                    return `<a href="#tv/${this.escapeHtml(item.content_id)}/s/${ctx.season}/e/${ctx.episode}">${this.escapeHtml(item.title || 'this title')} S${ctx.season}E${ctx.episode}</a>`;
+                }
+                return `<a href="#details/${this.escapeHtml(item.content_type)}/${this.escapeHtml(item.content_id)}">${this.escapeHtml(item.title || 'this title')}</a>`;
+            }
+            return item.title ? this.escapeHtml(item.title) : '';
+        };
 
         if (this.state.profileTab === 'reviews') {
             container.innerHTML = '<div class="placeholder-msg"><span class="pulse-dot"></span> LOADING REVIEWS & COMMENTS...</div>';
@@ -3451,6 +3496,7 @@ const Alexandria = {
 
         const verbs = {
             watching: 'started watching',
+            finished: 'finished',
             rated: 'rated',
             reviewed: 'wrote a review of',
             watchlist: 'added to watchlist',
@@ -3622,7 +3668,7 @@ const Alexandria = {
                     </div>
                 </div>
                 <div class="leaderboard-section">
-                    <h3>TOP WATCHERS THIS WEEK</h3>
+                    <h3>TOP WATCHERS TODAY</h3>
                     <div id="leaderboard-list"><div class="placeholder-msg"><span class="pulse-dot"></span> LOADING LEADERBOARD...</div></div>
                 </div>
                 <div id="feed-list"><div class="placeholder-msg"><span class="pulse-dot"></span> LOADING COMMUNITY FEED...</div></div>
@@ -3641,19 +3687,26 @@ const Alexandria = {
         const token = this._renderToken;
         const safeQuery = promise => Promise.resolve(promise).catch(() => ({ data: [] }));
         try {
-            const since = new Date(Date.now() - 7 * 86400000).toISOString();
+            const since = new Date(Date.now() - 86400000).toISOString();
             const res = await safeQuery(this.supabase
                 .from('activity')
-                .select('user_id, kind, content_type')
+                .select('user_id, kind, content_type, content_id, meta')
+                .eq('kind', 'finished')
                 .gte('created_at', since)
                 .order('created_at', { ascending: false })
                 .limit(2000));
             if (token !== this._renderToken) return;
 
+            // One finish per title+episode per user today; rewatches shouldn't double-count.
+            const seen = new Set();
             const tally = {};
             (res.data || []).forEach(a => {
-                if (a.kind !== 'watching' || !a.user_id) return;
-                if (a.content_type !== 'movie' && a.content_type !== 'tv') return;
+                if (!a.user_id) return;
+                const ctx = this.episodeContext(a);
+                const unit = a.content_type + '_' + a.content_id + '_s' + (ctx ? ctx.season : 0) + '_e' + (ctx ? ctx.episode : 0);
+                const dedupeKey = a.user_id + '|' + unit;
+                if (seen.has(dedupeKey)) return;
+                seen.add(dedupeKey);
                 tally[a.user_id] = (tally[a.user_id] || 0) + 1;
             });
             const ranked = Object.entries(tally)
@@ -3663,7 +3716,7 @@ const Alexandria = {
             if (token !== this._renderToken) return;
 
             if (ranked.length === 0) {
-                container.innerHTML = '<div class="feed-empty">No watches logged this week yet. Be the first!</div>';
+                container.innerHTML = '<div class="feed-empty">No finishes logged today yet. Be the first!</div>';
                 return;
             }
             await Promise.all(ranked.map(r => this.fetchProfile(r.uid)));
@@ -3680,7 +3733,7 @@ const Alexandria = {
                         <span class="leaderboard-rank">${i + 1}</span>
                         ${this.avatarHtml(p, 36)}
                         <span class="leaderboard-name">${this.escapeHtml(name)}${isMe ? ' <em>(you)</em>' : ''}</span>
-                        <span class="leaderboard-count"><strong>${r.score}</strong> watch${r.score === 1 ? '' : 'es'}</span>
+                        <span class="leaderboard-count"><strong>${r.score}</strong> finish${r.score === 1 ? '' : 'es'}</span>
                         <span class="leaderboard-bar"><span class="leaderboard-bar-fill" style="width:${Math.max(6, Math.round(r.score / max * 100))}%"></span></span>
                     </a>`;
             }).join('');
@@ -3759,6 +3812,7 @@ const Alexandria = {
         const displayName = profile ? (profile.nickname || profile.username || 'Member') : 'Member';
         const verbs = {
             watching: 'started watching',
+            finished: 'finished',
             rated: 'rated',
             reviewed: 'wrote a review of',
             watchlist: 'added to watchlist',
@@ -3768,9 +3822,17 @@ const Alexandria = {
             comment: 'commented on'
         };
         const verb = verbs[row.kind] || 'was active on';
-        const titleHtml = (row.content_id && (row.content_type === 'movie' || row.content_type === 'tv'))
-            ? `<a class="feed-item-title" href="#details/${this.escapeHtml(row.content_type)}/${this.escapeHtml(row.content_id)}">${this.escapeHtml(row.title || 'this title')}</a>`
-            : (row.title ? `<span class="feed-item-title">${this.escapeHtml(row.title)}</span>` : '');
+        let titleHtml = '';
+        if (row.content_id && (row.content_type === 'movie' || row.content_type === 'tv')) {
+            const ctx = this.episodeContext(row);
+            if (ctx) {
+                titleHtml = `<a class="feed-item-title" href="#tv/${this.escapeHtml(row.content_id)}/s/${ctx.season}/e/${ctx.episode}">${this.escapeHtml(row.title || 'this title')} S${ctx.season}E${ctx.episode}</a>`;
+            } else {
+                titleHtml = `<a class="feed-item-title" href="#details/${this.escapeHtml(row.content_type)}/${this.escapeHtml(row.content_id)}">${this.escapeHtml(row.title || 'this title')}</a>`;
+            }
+        } else if (row.title) {
+            titleHtml = `<span class="feed-item-title">${this.escapeHtml(row.title)}</span>`;
+        }
         const poster = (row.content_type === 'movie' || row.content_type === 'tv') && row.poster_path
             ? `<img class="feed-poster-thumb" src="${this.imageUrl(row.poster_path, 'w92')}" alt="" loading="lazy" decoding="async">`
             : '';
@@ -3886,7 +3948,7 @@ const Alexandria = {
                     ? `<span class="avatar-picker-label">${this.escapeHtml(p.group)}</span>`
                     : '';
                 const body = p.img
-                    ? `<img src="${this.imageUrl(p.img, 'w185')}" alt="" loading="lazy" decoding="async">`
+                    ? `<img src="${p.local ? p.img : this.imageUrl(p.img, 'w185')}" alt="" loading="lazy" decoding="async">`
                     : p.emoji;
                 return `${label}<button type="button" class="avatar-picker-btn ${profile.avatar_id === p.id ? 'selected' : ''}" data-avatar="${p.id}" aria-label="${p.id}" onclick="Alexandria.selectProfileAvatar('${p.id}', this)">${body}</button>`;
             }).join('');
@@ -3998,6 +4060,13 @@ const Alexandria = {
         this._triedServers = new Set([this.state.activeServer]);
         this._serverHealthy = false;
         this._currentSeasonEpisodes = [];
+        // Fresh session per episode/player open: watch-seconds accumulator,
+        // playhead anchor, finish guard, and runtime for finish detection.
+        this._sessionWatchSeconds = 0;
+        this._lastWatchPos = null;
+        this._lastWatchContentKey = null;
+        this._finishedLoggedKey = null;
+        this._activeRuntime = 0;
 
         this.main.innerHTML = `
             <section class="player-page-container">
@@ -4081,6 +4150,11 @@ const Alexandria = {
                 await this.loadEpisodes(id, season);
             }
         }
+
+        // TMDB runtime (minutes) powers finish detection via playhead threshold.
+        this.runtimeFor(type, id).then(rt => {
+            this._activeRuntime = rt;
+        }).catch(() => {});
     },
 
     setServerStatus(message) {
@@ -4473,8 +4547,97 @@ const Alexandria = {
         this.writeLocalList('alexandria_history', this.state.history);
     },
 
+    watchContentKey() {
+        const { id, type, season, episode } = this.state.activeContent;
+        if (type === 'tv') return 'tv_' + id + '_s' + (season || 0) + '_e' + (episode || 0);
+        return 'movie_' + id;
+    },
+
+    // Real watch-time tracking: accumulates playhead deltas (seek/rewind gaps
+    // rejected by the 0..60s clamp) and flushes to watch_progress via the
+    // atomic add_watch_seconds RPC. Guests and party mode don't accumulate.
+    trackWatchTime(t, force = false) {
+        if (typeof t !== 'number' || Number.isNaN(t)) return;
+        if (Date.now() < this._resumeIgnoreUntil) return;
+        const { id, type } = this.state.activeContent;
+        if (!id || (type !== 'movie' && type !== 'tv')) return;
+        const key = this.watchContentKey();
+        if (this._lastWatchContentKey !== key) {
+            this._lastWatchContentKey = key;
+            this._lastWatchPos = null;
+            this._sessionWatchSeconds = 0;
+        }
+        if (this._lastWatchPos != null) {
+            const delta = t - this._lastWatchPos;
+            if (delta > 0 && delta <= 60) this._sessionWatchSeconds += delta;
+        }
+        this._lastWatchPos = t;
+        this.maybeDetectFinish(t);
+        if (force || this._sessionWatchSeconds >= this._WATCH_SECS_WRITE_MS / 1000) {
+            this.flushWatchSeconds();
+        }
+    },
+
+    async flushWatchSeconds() {
+        const session = Math.round(this._sessionWatchSeconds);
+        this._sessionWatchSeconds = 0;
+        if (session < 1 || !this.supabase || !this.state.authUser) return;
+        const { id, type, season, episode } = this.state.activeContent;
+        try {
+            await this.supabase.rpc('add_watch_seconds', {
+                p_content_id: Number(id),
+                p_content_type: type,
+                p_season: type === 'tv' ? (Number(season) || 0) : 0,
+                p_episode: type === 'tv' ? (Number(episode) || 0) : 0,
+                p_delta: session
+            });
+        } catch (e) {
+            console.warn('Alexandria: Watch time flush failed', e);
+        }
+    },
+
+    // Finish detection: either the player's finish/ended/complete event, or the
+    // playhead crossing within credits range of the TMDB runtime after actually
+    // watching at least 25% (min 60s) — so skipping to the end can't farm finishes.
+    maybeDetectFinish(t) {
+        if (this._finishedLoggedKey) return;
+        const rtMin = this._activeRuntime;
+        if (!rtMin || rtMin <= 0) return;
+        const rtSec = rtMin * 60;
+        const buffer = this.state.activeContent.type === 'tv' ? this._FINISH_CREDITS_TV : this._FINISH_CREDITS_MOVIE;
+        if (rtSec <= buffer + 120) return;
+        if (t >= rtSec - buffer && this._sessionWatchSeconds >= Math.max(60, rtSec * 0.25)) {
+            this.logFinish('threshold');
+        }
+    },
+
+    logFinish(source) {
+        if (!this.supabase || !this.state.authUser) return;
+        const { id, type, season, episode } = this.state.activeContent;
+        if (!id || (type !== 'movie' && type !== 'tv')) return;
+        const key = this.watchContentKey();
+        if (this._finishedLoggedKey === key) return;
+        if (this._sessionWatchSeconds < 60) return;
+        this._finishedLoggedKey = key;
+        this.flushWatchSeconds();
+        const history = this.state.history.find(h => String(h.id) === String(id) && h.type === type);
+        this.logActivity('finished', {
+            contentId: id,
+            contentType: type,
+            title: (history && history.title) || 'this title',
+            posterPath: (history && history.poster_path) || null,
+            meta: JSON.stringify({
+                season: type === 'tv' ? (Number(season) || 0) : null,
+                episode: type === 'tv' ? (Number(episode) || 0) : null,
+                runtimeSeconds: Math.round((this._activeRuntime || 0) * 60),
+                creditsSkipped: source === 'threshold'
+            })
+        });
+    },
+
     async advanceEpisode() {
         const { id, season, episode } = this.state.activeContent;
+        this.logFinish('event');
         // Finishing an episode logs it automatically.
         this.markEpisodeWatched(id, season, episode, true);
         const eps = this._currentSeasonEpisodes || [];
@@ -4528,11 +4691,13 @@ const Alexandria = {
                 const t = data.info?.time;
                 if (typeof t === 'number' && this._resumeSeekDone) {
                     this.persistProgress(t, data.event === 'pause' || data.event === 'seek');
+                    this.trackWatchTime(t, data.event === 'pause' || data.event === 'seek');
                 }
             }
 
             if (data.event === 'finish' || data.event === 'ended' || data.event === 'complete') {
                 if (this.state.activeContent.type === 'tv') this.advanceEpisode();
+                else if (this.state.activeContent.type === 'movie') this.logFinish('event');
             }
         };
         window.addEventListener('message', this._soloEmbedListener);
@@ -5132,7 +5297,8 @@ const Alexandria = {
         const key = this.getCommentKey(this.state.activeContent, true);
         this.setupCommentsRealtime(key);
 
-        const comments = key ? await this.getComments(key, true) : [];
+        // Series community only — per-episode player comments stay in the player (exact-key match).
+        const comments = key ? await this.getComments(key) : [];
         if (token !== this._renderToken) return;
 
         const profileById = {};
@@ -5445,6 +5611,18 @@ const Alexandria = {
 
     // ============ WHAT'S NEW — changelog bell ============
     CHANGELOG: [
+        {
+            key: 'v1.9',
+            date: 'Aug 20, 2026',
+            title: 'True Watch Time & Daily Finishes',
+            items: [
+                'HRS WATCHED is now real: seconds tracked while you watch (via the EmbedMaster player) instead of guessing from title runtimes — legacy hours reset until you watch again',
+                'TOP WATCHERS TODAY is daily and counts actual finishes — the player signals the end and TMDB runtimes size the credits buffer, so skipping to the end can\'t farm wins',
+                'Community feed now says which episode was started or finished — with a direct link to that exact episode',
+                'Show pages show only series-level comments in the community section; per-episode comments stay in the player where they belong',
+                'New Tekken 8 avatar in the profile picker'
+            ]
+        },
         {
             key: 'v1.8',
             date: 'Aug 20, 2026',
