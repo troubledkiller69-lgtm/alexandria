@@ -2079,37 +2079,24 @@ const Alexandria = {
     renderFranchiseGrid(results) {
         const genre = this.state.franchiseGenre || 'All';
         const sort = this.state.franchiseSort || 'az';
+        const query = (this.state.franchiseSearch || '').toLowerCase();
         const genres = ['All'].concat([...new Set(results.filter(f => f.items.length && f.genre).map(f => f.genre))]);
         let visible = results.filter(f => f.items.length && (genre === 'All' || f.genre === genre));
-        visible = visible.slice().sort((a, b) => a.name.localeCompare(b.name));
-        if (sort === 'za') visible.reverse();
-        else if (sort === 'count') visible.sort((a, b) => b.items.length - a.items.length);
-
-        this.main.innerHTML = `
-                <section class="filtered-view franchise-section">
-                    <div class="franchise-page-header">
-                        <h2>FRANCHISE ARCHIVES</h2>
-                        <p style="color:var(--text-muted);font-family:var(--font-display);letter-spacing:2px">CINEMATIC UNIVERSES & LEGENDARY SAGAS</p>
-                    </div>
-                    <div class="franchise-toolbar">
-                        <div class="franchise-chips" role="group" aria-label="Filter franchises by genre">
-                            ${genres.map(g => `<button type="button" class="franchise-chip${g === genre ? ' active' : ''}" onclick="Alexandria.setFranchiseGenre('${this.escapeHtml(g)}')">${this.escapeHtml(g)}</button>`).join('')}
-                        </div>
-                        <label class="franchise-sort">
-                            <span class="sr-only">Sort franchises</span>
-                            <select onchange="Alexandria.setFranchiseSort(this.value)">
-                                <option value="az"${sort === 'az' ? ' selected' : ''}>A &rarr; Z</option>
-                                <option value="za"${sort === 'za' ? ' selected' : ''}>Z &rarr; A</option>
-                                <option value="count"${sort === 'count' ? ' selected' : ''}>Most Titles</option>
-                            </select>
-                        </label>
-                    </div>
-                    <div class="franchise-grid">
-                    ${visible.map((f, i) => {
-                        if (!f.items.length) return '';
-                        const poster = this.imageUrl(f.items[0].poster_path, 'w342');
-                        const safeName = this.escapeHtml(f.name);
-                        return `
+        if (query) visible = visible.filter(f => f.name.toLowerCase().includes(query));
+        const sortTiles = (list) => {
+            list.sort((a, b) => a.name.localeCompare(b.name));
+            if (sort === 'za') list.reverse();
+            else if (sort === 'count') list.sort((a, b) => b.items.length - a.items.length);
+            return list;
+        };
+        // Stable per-franchise index so panel/deck ids stay unique across genre groups.
+        const indexOf = new Map(visible.map((f, i) => [f, i]));
+        const tileHtml = (f) => {
+            const i = indexOf.get(f);
+            if (!f.items.length) return '';
+            const poster = this.imageUrl(f.items[0].poster_path, 'w342');
+            const safeName = this.escapeHtml(f.name);
+            return `
                     <article class="franchise-tile">
                         <div class="franchise-tile-cover">
                             <button class="franchise-tile-toggle" type="button" aria-expanded="false" aria-controls="franchise-panel-${i}" onclick="Alexandria.toggleFranchise(this)">
@@ -2133,14 +2120,59 @@ const Alexandria = {
                                 </button>
                             </div>
                             <div class="franchise-deck">
+                                <button class="carousel-arrow left" type="button" aria-label="Scroll ${safeName} titles left" onclick="Alexandria.scrollCarousel(this, -800)">&#10094;</button>
                                 <div class="franchise-deck-scroller">
                                     <div class="franchise-deck-first" id="franchise-first-${i}"></div>
                                     <div class="franchise-deck-rest" id="franchise-rest-${i}"></div>
                                 </div>
+                                <button class="carousel-arrow right" type="button" aria-label="Scroll ${safeName} titles right" onclick="Alexandria.scrollCarousel(this, 800)">&#10095;</button>
                             </div>
                         </div>
-                    </article>`; }).join('')}
+                    </article>`;
+        };
+        // Browsing everything: group tiles under genre headings so the archive
+        // reads like a table of contents; a genre filter shows one flat grid.
+        const groups = [];
+        if (genre === 'All') {
+            genres.slice(1).forEach(g => {
+                const list = sortTiles(visible.filter(f => f.genre === g));
+                if (list.length) groups.push([g, list]);
+            });
+            if (sort === 'count') {
+                groups.sort((a, b) =>
+                    b[1].reduce((s, f) => s + f.items.length, 0) - a[1].reduce((s, f) => s + f.items.length, 0));
+            } else if (sort === 'za') {
+                groups.reverse();
+            }
+        } else {
+            groups.push([null, sortTiles(visible)]);
+        }
+
+        this.main.innerHTML = `
+                <section class="filtered-view franchise-section">
+                    <div class="franchise-page-header">
+                        <h2>FRANCHISE ARCHIVES</h2>
+                        <p style="color:var(--text-muted);font-family:var(--font-display);letter-spacing:2px">CINEMATIC UNIVERSES & LEGENDARY SAGAS</p>
                     </div>
+                    <div class="franchise-toolbar">
+                        <div class="franchise-chips" role="group" aria-label="Filter franchises by genre">
+                            ${genres.map(g => `<button type="button" class="franchise-chip${g === genre ? ' active' : ''}" onclick="Alexandria.setFranchiseGenre('${this.escapeHtml(g)}')">${this.escapeHtml(g)}</button>`).join('')}
+                        </div>
+                        <input type="search" class="franchise-search" placeholder="Search franchises..." aria-label="Search franchises" value="${this.escapeHtml(this.state.franchiseSearch || '')}" oninput="Alexandria.setFranchiseSearch(this.value)">
+                        <label class="franchise-sort">
+                            <span class="sr-only">Sort franchises</span>
+                            <select onchange="Alexandria.setFranchiseSort(this.value)">
+                                <option value="az"${sort === 'az' ? ' selected' : ''}>A &rarr; Z</option>
+                                <option value="za"${sort === 'za' ? ' selected' : ''}>Z &rarr; A</option>
+                                <option value="count"${sort === 'count' ? ' selected' : ''}>Most Titles</option>
+                            </select>
+                        </label>
+                    </div>
+                    ${visible.length === 0 ? '<div class="profile-empty">No franchises match that search.</div>' : groups.map(([g, list]) => `
+                    ${g ? `<h3 class="franchise-group-heading">${this.escapeHtml(g)}<span>${list.length} ${list.length === 1 ? 'UNIVERSE' : 'UNIVERSES'}</span></h3>` : ''}
+                    <div class="franchise-grid">
+                    ${list.map(tileHtml).join('')}
+                    </div>`).join('')}
                 </section>`;
 
         visible.forEach((f, i) => {
@@ -2151,6 +2183,11 @@ const Alexandria = {
                 }
             }
         });
+    },
+
+    setFranchiseSearch(value) {
+        this.state.franchiseSearch = value;
+        if (this.state.franchiseResults) this.renderFranchiseGrid(this.state.franchiseResults);
     },
 
     setFranchiseGenre(genre) {
@@ -2174,7 +2211,7 @@ const Alexandria = {
         }
         // Enforce a cap so the grid never gets visually cluttered: close the
         // oldest-open tiles to make room before expanding the new one.
-        const openTiles = Array.from(tile.parentElement.querySelectorAll('.franchise-tile.open'));
+        const openTiles = Array.from(tile.closest('.franchise-section').querySelectorAll('.franchise-tile.open'));
         const MAX_OPEN = 2;
         while (openTiles.length >= MAX_OPEN) {
             this.setFranchiseOpen(openTiles.shift(), false);
@@ -2696,8 +2733,13 @@ const Alexandria = {
 
 
     scrollCarousel(btn, amount) {
-        const wrapper = btn.parentElement.querySelector('.carousel-wrapper');
-        if (wrapper) wrapper.scrollBy({left: amount, behavior: 'smooth'});
+        // Home rows scroll their .carousel-wrapper; the franchise deck is
+        // itself the scroll container, so its arrows scroll the deck element.
+        const parent = btn.parentElement;
+        const holder = parent.classList.contains('franchise-deck')
+            ? parent
+            : parent.querySelector('.carousel-wrapper');
+        if (holder) holder.scrollBy({left: amount, behavior: 'smooth'});
     },
 
     toggleBio() {
@@ -3099,10 +3141,11 @@ const Alexandria = {
 
         try {
             const me = this.state.authUser?.id;
-            const [profile, activityRes, ratingsRes, listsRes] = await Promise.all([
+            const [profile, activityRes, ratingsRes, commentsRes, listsRes] = await Promise.all([
                 this.fetchProfile(targetUid),
                 this.supabase ? safeQuery(this.supabase.from('activity').select('*').eq('user_id', targetUid).gte('created_at', new Date(Date.now() - 86400000).toISOString()).order('created_at', { ascending: false }).limit(20)) : Promise.resolve({ data: [] }),
-                this.supabase ? safeQuery(this.supabase.from('ratings').select('*').eq('user_id', targetUid).order('created_at', { ascending: false }).limit(20)) : Promise.resolve({ data: [] }),
+                this.supabase ? safeQuery(this.supabase.from('ratings').select('*').eq('user_id', targetUid).order('created_at', { ascending: false }).limit(50)) : Promise.resolve({ data: [] }),
+                this.supabase ? safeQuery(this.supabase.from('comments').select('*').eq('user_id', targetUid).order('created_at', { ascending: false }).limit(50)) : Promise.resolve({ data: [] }),
                 this.supabase ? safeQuery(this.supabase.from('movie_night_lists').select('*').eq('owner_id', targetUid).order('created_at', { ascending: false })) : Promise.resolve({ data: [] })
             ]);
             if (token !== this._renderToken) return;
@@ -3125,12 +3168,13 @@ const Alexandria = {
 
             const activity = activityRes.data || [];
             const ratings = ratingsRes.data || [];
+            const comments = commentsRes.data || [];
             const lists = listsRes.data || [];
             const followers = (followersRes.data || []).length;
             const following = (followingRes.data || []).length;
             const isFollowing = Boolean(myFollowRes.data);
 
-            this.state.profileData = { profile, activity, ratings, lists, followers, following, isFollowing };
+            this.state.profileData = { profile, activity, ratings, comments, lists, followers, following, isFollowing };
 
             const displayName = profile.nickname || profile.username || 'Member';
             const isMe = Boolean(me && me === targetUid);
@@ -3159,7 +3203,7 @@ const Alexandria = {
                             ${profile.bio ? `<p class="profile-bio">${this.escapeHtml(profile.bio)}</p>` : ''}
                             <div class="profile-stats">
                                 <span class="profile-stat"><strong>${activity.length}</strong>Activity</span>
-                                <span class="profile-stat"><strong>${ratings.length}</strong>Reviews</span>
+                                <span class="profile-stat"><strong>${ratings.length + comments.length}</strong>Reviews &amp; Comments</span>
                                 <span class="profile-stat"><strong>${lists.length}</strong>Lists</span>
                                 <span class="profile-stat"><strong id="profile-followers-count">${followers}</strong>Followers</span>
                                 <span class="profile-stat"><strong>${following}</strong>Following</span>
@@ -3176,7 +3220,7 @@ const Alexandria = {
                     </div>
                     <div class="profile-tabs">
                         <button type="button" class="profile-tab ${tab === 'activity' ? 'active' : ''}" data-tab="activity" onclick="Alexandria.setProfileTab('activity')">ACTIVITY</button>
-                        <button type="button" class="profile-tab ${tab === 'reviews' ? 'active' : ''}" data-tab="reviews" onclick="Alexandria.setProfileTab('reviews')">REVIEWS</button>
+                        <button type="button" class="profile-tab ${tab === 'reviews' ? 'active' : ''}" data-tab="reviews" onclick="Alexandria.setProfileTab('reviews')">REVIEWS &amp; COMMENTS</button>
                         <button type="button" class="profile-tab ${tab === 'lists' ? 'active' : ''}" data-tab="lists" onclick="Alexandria.setProfileTab('lists')">LISTS</button>
                     </div>
                     <div id="profile-section"></div>
@@ -3371,7 +3415,7 @@ const Alexandria = {
         const container = document.getElementById('profile-section');
         const data = this.state.profileData;
         if (!container || !data) return;
-        const { profile, activity, ratings, lists } = data;
+        const { profile, activity, ratings, comments, lists } = data;
         const targetUid = this.state.activeProfileId || profile.id;
         const displayName = profile.nickname || profile.username || 'Member';
         const avatar = size => `<a class="profile-avatar-link" href="#profile/${this.escapeHtml(targetUid)}">${this.avatarHtml(profile, size)}</a>`;
@@ -3381,25 +3425,8 @@ const Alexandria = {
             : (item.title ? this.escapeHtml(item.title) : '');
 
         if (this.state.profileTab === 'reviews') {
-            container.innerHTML = ratings.length ? ratings.map(r => {
-                const n = Math.max(1, Math.min(5, Math.round(Number(r.rating) || 0)));
-                const stars = '★'.repeat(n) + '☆'.repeat(5 - n);
-                return `
-                    <div class="profile-section-item">
-                        ${avatar(36)}
-                        <div class="profile-section-body">
-                            <div class="profile-section-line">
-                                ${nameLink}
-                                <span class="profile-verb">reviewed</span>
-                                ${titleLink(r)}
-                            </div>
-                            <div class="profile-review-stars">${stars}</div>
-                            ${r.review ? `<p class="profile-review-text">${r.spoiler ? this.spoilerHtml(this.escapeHtml(r.review)) : this.escapeHtml(r.review)}</p>` : ''}
-                        </div>
-                        <span class="profile-timeago">${this.timeago(r.created_at)}</span>
-                    </div>
-                `;
-            }).join('') : '<div class="profile-empty">No reviews yet.</div>';
+            container.innerHTML = '<div class="placeholder-msg"><span class="pulse-dot"></span> LOADING REVIEWS & COMMENTS...</div>';
+            this.renderProfileReviews(container, profile, ratings, comments, targetUid);
             return;
         }
 
@@ -3446,6 +3473,94 @@ const Alexandria = {
                 </div>
             `;
         }).join('') : '<div class="profile-empty">No activity yet.</div>';
+    },
+
+    // Profile reviews tab: merge written reviews with comments, newest first.
+    // Neither table stores display titles, so unique content ids are resolved
+    // lazily through the TMDB cache; per-episode comment keys carry the S/E
+    // badge and deep-link into the player.
+    async renderProfileReviews(container, profile, ratings, comments, targetUid) {
+        const displayName = profile.nickname || profile.username || 'Member';
+        const avatar = size => `<a class="profile-avatar-link" href="#profile/${this.escapeHtml(targetUid)}">${this.avatarHtml(profile, size)}</a>`;
+        const nameLink = `<a href="#profile/${this.escapeHtml(targetUid)}">${this.escapeHtml(displayName)}</a>`;
+
+        // Written reviews are also posted as series-wide comments with the same
+        // text; keep the richer review row and skip the duplicate comment.
+        const reviewTexts = new Set();
+        (ratings || []).forEach(r => {
+            if (r.review && r.content_id != null) reviewTexts.add(`${r.content_type}_${r.content_id}_${r.review}`);
+        });
+        const parsedComments = (comments || [])
+            .map(c => {
+                const key = c.comment_key || '';
+                const perEp = /^tv_(\d+)_s(\d+)_e(\d+)$/.exec(key);
+                const series = /^tv_(\d+)$/.exec(key);
+                const movie = /^movie_(\d+)$/.exec(key);
+                if (perEp) return { kind: 'commented', ts: c.created_at, type: 'tv', id: Number(perEp[1]), season: Number(perEp[2]), episode: Number(perEp[3]), text: c.content, spoiler: !!c.spoiler };
+                if (series) return { kind: 'commented', ts: c.created_at, type: 'tv', id: Number(series[1]), season: null, episode: null, text: c.content, spoiler: !!c.spoiler };
+                if (movie) return { kind: 'commented', ts: c.created_at, type: 'movie', id: Number(movie[1]), season: null, episode: null, text: c.content, spoiler: !!c.spoiler };
+                return null;
+            })
+            .filter(Boolean)
+            .filter(c => !reviewTexts.has(`${c.type}_${c.id}_${c.text}`));
+
+        const merged = [
+            ...(ratings || [])
+                .filter(r => r.content_id != null && (r.content_type === 'movie' || r.content_type === 'tv'))
+                .map(r => ({
+                    kind: 'reviewed', ts: r.created_at, type: r.content_type, id: Number(r.content_id),
+                    season: null, episode: null, rating: Number(r.rating) || 0, text: r.review || '', spoiler: !!r.spoiler
+                })),
+            ...parsedComments
+        ].sort((a, b) => new Date(b.ts || 0) - new Date(a.ts || 0)).slice(0, 50);
+
+        if (!merged.length) {
+            container.innerHTML = '<div class="profile-empty">No reviews or comments yet.</div>';
+            return;
+        }
+
+        // Resolve display titles for every unique content id, cached per session.
+        if (!this._titleCache) this._titleCache = {};
+        const missing = [...new Set(merged.map(i => i.type + '_' + i.id))].filter(k => !(k in this._titleCache));
+        await this.mapWithConcurrency(missing, 6, async (key) => {
+            const type = key.split('_')[0];
+            const id = Number(key.split('_')[1]);
+            try {
+                const d = await this.getJson(type + '/' + id);
+                this._titleCache[key] = d?.name || d?.title || null;
+            } catch {
+                this._titleCache[key] = null;
+            }
+        });
+        // The user may have switched tabs while titles were resolving.
+        if (this.state.profileTab !== 'reviews' || document.getElementById('profile-section') !== container) return;
+
+        const titleFor = item => {
+            const t = this._titleCache[item.type + '_' + item.id];
+            const perEp = item.season != null && item.episode != null;
+            const badge = perEp ? ` <span class="comments-scope-badge">S${item.season}E${item.episode}</span>` : '';
+            const href = perEp ? `#tv/${item.id}/s/${item.season}/e/${item.episode}` : `#details/${item.type}/${item.id}`;
+            return `<a href="${href}">${this.escapeHtml(t || 'this title')}</a>${badge}`;
+        };
+
+        container.innerHTML = merged.map(item => {
+            const n = Math.max(1, Math.min(5, Math.round(item.rating)));
+            const stars = item.kind === 'reviewed' ? `<div class="profile-review-stars">${'★'.repeat(n)}${'☆'.repeat(5 - n)}</div>` : '';
+            return `
+                <div class="profile-section-item">
+                    ${avatar(36)}
+                    <div class="profile-section-body">
+                        <div class="profile-section-line">
+                            ${nameLink}
+                            <span class="profile-verb">${item.kind === 'reviewed' ? 'reviewed' : 'commented on'}</span>
+                            ${titleFor(item)}
+                        </div>
+                        ${stars}
+                        ${item.text ? `<p class="profile-review-text">${item.spoiler ? this.spoilerHtml(this.escapeHtml(item.text)) : this.escapeHtml(item.text)}</p>` : ''}
+                    </div>
+                    <span class="profile-timeago">${this.timeago(item.ts)}</span>
+                </div>`;
+        }).join('');
     },
 
     async toggleFollow(uid) {
@@ -5306,6 +5421,15 @@ const Alexandria = {
 
     // ============ WHAT'S NEW — changelog bell ============
     CHANGELOG: [
+        {
+            key: 'v1.8',
+            date: 'Aug 20, 2026',
+            title: 'Archive Browsing & Profile Talk',
+            items: [
+                'Franchise archives are now grouped by genre with name search, and expanded franchise decks scroll with arrows like the home rows',
+                'Profile reviews tab now shows comments alongside reviews, with season/episode badges on per-episode comments'
+            ]
+        },
         {
             key: 'v1.7',
             date: 'Aug 20, 2026',
