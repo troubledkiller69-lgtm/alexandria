@@ -2743,7 +2743,7 @@ const Alexandria = {
         this.main.innerHTML = '<div class="placeholder-msg">DECRYPTING ARCHIVE...</div>';
         
         try {
-            const endpoint = `${type}/${id}?append_to_response=credits,aggregate_credits,similar,videos`;
+            const endpoint = `${type}/${id}?append_to_response=credits,aggregate_credits,similar,recommendations,videos`;
             const data = await this.getJson(endpoint);
             if (token !== this._renderToken) return;
             
@@ -2763,14 +2763,32 @@ const Alexandria = {
 
             const trailer = data.videos?.results?.find(v => v.site === 'YouTube' && v.type === 'Trailer' && /^[\w-]{6,20}$/.test(v.key));
 
-            // Curate similar titles: exclude the current title, drop poster-less
-            // entries, cap the carousel. If TMDB has nothing similar, fall back
-            // to a genre-based discovery scan so the section is never empty.
-            let similarItems = (data.similar?.results || [])
-                .filter(i => i && Number(i.id) !== Number(id) && i.poster_path)
+            // Curate similar titles: merge both TMDB signals (recommendations
+            // is behavior-based and better than the keyword-overlap similar
+            // list), exclude the current title, drop poster-less entries and
+            // wrong media types, then rerank by genre overlap and release-year
+            // proximity so the picks actually feel related. If the pool is too
+            // weak, fall back to a genre-based discovery scan.
+            const genreIds = new Set((data.genres || []).map(g => Number(g.id)));
+            const titleYear = Number((data.release_date || data.first_air_date || '').slice(0, 4));
+            const simScore = item => {
+                const shared = (item.genre_ids || []).filter(g => genreIds.has(Number(g))).length;
+                const itemYear = Number((item.release_date || item.first_air_date || '').slice(0, 4));
+                const delta = itemYear ? Math.abs(itemYear - titleYear) : 99;
+                return shared * 3 + (delta === 0 ? 2 : delta <= 2 ? 1 : 0);
+            };
+            const rawPool = [...(data.recommendations?.results || []), ...(data.similar?.results || [])];
+            const seen = new Set();
+            let similarItems = rawPool
+                .filter(i => i && Number(i.id) !== Number(id) && i.poster_path
+                    && (!i.media_type || i.media_type === type))
+                .filter(i => seen.has(String(i.id)) ? false : (seen.add(String(i.id)), true))
+                .map(item => ({ item, score: simScore(item) }))
+                .sort((a, b) => (b.score - a.score) || ((b.item.vote_count || 0) - (a.item.vote_count || 0)))
+                .map(x => x.item)
                 .slice(0, 20);
             let similarHeading = 'SIMILAR TITLES';
-            if (!similarItems.length && data.genres?.length) {
+            if (similarItems.length < 6 && data.genres?.length) {
                 const genreDiscover = await this.getJson(
                     `discover/${type}?with_genres=${data.genres[0].id}&sort_by=popularity.desc`
                 ).catch(() => ({ results: [] }));
@@ -5293,7 +5311,7 @@ const Alexandria = {
             date: 'Aug 20, 2026',
             title: 'Sharper Similar, Tighter Franchises, Fresh Feeds',
             items: [
-                'Similar titles now skip the title you are already on, drop poster-less stragglers, and fall back to a MORE LIKE THIS genre scan when TMDB comes up empty',
+                'Similar titles now merge both TMDB signals and rerank by genre + release year so the picks actually feel related, with a MORE LIKE THIS genre scan when TMDB comes up empty',
                 'Franchises page trimmed to real franchises — single-show stragglers like Lost are gone; filter by genre and sort A→Z, Z→A, or by title count',
                 'New avatar sets from Suits, Lost, Breaking Bad, and Reacher in the profile picker',
                 'Community feed shows only the last 24h — stale comments and list events clear out on their own while watch hours, streaks, and heatmaps stay untouched',
