@@ -6,3 +6,7 @@ Thumbs.db
 node_modules/
 .vercel
 *.log
+
+# desktop-only local tooling
+AGENTS.md
+opencode.json

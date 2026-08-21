@@ -2820,6 +2820,17 @@ const Alexandria = {
 
             const trailer = data.videos?.results?.find(v => v.site === 'YouTube' && v.type === 'Trailer' && /^[\w-]{6,20}$/.test(v.key));
 
+            let imdbBadge = '';
+            if (data.imdb_id && /^tt\d{5,12}$/.test(data.imdb_id)) {
+                try {
+                    const omdb = await fetch('/api/omdb?i=' + encodeURIComponent(data.imdb_id)).then(r => r.json());
+                    if (omdb && omdb.Response === 'True' && omdb.imdbRating) {
+                        imdbBadge = `<span class="avg-badge" title="IMDb rating">IMDb ${this.escapeHtml(omdb.imdbRating)}</span>`;
+                    }
+                } catch (e) { /* OMDb down or unconfigured, badge just stays hidden */ }
+                if (token !== this._renderToken) return;
+            }
+
             // Curate similar titles: merge both TMDB signals (recommendations
             // is behavior-based and better than the keyword-overlap similar
             // list), exclude the current title, drop poster-less entries and
@@ -2876,6 +2887,7 @@ const Alexandria = {
                                 <h1>${this.escapeHtml(title)} ${year ? `<span class="year-span">(${this.escapeHtml(year)})</span>` : ''}</h1>
                                 <div class="details-meta">
                                     ${this.ratingsHtml(tmdbScore)}
+                                    ${imdbBadge}
                                     <span class="avg-badge" id="details-avg-badge" hidden></span>
                                     ${runtime ? `<span>${this.escapeHtml(runtime)}</span>` : ''}
                                     ${genres ? `<span>${this.escapeHtml(genres)}</span>` : ''}
@@ -4088,21 +4100,6 @@ const Alexandria = {
         this.armFailoverWatch(server);
         this.scheduleEmbedTheme(document.getElementById('video-iframe'));
         this.renderComments();
-
-        if (type === 'sports') {
-            const ev = this.SPORTS_EVENTS.find(e => e.id === id) || this.SPORTS_EVENTS[0];
-            this.addToHistory({
-                id: ev.id,
-                type: 'sports',
-                title: ev.title,
-                poster_path: ev.backdrop,
-                season: 1,
-                episode: 1,
-                isAnime: false,
-                progress: 0
-            });
-            return;
-        }
 
         try {
             const data = await this.getJson(type + '/' + id);
@@ -5501,6 +5498,17 @@ const Alexandria = {
 
     // ============ WHAT'S NEW — changelog bell ============
     CHANGELOG: [
+        {
+            key: 'v1.9.2',
+            date: 'Aug 21, 2026',
+            title: 'Share Cards, IMDb Scores, Housekeeping',
+            items: [
+                'Links now unfurl with proper previews — title, description, and logo cards on Discord and Telegram instead of bare URLs',
+                'IMDb ratings show up on detail pages, pulled from the OMDb proxy when a title has an IMDb ID',
+                'Removed a dead sports branch in the player that could crash if it was ever reached',
+                'Image CDN preconnect so poster loads start earlier'
+            ]
+        },
         {
             key: 'v1.9.1',
             date: 'Aug 21, 2026',
