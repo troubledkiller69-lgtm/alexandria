@@ -3669,13 +3669,14 @@ const Alexandria = {
             <section class="filtered-view community-view">
                 <div class="view-section">
                     <h3>COMMUNITY</h3>
+                    <p class="community-sub">Last 24 hours of archive activity, live as it happens.</p>
                     <div class="feed-tabs">
                         <button type="button" class="feed-tab ${tab === 'all' ? 'active' : ''}" data-tab="all" aria-pressed="${tab === 'all'}" onclick="Alexandria.setCommunityTab('all')">ALL</button>
                         <button type="button" class="feed-tab ${tab === 'following' ? 'active' : ''}" data-tab="following" aria-pressed="${tab === 'following'}" onclick="Alexandria.setCommunityTab('following')">FOLLOWING</button>
                     </div>
                 </div>
                 <div class="leaderboard-section">
-                    <h3>TOP WATCHERS THIS WEEK</h3>
+                    <h3>TOP WATCHERS THIS WEEK <span class="leaderboard-window">7-DAY TALLY</span></h3>
                     <div id="leaderboard-list"><div class="placeholder-msg"><span class="pulse-dot"></span> LOADING LEADERBOARD...</div></div>
                 </div>
                 <div id="feed-list"><div class="placeholder-msg"><span class="pulse-dot"></span> LOADING COMMUNITY FEED...</div></div>
@@ -3729,11 +3730,11 @@ const Alexandria = {
                 const name = p ? (p.nickname || p.username || 'Member') : 'Member';
                 const isMe = me === r.uid;
                 return `
-                    <a class="leaderboard-row ${isMe ? 'is-me' : ''}" href="#profile/${this.escapeHtml(r.uid)}">
+                    <a class="leaderboard-row rank-${i + 1} ${isMe ? 'is-me' : ''}" href="#profile/${this.escapeHtml(r.uid)}">
                         <span class="leaderboard-rank">${i + 1}</span>
                         ${this.avatarHtml(p, 36)}
                         <span class="leaderboard-name">${this.escapeHtml(name)}${isMe ? ' <em>(you)</em>' : ''}</span>
-                        <span class="leaderboard-count"><strong>${r.score}</strong> watch${r.score === 1 ? '' : 'es'}</span>
+                        <span class="leaderboard-count"><strong>${r.score}</strong><span>${r.score === 1 ? 'WATCH' : 'WATCHES'}</span></span>
                         <span class="leaderboard-bar"><span class="leaderboard-bar-fill" style="width:${Math.max(6, Math.round(r.score / max * 100))}%"></span></span>
                     </a>`;
             }).join('');
@@ -3800,7 +3801,7 @@ const Alexandria = {
             if (this.state.communityTab !== tab) return;
             container.innerHTML = rows.length
                 ? rows.map(row => this.feedItemHtml(row)).join('')
-                : '<div class="feed-empty">No activity yet.</div>';
+                : '<div class="feed-empty">THE ARCHIVE IS QUIET — nothing in the last 24 hours.</div>';
         } catch (err) {
             console.warn('Community feed fetch failed:', err);
             container.innerHTML = '<div class="feed-empty">Could not load the community feed.</div>';
@@ -3820,7 +3821,19 @@ const Alexandria = {
             followed: 'started following someone',
             comment: 'commented on'
         };
-        const verb = verbs[row.kind] || 'was active on';
+        const chips = {
+            watching: 'WATCHING',
+            rated: 'RATED',
+            reviewed: 'REVIEW',
+            watchlist: 'WATCHLIST',
+            list_created: 'LIST',
+            list_added: 'LIST',
+            followed: 'FOLLOW',
+            comment: 'COMMENT'
+        };
+        const kind = row.kind || 'activity';
+        const verb = verbs[kind] || 'was active on';
+        const chip = chips[kind] || 'ACTIVITY';
         let titleHtml = '';
         if (row.content_id && (row.content_type === 'movie' || row.content_type === 'tv')) {
             const ctx = this.episodeContext(row);
@@ -3836,7 +3849,7 @@ const Alexandria = {
             ? `<img class="feed-poster-thumb" src="${this.imageUrl(row.poster_path, 'w92')}" alt="" loading="lazy" decoding="async">`
             : '';
         return `
-            <div class="feed-item">
+            <div class="feed-item feed-kind-${this.escapeHtml(kind)}">
                 <a class="feed-item-avatar" href="#profile/${this.escapeHtml(row.user_id)}" aria-label="${this.escapeHtml(displayName)}">${this.avatarHtml(profile, 40)}</a>
                 <div class="feed-item-body">
                     <div class="feed-item-line">
@@ -3844,7 +3857,10 @@ const Alexandria = {
                         <span class="profile-verb">${this.escapeHtml(verb)}</span>
                         ${titleHtml}
                     </div>
-                    <span class="feed-item-time">${this.escapeHtml(this.timeago(row.created_at))}</span>
+                    <div class="feed-item-meta">
+                        <span class="feed-kind-chip feed-kind-${this.escapeHtml(kind)}">${this.escapeHtml(chip)}</span>
+                        <span class="feed-item-time">${this.escapeHtml(this.timeago(row.created_at))}</span>
+                    </div>
                 </div>
                 ${poster}
             </div>`;
@@ -5498,6 +5514,16 @@ const Alexandria = {
 
     // ============ WHAT'S NEW — changelog bell ============
     CHANGELOG: [
+        {
+            key: 'v1.9.3',
+            date: 'Aug 21, 2026',
+            title: 'Community Page Rebuild',
+            items: [
+                'Activity feed rebuilt as a log-style ledger: each entry carries a color rail and a type chip (WATCHING, RATED, COMMENT) in the site accent palette',
+                'Leaderboard ranks 1-3 get gold, silver, and bronze medal circles; first place glows',
+                'Watch counts stacked with a WATCHES label, and the board header shows a 7-DAY TALLY window'
+            ]
+        },
         {
             key: 'v1.9.2',
             date: 'Aug 21, 2026',

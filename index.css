@@ -4770,6 +4770,23 @@ h1, h2, h3, h4 {
     padding-bottom: 0;
 }
 
+.community-sub {
+    margin: -0.5rem 0 0.75rem;
+    color: var(--text-muted);
+    font-size: 0.85rem;
+}
+
+.leaderboard-window {
+    font-size: 0.62rem;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    color: var(--text-muted);
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    border-radius: 3px;
+    padding: 0.12rem 0.45rem;
+    margin-left: 0.5rem;
+}
+
 .feed-tabs {
     display: flex;
     gap: 0.25rem;
@@ -4807,12 +4824,27 @@ h1, h2, h3, h4 {
     display: flex;
     gap: 0.85rem;
     align-items: flex-start;
-    background: var(--bg-panel);
-    border: var(--glass-border);
-    border-radius: 10px;
-    padding: 1rem 1.15rem;
-    margin-bottom: 0.75rem;
+    background: transparent;
+    border: none;
+    border-left: 3px solid rgba(255, 255, 255, 0.14);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+    padding: 0.9rem 0.9rem 0.9rem 1rem;
+    margin-bottom: 0;
+    transition: background 0.15s ease;
 }
+
+.feed-item:hover {
+    background: rgba(255, 255, 255, 0.03);
+}
+
+.feed-kind-watching { border-left-color: #ef4444; }
+.feed-kind-rated,
+.feed-kind-reviewed,
+.feed-kind-comment { border-left-color: var(--accent-gold); }
+.feed-kind-watchlist { border-left-color: var(--accent-emerald); }
+.feed-kind-list_created,
+.feed-kind-list_added,
+.feed-kind-followed { border-left-color: var(--text-muted); }
 
 .feed-item-avatar {
     display: inline-flex;
@@ -4857,8 +4889,32 @@ h1, h2, h3, h4 {
     display: block;
     color: var(--text-muted);
     font-size: 0.75rem;
-    margin-top: 0.25rem;
+    margin-top: 0;
 }
+
+.feed-item-meta {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    margin-top: 0.35rem;
+}
+
+.feed-kind-chip {
+    font-family: var(--font-display);
+    font-size: 0.62rem;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    padding: 0.12rem 0.45rem;
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    border-radius: 3px;
+    color: var(--text-muted);
+}
+
+.feed-kind-chip.feed-kind-watching { color: #ef4444; border-color: rgba(239, 68, 68, 0.4); }
+.feed-kind-chip.feed-kind-rated,
+.feed-kind-chip.feed-kind-reviewed,
+.feed-kind-chip.feed-kind-comment { color: var(--accent-gold); border-color: rgba(212, 175, 55, 0.4); }
+.feed-kind-chip.feed-kind-watchlist { color: var(--accent-emerald); border-color: rgba(5, 150, 105, 0.4); }
 
 .feed-poster-thumb {
     width: 40px;
@@ -4874,6 +4930,8 @@ h1, h2, h3, h4 {
     padding: 2.5rem 0;
     text-align: center;
     font-size: 0.9rem;
+    font-family: var(--font-display);
+    letter-spacing: 0.06em;
 }
 
 .feed-empty p {
@@ -6021,12 +6079,38 @@ h1, h2, h3, h4 {
 }
 
 .leaderboard-rank {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.9rem;
+    height: 1.9rem;
+    border-radius: 50%;
+    border: 1px solid rgba(255, 255, 255, 0.16);
     font-weight: 800;
-    font-size: 1rem;
-    width: 1.6rem;
-    text-align: center;
-    color: #ef4444;
+    font-size: 0.8rem;
+    color: var(--text-muted);
     flex-shrink: 0;
+}
+
+.leaderboard-row.rank-1 .leaderboard-rank {
+    border-color: var(--accent-gold);
+    color: var(--accent-gold);
+    box-shadow: 0 0 10px rgba(212, 175, 55, 0.25);
+}
+
+.leaderboard-row.rank-2 .leaderboard-rank {
+    border-color: #cbd5e1;
+    color: #cbd5e1;
+}
+
+.leaderboard-row.rank-3 .leaderboard-rank {
+    border-color: #f97316;
+    color: #f97316;
+}
+
+.leaderboard-row.rank-1 {
+    border-color: rgba(212, 175, 55, 0.35);
+    background: rgba(212, 175, 55, 0.06);
 }
 
 .leaderboard-name {
@@ -6046,13 +6130,20 @@ h1, h2, h3, h4 {
 
 .leaderboard-count {
     margin-left: auto;
-    font-size: 0.78rem;
-    color: var(--text-secondary);
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 0.05rem;
+    font-size: 0.62rem;
+    letter-spacing: 0.08em;
+    color: var(--text-muted);
     white-space: nowrap;
 }
 
 .leaderboard-count strong {
+    font-size: 0.95rem;
     color: var(--text-primary);
+    letter-spacing: 0;
 }
 
 .leaderboard-bar {
