@@ -47,6 +47,16 @@ export const auth = {
     // ============ WHAT'S NEW — changelog bell ============
     CHANGELOG: [
         {
+            key: 'v1.9.5',
+            date: 'Aug 21, 2026',
+            title: 'Share Cards',
+            items: [
+                'Sharing a title now copies an alexandr1a.vercel.app/share/movie/123 link instead of a raw hash URL',
+                'Discord and Telegram unfurls show the poster, title, year, and description — plus Twitter large-image cards',
+                'People clicking a shared link land directly on the title page'
+            ]
+        },
+        {
             key: 'v1.9.4',
             date: 'Aug 21, 2026',
             title: 'Reactions, Replies, and a Leaner Core',

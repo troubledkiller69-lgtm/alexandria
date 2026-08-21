@@ -511,7 +511,12 @@ export const core = {
     },
 
     async shareCurrent(title = 'Alexandria') {
-        const url = window.location.href;
+        let url = window.location.href;
+        const { id, type, season, episode } = this.state.activeContent || {};
+        if (id && (type === 'movie' || type === 'tv')) {
+            url = location.origin + '/share/' + type + '/' + id;
+            if (type === 'tv' && season && episode) url += `?s=${season}&e=${episode}`;
+        }
         try {
             if (navigator.share) {
                 await navigator.share({ title, url });
