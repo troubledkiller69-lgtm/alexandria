@@ -458,6 +458,14 @@ export const core = {
         const file = event.target?.files?.[0];
         event.target.value = '';
         if (!file) return;
+        if (/\.csv$/i.test(file.name)) {
+            try {
+                await this.importLetterboxd(file);
+            } catch (error) {
+                this.showToast(error.message || 'Could not import that Letterboxd file.');
+            }
+            return;
+        }
         try {
             const text = await file.text();
             const data = JSON.parse(text);
@@ -508,6 +516,215 @@ export const core = {
         } catch (error) {
             this.showToast(error.message || 'Could not import lists.');
         }
+    },
+
+    parseCsv(text) {
+        const rows = [];
+        let row = [], field = '', inQuotes = false;
+        const chars = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n').split('');
+        for (let i = 0; i < chars.length; i++) {
+            const ch = chars[i];
+            if (inQuotes) {
+                if (ch === '"') {
+                    if (chars[i + 1] === '"') { field += '"'; i++; }
+                    else inQuotes = false;
+                } else field += ch;
+            } else if (ch === '"') inQuotes = true;
+            else if (ch === ',') { row.push(field); field = ''; }
+            else if (ch === '\n') { row.push(field); rows.push(row); row = []; field = ''; }
+            else field += ch;
+        }
+        if (field !== '' || row.length) { row.push(field); rows.push(row); }
+        return rows;
+    },
+
+    async importLetterboxd(file) {
+        const rows = this.parseCsv(await file.text());
+        if (rows.length < 2) throw new Error('CSV is empty or unreadable.');
+        const header = rows[0].map(h => h.trim().toLowerCase());
+        const col = name => header.indexOf(name);
+        const nameCol = col('name');
+        if (nameCol === -1) throw new Error('Not a Letterboxd export — missing the Name column.');
+        const yearCol = col('year');
+        const ratingCol = col('rating');
+        const reviewCol = col('review');
+        const isWatchedFile = col('watcheddate') !== -1;
+        const isWatchlistFile = !isWatchedFile && col('date') !== -1 && ratingCol === -1;
+
+        const entries = [];
+        for (let i = 1; i < rows.length; i++) {
+            const r = rows[i];
+            const name = (r[nameCol] || '').trim();
+            if (!name) continue;
+            const rating = ratingCol !== -1 ? parseFloat(r[ratingCol]) : 0;
+            entries.push({
+                name,
+                year: (r[yearCol] || '').trim().slice(0, 4),
+                rating: Number.isFinite(rating) ? rating : 0,
+                review: (reviewCol !== -1 ? (r[reviewCol] || '') : '').trim(),
+                watched: isWatchedFile
+            });
+        }
+        if (!entries.length) throw new Error('No rows found in that file.');
+
+        this.openImportProgress();
+        const total = entries.length;
+        const seen = new Set();
+        const matched = [];
+        const notFound = [];
+        await this.mapWithConcurrency(entries, 4, async (entry, idx) => {
+            this.setImportProgress(idx + 1, total);
+            try {
+                const m = await this.matchTmdb(entry.name, entry.year);
+                if (!m || seen.has(m.type + '_' + m.id)) {
+                    if (!m) notFound.push(`${entry.name}${entry.year ? ' (' + entry.year + ')' : ''}`);
+                    return;
+                }
+                seen.add(m.type + '_' + m.id);
+                matched.push({ ...m, rating: entry.rating, review: entry.review, watched: entry.watched });
+            } catch {
+                notFound.push(`${entry.name}${entry.year ? ' (' + entry.year + ')' : ''}`);
+            }
+        });
+        this.closeImportProgress();
+
+        const now = new Date().toISOString();
+        matched.forEach(m => {
+            const exists = this.state.watchlist.find(i => String(i.id) === String(m.id) && i.type === m.type);
+            if (exists) {
+                if (m.watched) {
+                    exists.status = 'watched';
+                    exists.watched_at = now;
+                }
+            } else {
+                this.state.watchlist.push({
+                    id: m.id,
+                    type: m.type,
+                    title: m.title,
+                    poster_path: m.poster_path,
+                    status: m.watched ? 'watched' : 'want',
+                    watched_at: m.watched ? now : null
+                });
+            }
+        });
+        this.writeLocalList('alexandria_watchlist', this.state.watchlist);
+
+        let cloudCount = 0;
+        if (this.supabase && this.state.authUser) {
+            const uid = this.state.authUser.id;
+            const rowsToUpsert = matched.map(m => ({
+                user_id: uid,
+                tmdb_id: String(m.id),
+                media_type: m.type,
+                title: m.title,
+                poster_path: m.poster_path,
+                status: m.watched ? 'watched' : 'want',
+                watched_at: m.watched ? now : null
+            }));
+            const chunk = async (arr) => {
+                for (const row of arr) {
+                    try {
+                        const { error } = await this.supabase.from('survival_cache').upsert(row, { onConflict: 'user_id,tmdb_id,media_type' });
+                        if (!error) cloudCount++;
+                    } catch { /* keep going */ }
+                }
+            };
+            for (let i = 0; i < rowsToUpsert.length; i += 15) {
+                await chunk(rowsToUpsert.slice(i, i + 15));
+            }
+            for (const m of matched) {
+                if (!m.rating) continue;
+                try {
+                    const { error } = await this.supabase.from('ratings').upsert({
+                        user_id: uid,
+                        content_id: Number(m.id),
+                        content_type: m.type,
+                        rating: Math.max(1, Math.min(5, Math.round(m.rating))),
+                        review: m.review || '',
+                        spoiler: false
+                    }, { onConflict: 'user_id,content_id,content_type' });
+                } catch { /* keep going */ }
+            }
+        }
+
+        this.showImportResultModal(matched.length, notFound);
+        this.showToast(matched.length ? `Letterboxd: ${matched.length} title${matched.length === 1 ? '' : 's'} imported.` : 'Letterboxd: nothing matched.');
+        if (this.state.view === 'watchlist' || this.state.view === 'home') {
+            this.renderWatchlist();
+        }
+        if (isWatchlistFile && this.state.view !== 'watchlist') {
+            this.setView('watchlist');
+        }
+    },
+
+    async matchTmdb(title, year) {
+        const q = encodeURIComponent(title);
+        const data = await this.getJson(`search/multi?query=${q}`, { noCache: true });
+        const results = (data.results || []).filter(r => (r.media_type === 'movie' || r.media_type === 'tv') && r.poster_path);
+        if (!results.length) return null;
+        const y = year ? Number(year) : 0;
+        const exact = y ? results.find(r => Number((r.release_date || r.first_air_date || '').slice(0, 4)) === y) : null;
+        const pick = exact || results[0];
+        return {
+            id: pick.id,
+            type: pick.media_type === 'tv' ? 'tv' : 'movie',
+            title: pick.title || pick.name,
+            poster_path: pick.poster_path || ''
+        };
+    },
+
+    openImportProgress() {
+        let modal = document.getElementById('import-progress-modal');
+        if (!modal) {
+            modal = document.createElement('div');
+            modal.id = 'import-progress-modal';
+            modal.className = 'profile-modal-overlay';
+            modal.innerHTML = `
+                <div class="profile-modal-card import-progress-card">
+                    <h3 class="profile-modal-title">IMPORTING</h3>
+                    <p class="import-progress-text" id="import-progress-text">Matching titles against TMDB…</p>
+                    <div class="import-progress-bar"><span id="import-progress-fill"></span></div>
+                </div>`;
+            document.body.appendChild(modal);
+        }
+        modal.removeAttribute('hidden');
+        this.setImportProgress(0, 1);
+    },
+
+    setImportProgress(done, total) {
+        const text = document.getElementById('import-progress-text');
+        const fill = document.getElementById('import-progress-fill');
+        if (text) text.textContent = `Matching titles against TMDB… ${done}/${total}`;
+        if (fill) fill.style.width = `${Math.max(3, Math.round(done / Math.max(total, 1) * 100))}%`;
+    },
+
+    closeImportProgress() {
+        const modal = document.getElementById('import-progress-modal');
+        if (modal) modal.setAttribute('hidden', '');
+    },
+
+    showImportResultModal(imported, notFound) {
+        this.closeImportProgress();
+        let modal = document.getElementById('import-result-modal');
+        if (modal) modal.remove();
+        modal = document.createElement('div');
+        modal.id = 'import-result-modal';
+        modal.className = 'profile-modal-overlay';
+        modal.innerHTML = `
+            <div class="profile-modal-card">
+                <button class="auth-close-btn" type="button" aria-label="Close" onclick="document.getElementById('import-result-modal').remove()">✕</button>
+                <h3 class="profile-modal-title">IMPORT COMPLETE</h3>
+                <p style="color: var(--text-secondary); margin-bottom: 1rem;">${this.escapeHtml(String(imported))} title${imported === 1 ? '' : 's'} added to your watchlist.</p>
+                ${notFound.length ? `
+                    <p class="import-notfound-label">COULDN'T MATCH (${notFound.length})</p>
+                    <div class="import-notfound-list">${notFound.map(n => `<div>${this.escapeHtml(n)}</div>`).join('')}</div>
+                ` : ''}
+                <div class="profile-modal-actions">
+                    <button type="button" class="btn-primary" onclick="document.getElementById('import-result-modal').remove()">DONE</button>
+                </div>
+            </div>`;
+        modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); });
+        document.body.appendChild(modal);
     },
 
     async shareCurrent(title = 'Alexandria') {

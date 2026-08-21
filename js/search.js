@@ -72,6 +72,8 @@ export const search = {
                         <div id="search-discover" class="search-discover">${discoverPanel}</div>
                     </div>
                 </div>
+                <div id="search-context-label" class="search-context-label" hidden></div>
+                <div id="search-history" class="search-history-row" hidden></div>
                 <div class="results-grid" id="search-results"></div>
             </section>
         `;
@@ -90,10 +92,71 @@ export const search = {
         } else {
             setTimeout(() => searchInput.focus(), 100);
             this.setDiscoverVisible(true);
+            this.renderSearchHistory();
             if (this.state.searchFilter !== 'person') {
                 setTimeout(() => this.executeDiscover(), 150);
             }
         }
+    },
+
+    getSearchHistory() {
+        try {
+            const h = JSON.parse(localStorage.getItem('alexandria_search_history') || '[]');
+            return Array.isArray(h) ? h.slice(0, 10) : [];
+        } catch {
+            return [];
+        }
+    },
+
+    pushSearchHistory(query) {
+        const q = String(query || '').trim();
+        if (!q) return;
+        let h = this.getSearchHistory().filter(x => x.toLowerCase() !== q.toLowerCase());
+        h.unshift(q);
+        if (h.length > 10) h = h.slice(0, 10);
+        try { localStorage.setItem('alexandria_search_history', JSON.stringify(h)); } catch { /* ignore */ }
+    },
+
+    removeSearchHistory(term) {
+        const h = this.getSearchHistory().filter(x => x !== term);
+        try { localStorage.setItem('alexandria_search_history', JSON.stringify(h)); } catch { /* ignore */ }
+        this.renderSearchHistory();
+    },
+
+    clearSearchHistory() {
+        try { localStorage.removeItem('alexandria_search_history'); } catch { /* ignore */ }
+        this.renderSearchHistory();
+    },
+
+    renderSearchHistory() {
+        const container = document.getElementById('search-history');
+        if (!container) return;
+        const h = this.getSearchHistory();
+        if (!h.length) {
+            container.setAttribute('hidden', '');
+            container.innerHTML = '';
+            return;
+        }
+        container.removeAttribute('hidden');
+        container.innerHTML = `
+            <span class="search-history-title">RECENT SEARCHES</span>
+            ${h.map(t => `
+                <button type="button" class="search-history-chip" onclick="Alexandria.runSearchFromHistory('${this.escapeHtml(t)}')">
+                    <span>${this.escapeHtml(t)}</span>
+                    <span class="search-history-x" onclick="event.stopPropagation(); Alexandria.removeSearchHistory('${this.escapeHtml(t)}')" aria-label="Remove ${this.escapeHtml(t)}">✕</span>
+                </button>
+            `).join('')}
+            <button type="button" class="search-history-clear" onclick="Alexandria.clearSearchHistory()">CLEAR</button>`;
+    },
+
+    runSearchFromHistory(term) {
+        const input = document.getElementById('tmdb-search');
+        if (input) input.value = term;
+        this.state.searchQuery = term;
+        const clearBtn = document.getElementById('clear-search-btn');
+        if (clearBtn) clearBtn.style.display = 'block';
+        this.setDiscoverVisible(false);
+        this.executeSearch(term);
     },
 
     setDiscoverVisible(visible) {
@@ -113,6 +176,7 @@ export const search = {
         if (!query.trim()) {
             this.state.searchQuery = '';
             this.setDiscoverVisible(true);
+            this.renderSearchHistory();
             const container = document.getElementById('search-results');
             if (container) container.innerHTML = '';
             if (this.state.searchFilter !== 'person') {
@@ -121,6 +185,8 @@ export const search = {
         } else {
             this.state.searchQuery = query;
             this.setDiscoverVisible(false);
+            const hist = document.getElementById('search-history');
+            if (hist) hist.setAttribute('hidden', '');
             this.state.searchTimeout = setTimeout(() => {
                 this.executeSearch(query);
             }, 500);
@@ -153,6 +219,11 @@ export const search = {
         const type = this.state.searchFilter === 'tv' ? 'tv' : 'movie';
 
         this.setDiscoverVisible(true);
+        const label = document.getElementById('search-context-label');
+        if (label && !this.state.searchQuery) {
+            label.textContent = 'TRENDING NOW';
+            label.removeAttribute('hidden');
+        }
         container.innerHTML = '<div class="search-loading"><div class="elegant-spinner"></div></div>';
 
         try {
@@ -343,6 +414,11 @@ export const search = {
         const requestId = (this._searchRequestId || 0) + 1;
         this._searchRequestId = requestId;
         this.setDiscoverVisible(false);
+        const label = document.getElementById('search-context-label');
+        if (label) {
+            label.textContent = `RESULTS FOR "${String(query).toUpperCase().slice(0, 40)}"`;
+            label.removeAttribute('hidden');
+        }
         container.innerHTML = '<div class="search-loading"><div class="elegant-spinner"></div></div>';
 
         try {
@@ -350,6 +426,7 @@ export const search = {
             const endpoint = `search/${filter}?query=${encodeURIComponent(query)}`;
             const data = await this.getJson(endpoint);
             if (requestId !== this._searchRequestId || !document.body.contains(container)) return;
+            this.pushSearchHistory(query);
             const results = data.results || [];
 
             if (filter === 'person') {

@@ -47,6 +47,17 @@ export const auth = {
     // ============ WHAT'S NEW — changelog bell ============
     CHANGELOG: [
         {
+            key: 'v1.9.6',
+            date: 'Aug 21, 2026',
+            title: 'Letterboxd Import & Netflix-Style Search',
+            items: [
+                'Import your Letterboxd export CSV (watched.csv or watchlist.csv) through the sidebar Import Lists button — titles are matched against TMDB, watchlist and ratings sync to your account',
+                'Search page rebuilt: big centered search bar, pill filters, TRENDING NOW / RESULTS headers',
+                'Recent searches appear as chips on the search page — click to re-run, ✕ to forget, CLEAR to wipe',
+                'Roulette got a gold pill treatment in the search toolbar'
+            ]
+        },
+        {
             key: 'v1.9.5',
             date: 'Aug 21, 2026',
             title: 'Share Cards',
