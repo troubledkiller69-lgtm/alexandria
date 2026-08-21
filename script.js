@@ -80,15 +80,7 @@ const Alexandria = {
     _resumeIgnoreUntil: 0,
     _lastProgressWrite: 0,
     _PROGRESS_WRITE_MS: 5000,
-    _WATCH_SECS_WRITE_MS: 15000,
     _WATCH_LOG_DEDUPE_MS: 15 * 60 * 1000,
-    _FINISH_CREDITS_MOVIE: 300,
-    _FINISH_CREDITS_TV: 90,
-    _sessionWatchSeconds: 0,
-    _lastWatchPos: null,
-    _lastWatchContentKey: null,
-    _finishedLoggedKey: null,
-    _activeRuntime: 0,
     _lastWatchLog: null,
     // Guests always land a beat behind (network + seek settle). Lead play timestamps so they match the host.
     _PARTY_SYNC_LEAD_SEC: 0.85,
@@ -3287,11 +3279,10 @@ const Alexandria = {
         const token = this._renderToken;
         const safeQuery = promise => Promise.resolve(promise).catch(() => ({ data: [] }));
         try {
-            const [actRes, ratingRes, commentRes, watchRes] = await Promise.all([
+            const [actRes, ratingRes, commentRes] = await Promise.all([
                 safeQuery(this.supabase.from('activity').select('kind, content_id, content_type, created_at').eq('user_id', uid).order('created_at', { ascending: false }).limit(1000)),
                 safeQuery(this.supabase.from('ratings').select('rating').eq('user_id', uid).limit(1000)),
-                safeQuery(this.supabase.from('comments').select('id', { count: 'exact', head: true }).eq('user_id', uid)),
-                safeQuery(this.supabase.from('watch_progress').select('seconds').eq('user_id', uid).limit(5000))
+                safeQuery(this.supabase.from('comments').select('id', { count: 'exact', head: true }).eq('user_id', uid))
             ]);
             if (token !== this._renderToken) return;
 
@@ -3337,14 +3328,19 @@ const Alexandria = {
             let cursor = daySet.has(today) ? today : this.dayKeyOffset(today, -1);
             while (daySet.has(cursor)) { current++; cursor = this.dayKeyOffset(cursor, -1); }
 
-            // Real watch hours: sum of tracked seconds from watch_progress (RPC-backed, per-player session deltas).
+            // Approx hours: per watch event, movie runtime / avg episode runtime
             let hours = 0;
-            for (const w of (watchRes.data || [])) {
-                const s = Number(w.seconds);
-                if (isFinite(s) && s > 0) hours += s;
-            }
-            hours /= 3600;
             const titleKeys = Object.keys(perTitle);
+            if (titleKeys.length > 0) {
+                const targets = titleKeys.map(k => {
+                    const i = k.indexOf('_');
+                    return { key: k, type: k.slice(0, i), id: Number(k.slice(i + 1)) };
+                });
+                await this.mapWithConcurrency(targets, 4, async t => {
+                    const rt = await this.runtimeFor(t.type, t.id);
+                    hours += (rt / 60) * perTitle[t.key];
+                });
+            }
             if (token !== this._renderToken) return;
 
             const episodes = Object.values(tvPerDay).reduce((s, n) => s + n, 0);
@@ -3388,7 +3384,7 @@ const Alexandria = {
             const hoursText = hours >= 10 ? String(Math.round(hours)) : hours.toFixed(1);
             container.innerHTML = `
                 <div class="pulse-stats-grid">
-                    <div class="pulse-stat-card"><span class="pulse-stat-value">${hoursText}</span><span class="pulse-stat-label">HRS WATCHED</span></div>
+                    <div class="pulse-stat-card"><span class="pulse-stat-value">${hoursText}</span><span class="pulse-stat-label">HRS WATCHED <span class="pulse-stat-sub">APPROX</span></span></div>
                     <div class="pulse-stat-card"><span class="pulse-stat-value">${episodes}</span><span class="pulse-stat-label">EPISODES</span></div>
                     <div class="pulse-stat-card"><span class="pulse-stat-value">${titles}</span><span class="pulse-stat-label">TITLES</span></div>
                     <div class="pulse-stat-card"><span class="pulse-stat-value">${current}</span><span class="pulse-stat-label">DAY STREAK${longest > current ? ` <span class="pulse-stat-sub">LONGEST ${longest}</span>` : ''}</span></div>
@@ -3496,7 +3492,6 @@ const Alexandria = {
 
         const verbs = {
             watching: 'started watching',
-            finished: 'finished',
             rated: 'rated',
             reviewed: 'wrote a review of',
             watchlist: 'added to watchlist',
@@ -3668,7 +3663,7 @@ const Alexandria = {
                     </div>
                 </div>
                 <div class="leaderboard-section">
-                    <h3>TOP WATCHERS TODAY</h3>
+                    <h3>TOP WATCHERS THIS WEEK</h3>
                     <div id="leaderboard-list"><div class="placeholder-msg"><span class="pulse-dot"></span> LOADING LEADERBOARD...</div></div>
                 </div>
                 <div id="feed-list"><div class="placeholder-msg"><span class="pulse-dot"></span> LOADING COMMUNITY FEED...</div></div>
@@ -3687,27 +3682,20 @@ const Alexandria = {
         const token = this._renderToken;
         const safeQuery = promise => Promise.resolve(promise).catch(() => ({ data: [] }));
         try {
-            const since = new Date(Date.now() - 86400000).toISOString();
+            const since = new Date(Date.now() - 7 * 86400000).toISOString();
             const res = await safeQuery(this.supabase
                 .from('activity')
-                .select('user_id, kind, content_type, content_id, meta')
-                .eq('kind', 'finished')
+                .select('user_id, kind, content_type')
                 .gte('created_at', since)
                 .order('created_at', { ascending: false })
                 .limit(2000));
             if (token !== this._renderToken) return;
 
-            // One finish per title+episode per user today; rewatches shouldn't double-count.
-            const seen = new Set();
             const tally = {};
             (res.data || []).forEach(a => {
-                if (!a.user_id) return;
-                const ctx = this.episodeContext(a);
-                const unit = a.content_type + '_' + a.content_id + '_s' + (ctx ? ctx.season : 0) + '_e' + (ctx ? ctx.episode : 0);
-                const dedupeKey = a.user_id + '|' + unit;
-                if (seen.has(dedupeKey)) return;
-                seen.add(dedupeKey);
-                tally[a.user_id] = (tally[a.user_id] || 0) + 1;
+                if (a.kind === 'watching' && a.user_id) {
+                    tally[a.user_id] = (tally[a.user_id] || 0) + 1;
+                }
             });
             const ranked = Object.entries(tally)
                 .map(([uid, score]) => ({ uid, score }))
@@ -3716,7 +3704,7 @@ const Alexandria = {
             if (token !== this._renderToken) return;
 
             if (ranked.length === 0) {
-                container.innerHTML = '<div class="feed-empty">No finishes logged today yet. Be the first!</div>';
+                container.innerHTML = '<div class="feed-empty">No watches logged this week yet. Be the first!</div>';
                 return;
             }
             await Promise.all(ranked.map(r => this.fetchProfile(r.uid)));
@@ -3733,7 +3721,7 @@ const Alexandria = {
                         <span class="leaderboard-rank">${i + 1}</span>
                         ${this.avatarHtml(p, 36)}
                         <span class="leaderboard-name">${this.escapeHtml(name)}${isMe ? ' <em>(you)</em>' : ''}</span>
-                        <span class="leaderboard-count"><strong>${r.score}</strong> finish${r.score === 1 ? '' : 'es'}</span>
+                        <span class="leaderboard-count"><strong>${r.score}</strong> watch${r.score === 1 ? '' : 'es'}</span>
                         <span class="leaderboard-bar"><span class="leaderboard-bar-fill" style="width:${Math.max(6, Math.round(r.score / max * 100))}%"></span></span>
                     </a>`;
             }).join('');
@@ -3812,7 +3800,6 @@ const Alexandria = {
         const displayName = profile ? (profile.nickname || profile.username || 'Member') : 'Member';
         const verbs = {
             watching: 'started watching',
-            finished: 'finished',
             rated: 'rated',
             reviewed: 'wrote a review of',
             watchlist: 'added to watchlist',
@@ -4060,13 +4047,6 @@ const Alexandria = {
         this._triedServers = new Set([this.state.activeServer]);
         this._serverHealthy = false;
         this._currentSeasonEpisodes = [];
-        // Fresh session per episode/player open: watch-seconds accumulator,
-        // playhead anchor, finish guard, and runtime for finish detection.
-        this._sessionWatchSeconds = 0;
-        this._lastWatchPos = null;
-        this._lastWatchContentKey = null;
-        this._finishedLoggedKey = null;
-        this._activeRuntime = 0;
 
         this.main.innerHTML = `
             <section class="player-page-container">
@@ -4151,10 +4131,6 @@ const Alexandria = {
             }
         }
 
-        // TMDB runtime (minutes) powers finish detection via playhead threshold.
-        this.runtimeFor(type, id).then(rt => {
-            this._activeRuntime = rt;
-        }).catch(() => {});
     },
 
     setServerStatus(message) {
@@ -4547,98 +4523,8 @@ const Alexandria = {
         this.writeLocalList('alexandria_history', this.state.history);
     },
 
-    watchContentKey() {
-        const { id, type, season, episode } = this.state.activeContent;
-        if (type === 'tv') return 'tv_' + id + '_s' + (season || 0) + '_e' + (episode || 0);
-        return 'movie_' + id;
-    },
-
-    // Real watch-time tracking: accumulates playhead deltas (seek/rewind gaps
-    // rejected by the 0..60s clamp) and flushes to watch_progress via the
-    // atomic add_watch_seconds RPC. Guests and party mode don't accumulate.
-    trackWatchTime(t, force = false) {
-        if (typeof t !== 'number' || Number.isNaN(t)) return;
-        if (Date.now() < this._resumeIgnoreUntil) return;
-        const { id, type } = this.state.activeContent;
-        if (!id || (type !== 'movie' && type !== 'tv')) return;
-        const key = this.watchContentKey();
-        if (this._lastWatchContentKey !== key) {
-            this._lastWatchContentKey = key;
-            this._lastWatchPos = null;
-            this._sessionWatchSeconds = 0;
-        }
-        if (this._lastWatchPos != null) {
-            const delta = t - this._lastWatchPos;
-            if (delta > 0 && delta <= 60) this._sessionWatchSeconds += delta;
-        }
-        this._lastWatchPos = t;
-        this.maybeDetectFinish(t);
-        if (force || this._sessionWatchSeconds >= this._WATCH_SECS_WRITE_MS / 1000) {
-            this.flushWatchSeconds();
-        }
-    },
-
-    async flushWatchSeconds() {
-        const session = Math.round(this._sessionWatchSeconds);
-        this._sessionWatchSeconds = 0;
-        if (session < 1 || !this.supabase || !this.state.authUser) return;
-        const { id, type, season, episode } = this.state.activeContent;
-        try {
-            await this.supabase.rpc('add_watch_seconds', {
-                p_content_id: Number(id),
-                p_content_type: type,
-                p_season: type === 'tv' ? (Number(season) || 0) : 0,
-                p_episode: type === 'tv' ? (Number(episode) || 0) : 0,
-                p_delta: session
-            });
-        } catch (e) {
-            console.warn('Alexandria: Watch time flush failed', e);
-        }
-    },
-
-    // Finish detection: either the player's finish/ended/complete event, or the
-    // playhead crossing within credits range of the TMDB runtime after actually
-    // watching at least 25% (min 60s) — so skipping to the end can't farm finishes.
-    maybeDetectFinish(t) {
-        if (this._finishedLoggedKey) return;
-        const rtMin = this._activeRuntime;
-        if (!rtMin || rtMin <= 0) return;
-        const rtSec = rtMin * 60;
-        const buffer = this.state.activeContent.type === 'tv' ? this._FINISH_CREDITS_TV : this._FINISH_CREDITS_MOVIE;
-        if (rtSec <= buffer + 120) return;
-        if (t >= rtSec - buffer && this._sessionWatchSeconds >= Math.max(60, rtSec * 0.25)) {
-            this.logFinish('threshold');
-        }
-    },
-
-    logFinish(source) {
-        if (!this.supabase || !this.state.authUser) return;
-        const { id, type, season, episode } = this.state.activeContent;
-        if (!id || (type !== 'movie' && type !== 'tv')) return;
-        const key = this.watchContentKey();
-        if (this._finishedLoggedKey === key) return;
-        if (this._sessionWatchSeconds < 60) return;
-        this._finishedLoggedKey = key;
-        this.flushWatchSeconds();
-        const history = this.state.history.find(h => String(h.id) === String(id) && h.type === type);
-        this.logActivity('finished', {
-            contentId: id,
-            contentType: type,
-            title: (history && history.title) || 'this title',
-            posterPath: (history && history.poster_path) || null,
-            meta: JSON.stringify({
-                season: type === 'tv' ? (Number(season) || 0) : null,
-                episode: type === 'tv' ? (Number(episode) || 0) : null,
-                runtimeSeconds: Math.round((this._activeRuntime || 0) * 60),
-                creditsSkipped: source === 'threshold'
-            })
-        });
-    },
-
     async advanceEpisode() {
         const { id, season, episode } = this.state.activeContent;
-        this.logFinish('event');
-        // Finishing an episode logs it automatically.
         this.markEpisodeWatched(id, season, episode, true);
         const eps = this._currentSeasonEpisodes || [];
         const numbers = eps.map(e => e.episode_number).filter(n => Number.isFinite(n));
@@ -4697,13 +4583,11 @@ const Alexandria = {
                 const t = data.info?.time;
                 if (typeof t === 'number' && this._resumeSeekDone) {
                     this.persistProgress(t, data.event === 'pause' || data.event === 'seek');
-                    this.trackWatchTime(t, data.event === 'pause' || data.event === 'seek');
                 }
             }
 
             if (data.event === 'finish' || data.event === 'ended' || data.event === 'complete') {
                 if (this.state.activeContent.type === 'tv') this.advanceEpisode();
-                else if (this.state.activeContent.type === 'movie') this.logFinish('event');
             }
         };
         window.addEventListener('message', this._soloEmbedListener);
@@ -5618,13 +5502,13 @@ const Alexandria = {
     // ============ WHAT'S NEW — changelog bell ============
     CHANGELOG: [
         {
-            key: 'v1.9',
-            date: 'Aug 20, 2026',
-            title: 'True Watch Time & Daily Finishes',
+            key: 'v1.9.1',
+            date: 'Aug 21, 2026',
+            title: 'Watch Time: Back to Approx Hours',
             items: [
-                'HRS WATCHED is now real: seconds tracked while you watch (via the EmbedMaster player) instead of guessing from title runtimes — legacy hours reset until you watch again',
-                'TOP WATCHERS TODAY is daily and counts actual finishes — the player signals the end and TMDB runtimes size the credits buffer, so skipping to the end can\'t farm wins',
-                'Community feed now says which episode was started or finished — with a direct link to that exact episode',
+                'HRS WATCHED is approximate again: per watch event, TMDB runtimes (movie runtime / average episode runtime) are credited — the EmbedMaster player doesn\'t report playback events to us, so real per-second tracking can\'t work against it',
+                'TOP WATCHERS THIS WEEK is back — a 7-day board of watching activity, reverted from the daily finish-based one',
+                'Community feed still shows which episode was started, with a direct link to that exact episode',
                 'Show pages show only series-level comments in the community section; per-episode comments stay in the player where they belong',
                 'New Tekken 8 avatar in the profile picker'
             ]
