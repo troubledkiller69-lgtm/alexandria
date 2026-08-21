@@ -47,6 +47,15 @@ export const auth = {
     // ============ WHAT'S NEW — changelog bell ============
     CHANGELOG: [
         {
+            key: 'v1.9.7',
+            date: 'Aug 21, 2026',
+            title: 'Party Play/Pause Control',
+            items: [
+                'Hosts get a PAUSE/PLAY button in the watch party bar — one click pauses or resumes the whole room, since the embed never reports its own play/pause events to us',
+                'Guests follow the host toggle automatically, with the sync clock holding the right timestamp'
+            ]
+        },
+        {
             key: 'v1.9.6',
             date: 'Aug 21, 2026',
             title: 'Letterboxd Import & Netflix-Style Search',

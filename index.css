@@ -6522,3 +6522,9 @@ h1, h2, h3, h4 {
     border-bottom: 1px solid rgba(255, 255, 255, 0.05);
 }
 .import-notfound-list div:last-child { border-bottom: none; }
+
+.party-play-toggle {
+    padding: 0.35rem 0.9rem;
+    font-size: 0.72rem;
+    border-radius: 4px;
+}

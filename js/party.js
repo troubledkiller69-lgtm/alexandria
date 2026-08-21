@@ -42,6 +42,7 @@ export const party = {
                             </select>
                         </label>
                         <button type="button" id="party-sync-clock" class="party-clock" title="Click to set sync time (e.g. 16:57)" onclick="Alexandria.partyEditSyncClock()" style="display: ${this.isHost ? 'inline-flex' : 'none'};">0:00</button>
+                        <button type="button" id="party-play-toggle" class="btn-secondary party-play-toggle" style="display: ${this.isHost ? 'inline-flex' : 'none'};" title="Play/pause the whole room" onclick="Alexandria.partyHostCommand(Alexandria.isPartyPaused() ? 'play' : 'pause')">PAUSE</button>
                         <button type="button" id="party-guest-sync" class="party-sync-link" onclick="Alexandria.partyGuestSync()" style="display: ${this.isHost ? 'none' : 'inline-flex'};">Sync</button>
                         <span id="party-sync-clock-guest" class="party-clock party-clock--static" style="display: ${this.isHost ? 'none' : 'inline-flex'};">0:00</span>
                         <button type="button" class="btn-secondary party-invite" onclick="Alexandria.copyPartyLink()">Invite</button>
@@ -331,6 +332,11 @@ export const party = {
         if (hostClock) hostClock.style.display = this.isHost ? 'inline-flex' : 'none';
         if (guestSync) guestSync.style.display = this.isHost ? 'none' : 'inline-flex';
         if (guestClock) guestClock.style.display = this.isHost ? 'none' : 'inline-flex';
+        const playToggle = document.getElementById('party-play-toggle');
+        if (playToggle) {
+            playToggle.style.display = this.isHost ? 'inline-flex' : 'none';
+            playToggle.textContent = this.isPartyPaused() ? 'PLAY' : 'PAUSE';
+        }
 
         const { id, type, season, episode } = this.state.activeContent;
         if (type === 'tv' && id) {
@@ -531,6 +537,12 @@ export const party = {
             }
             this._partyLastTimeAt = Date.now();
         }
+        this.updatePartyPlayToggle();
+    },
+
+    updatePartyPlayToggle() {
+        const btn = document.getElementById('party-play-toggle');
+        if (btn) btn.textContent = this.isPartyPaused() ? 'PLAY' : 'PAUSE';
     },
 
     getHostPlaybackTime() {
