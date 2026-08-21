@@ -61,7 +61,8 @@ export const comments = {
                     createdAt: row.created_at,
                     userId: row.user_id,
                     isMine: row.user_id === this.state.authUser?.id,
-                    spoiler: !!row.spoiler
+                    spoiler: !!row.spoiler,
+                    parentId: row.parent_id || null
                 }));
                 // Pull any pre-auth localStorage comments up into the cloud once.
                 this.migrateLocalComments(commentKey).catch(() => {});
@@ -123,7 +124,8 @@ export const comments = {
                         author: commentObj.author,
                         content: commentObj.text,
                         user_id: this.state.authUser.id,
-                        spoiler: !!commentObj.spoiler
+                        spoiler: !!commentObj.spoiler,
+                        parent_id: commentObj.parentId || null
                     })
                     .select();
                 if (!error && data && data.length) {
@@ -136,7 +138,8 @@ export const comments = {
                         userId: row.user_id,
                         isMine: true,
                         cloud: true,
-                        spoiler: !!row.spoiler
+                        spoiler: !!row.spoiler,
+                        parentId: row.parent_id || null
                     };
                 }
             } catch (e) {
@@ -181,6 +184,196 @@ export const comments = {
         this.showToast('Comment deleted');
     },
 
+    // Emoji reactions (ghost / fire) on cloud comments. One reaction per user
+    // per comment; tapping the same emoji again removes it, tapping the other
+    // switches it. Local pre-auth comments (c_ ids) can't carry reactions.
+    async fetchReactions(commentIds) {
+        if (!this.supabase || !Array.isArray(commentIds) || !commentIds.length) return {};
+        if (this._reactionsUnavailable) return {};
+        try {
+            const { data, error } = await this.supabase
+                .from('comment_reactions')
+                .select('comment_id, user_id, emoji')
+                .in('comment_id', commentIds);
+            if (error) {
+                if (error.code === 'PGRST205' || error.code === '42P01') {
+                    this._reactionsUnavailable = true;
+                    return {};
+                }
+                throw error;
+            }
+            const map = {};
+            (data || []).forEach(r => {
+                (map[r.comment_id] = map[r.comment_id] || []).push(r);
+            });
+            return map;
+        } catch (e) {
+            this._reactionsUnavailable = true;
+            console.warn("Alexandria: Comment reactions unavailable", e);
+            return {};
+        }
+    },
+
+    async toggleReaction(commentId, emoji) {
+        if (!this.supabase || !this.state.authUser) {
+            this.showToast('Sign in to react to comments.');
+            this.toggleAuthModal(true, 'signup');
+            return;
+        }
+        if (!commentId || String(commentId).startsWith('c_')) return;
+        const me = this.state.authUser.id;
+        const key = this.getCommentKey(this.state.activeContent);
+        try {
+            const { data: existing } = await this.supabase
+                .from('comment_reactions')
+                .select('emoji')
+                .eq('comment_id', commentId)
+                .eq('user_id', me)
+                .maybeSingle();
+            if (existing) {
+                if (existing.emoji === emoji) {
+                    await this.supabase.from('comment_reactions').delete().eq('comment_id', commentId).eq('user_id', me);
+                } else {
+                    await this.supabase.from('comment_reactions').update({ emoji }).eq('comment_id', commentId).eq('user_id', me);
+                }
+            } else {
+                await this.supabase.from('comment_reactions').insert({ comment_id: commentId, user_id: me, emoji, comment_key: key || '' });
+            }
+            this.refreshCommunityQuiet();
+        } catch (e) {
+            console.warn("Alexandria: Reaction toggle failed", e);
+            this.showToast('Could not save reaction');
+        }
+    },
+
+    prepareReply(commentId, authorName) {
+        if (!this.state.authUser) {
+            this.showToast('Sign in to reply to comments.');
+            this.toggleAuthModal(true, 'signup');
+            return;
+        }
+        if (!commentId || String(commentId).startsWith('c_')) return;
+        this.state._replyTo = { id: commentId, author: authorName || 'comment' };
+        this.updateComposerReplyUI();
+        const input = document.getElementById('comment-input');
+        if (input) input.focus();
+    },
+
+    cancelReply() {
+        this.state._replyTo = null;
+        this.updateComposerReplyUI();
+    },
+
+    updateComposerReplyUI() {
+        const pill = document.getElementById('reply-to-pill');
+        const label = document.getElementById('reply-to-label');
+        if (!pill || !label) return;
+        if (this.state._replyTo) {
+            label.textContent = 'Replying to ' + (this.state._replyTo.author || 'comment');
+            pill.removeAttribute('hidden');
+        } else {
+            pill.setAttribute('hidden', '');
+        }
+    },
+
+    refreshCommunityQuiet() {
+        const { type, id } = this.state.activeContent || {};
+        if (this.state.view === 'details' && type && id) {
+            this.renderCommunitySection(type, id, { quiet: true });
+        } else {
+            this.renderComments({ quiet: true });
+        }
+    },
+
+    reactionRowHtml(c, reactionsMap, authorName) {
+        const me = this.state.authUser?.id;
+        const isCloud = !String(c.id).startsWith('c_');
+        if (!isCloud) return '';
+        const rx = reactionsMap[c.id] || [];
+        const ghosts = rx.filter(r => r.emoji === 'ghost').length;
+        const fires = rx.filter(r => r.emoji === 'fire').length;
+        const mine = rx.find(r => r.user_id === me);
+        const safeId = this.escapeHtml(c.id);
+        return `
+            <div class="comment-reactions-row">
+                <button type="button" class="react-btn ${mine?.emoji === 'ghost' ? 'active' : ''}" aria-pressed="${mine?.emoji === 'ghost'}" title="Haunting" onclick="Alexandria.toggleReaction('${safeId}', 'ghost')">👻 <span class="react-count">${ghosts || ''}</span></button>
+                <button type="button" class="react-btn ${mine?.emoji === 'fire' ? 'active' : ''}" aria-pressed="${mine?.emoji === 'fire'}" title="Heat" onclick="Alexandria.toggleReaction('${safeId}', 'fire')">🔥 <span class="react-count">${fires || ''}</span></button>
+                ${this.state.authUser ? `<button type="button" class="comment-reply-btn" onclick="Alexandria.prepareReply('${safeId}', '${this.escapeHtml(authorName)}')">REPLY</button>` : ''}
+            </div>`;
+    },
+
+    commentCardHtml(c, profileById, safeKey, reactionsMap) {
+        const profile = c.userId ? profileById[c.userId] : null;
+        const authorName = profile ? (profile.nickname || profile.username || c.author || 'Member') : (c.author || 'Member');
+        const initial = (c.author || 'G').charAt(0).toUpperCase();
+        const safeId = this.escapeHtml(c.id);
+        const avatar = c.userId && profile
+            ? `<a class="comment-avatar-link" href="#profile/${this.escapeHtml(c.userId)}" aria-label="${this.escapeHtml(authorName)}">${this.avatarHtml(profile, 38)}</a>`
+            : `<div class="comment-avatar" aria-hidden="true">${initial}</div>`;
+        const authorNode = c.userId
+            ? `<a class="comment-author comment-author-link" href="#profile/${this.escapeHtml(c.userId)}">${this.escapeHtml(authorName)}</a>`
+            : `<span class="comment-author">${this.escapeHtml(authorName)}</span>`;
+        return `
+            <div class="comment-card">
+                ${avatar}
+                <div class="comment-body">
+                    <div class="comment-meta">
+                        ${authorNode}
+                        <span class="comment-time">${this.escapeHtml(this.timeago(c.createdAt))}</span>
+                        ${c.isMine ? `
+                            <button type="button" class="comment-delete-btn" aria-label="Delete comment" title="Delete comment" data-key="${safeKey}" data-id="${safeId}" onclick="Alexandria.deleteComment('${safeKey}', '${safeId}')">✕</button>
+                        ` : ''}
+                    </div>
+                    <p class="comment-text">${c.spoiler ? this.spoilerHtml(this.escapeHtml(c.text)) : this.escapeHtml(c.text)}</p>
+                    ${this.reactionRowHtml(c, reactionsMap, authorName)}
+                </div>
+            </div>`;
+    },
+
+    // Threads: top-level comments render flat; replies nest one level under
+    // their parent (deeper replies flatten into the same indent so threads
+    // never ladder off-screen). Returns {ts, html} entries for time-sorting
+    // with ratings in the merged community list.
+    threadEntries(comments, profileById, safeKey, reactionsMap) {
+        const byId = new Map((comments || []).map(c => [String(c.id), c]));
+        const top = (comments || []).filter(c => !c.parentId || !byId.has(String(c.parentId)));
+        const topSet = new Set(top.map(c => String(c.id)));
+        const anchorOf = new Map();
+        (comments || []).forEach(c => {
+            if (!c.parentId || topSet.has(String(c.id))) return;
+            let p = String(c.parentId);
+            const guard = new Set();
+            while (!topSet.has(p) && byId.has(p) && !guard.has(p)) {
+                guard.add(p);
+                const parent = byId.get(p);
+                p = parent.parentId ? String(parent.parentId) : p;
+            }
+            anchorOf.set(String(c.id), topSet.has(p) ? p : null);
+        });
+        const childrenOf = new Map();
+        (comments || []).forEach(c => {
+            if (!c.parentId || topSet.has(String(c.id))) return;
+            const anchor = anchorOf.get(String(c.id));
+            if (!anchor) return;
+            const arr = childrenOf.get(anchor) || [];
+            arr.push(c);
+            childrenOf.set(anchor, arr);
+        });
+        return top.map(c => {
+            const replies = (childrenOf.get(String(c.id)) || [])
+                .sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
+            let html = this.commentCardHtml(c, profileById, safeKey, reactionsMap);
+            if (replies.length) {
+                html = `<div class="comment-thread">${html}<div class="comment-replies">${replies.map(r => this.commentCardHtml(r, profileById, safeKey, reactionsMap)).join('')}</div></div>`;
+            }
+            return { ts: new Date(c.createdAt || 0).getTime(), html };
+        });
+    },
+
+    threadHtml(comments, profileById, safeKey, reactionsMap) {
+        return this.threadEntries(comments, profileById, safeKey, reactionsMap).map(e => e.html).join('');
+    },
+
     async addComment() {
         if (!this.state.authUser) {
             this.showToast('Please sign in or create an account to post comments.');
@@ -199,6 +392,7 @@ export const comments = {
         const nickname = u.user_metadata?.username || u.email?.split('@')[0] || sessionStorage.getItem('alexandria_nickname') || 'Member';
 
         const spoilerBox = document.getElementById('comment-spoiler');
+        const replyTo = this.state._replyTo || null;
         const commentObj = {
             id: 'c_' + Date.now() + '_' + Math.random().toString(36).substring(2, 6),
             key,
@@ -206,7 +400,8 @@ export const comments = {
             text,
             createdAt: new Date().toISOString(),
             isMine: true,
-            spoiler: spoilerBox ? spoilerBox.checked : false
+            spoiler: spoilerBox ? spoilerBox.checked : false,
+            parentId: replyTo ? replyTo.id : null
         };
 
         let cloudPosted = false;
@@ -227,8 +422,10 @@ export const comments = {
         }
 
         input.value = '';
+        this.state._replyTo = null;
+        this.updateComposerReplyUI();
         this.refreshCommunity();
-        this.showToast('Comment posted!');
+        this.showToast(replyTo ? 'Reply posted!' : 'Comment posted!');
 
         if (cloudPosted) {
             const tvMatch = /^tv_([0-9]+)/.exec(key);
@@ -304,33 +501,13 @@ export const comments = {
             : 'MOVIE';
 
         const safeKey = this.escapeHtml(key);
-        const rowsHtml = comments.length > 0 ? comments.map(c => {
-            const profile = c.userId ? profileById[c.userId] : null;
-            const authorName = profile ? (profile.nickname || profile.username || c.author || 'Member') : (c.author || 'Member');
-            const initial = (c.author || 'G').charAt(0).toUpperCase();
-            const safeId = this.escapeHtml(c.id);
-            const avatar = c.userId && profile
-                ? `<a class="comment-avatar-link" href="#profile/${this.escapeHtml(c.userId)}" aria-label="${this.escapeHtml(authorName)}">${this.avatarHtml(profile, 38)}</a>`
-                : `<div class="comment-avatar" aria-hidden="true">${initial}</div>`;
-            const authorNode = c.userId
-                ? `<a class="comment-author comment-author-link" href="#profile/${this.escapeHtml(c.userId)}">${this.escapeHtml(authorName)}</a>`
-                : `<span class="comment-author">${this.escapeHtml(authorName)}</span>`;
-            return `
-                <div class="comment-card">
-                    ${avatar}
-                    <div class="comment-body">
-                        <div class="comment-meta">
-                            ${authorNode}
-                            <span class="comment-time">${this.escapeHtml(this.timeago(c.createdAt))}</span>
-                            ${c.isMine ? `
-                                <button type="button" class="comment-delete-btn" aria-label="Delete comment" title="Delete comment" data-key="${safeKey}" data-id="${safeId}" onclick="Alexandria.deleteComment('${safeKey}', '${safeId}')">✕</button>
-                            ` : ''}
-                        </div>
-                        <p class="comment-text">${c.spoiler ? this.spoilerHtml(this.escapeHtml(c.text)) : this.escapeHtml(c.text)}</p>
-                    </div>
-                </div>
-            `;
-        }).join('') : `
+        let reactionsMap = {};
+        if (this.supabase) {
+            const cloudIds = (comments || []).filter(c => !String(c.id).startsWith('c_')).map(c => c.id);
+            reactionsMap = await this.fetchReactions(cloudIds);
+            if (token !== this._renderToken) return;
+        }
+        const rowsHtml = comments.length > 0 ? this.threadHtml(comments, profileById, safeKey, reactionsMap) : `
             <div class="placeholder-msg comments-empty">No comments yet. Be the first to start the discussion for ${scopeBadge}!</div>
         `;
 
@@ -349,6 +526,10 @@ export const comments = {
 
                 ${isLoggedIn ? `
                     <div class="comments-composer">
+                        <div class="reply-to-pill" id="reply-to-pill" hidden>
+                            <span id="reply-to-label"></span>
+                            <button type="button" class="reply-to-cancel" aria-label="Cancel reply" onclick="Alexandria.cancelReply()">✕</button>
+                        </div>
                         <textarea id="comment-input" placeholder="Share your thoughts on this episode or movie..." maxlength="500" rows="3"></textarea>
                         <div class="comments-composer-footer">
                             <label class="spoiler-toggle" title="Blurs the comment until someone clicks it">
@@ -378,6 +559,7 @@ export const comments = {
             </div>
         `;
         if (draft) this.restoreCommentDraft(draft);
+        this.updateComposerReplyUI();
     },
 
     setupCommentsRealtime(key) {
@@ -386,6 +568,10 @@ export const comments = {
         if (this.commentsChannel) {
             this.supabase.removeChannel(this.commentsChannel);
             this.commentsChannel = null;
+        }
+        if (this.reactionsChannel) {
+            this.supabase.removeChannel(this.reactionsChannel);
+            this.reactionsChannel = null;
         }
         this.commentsChannel = this.supabase.channel('comments_' + key);
         this.commentsChannel
@@ -405,6 +591,17 @@ export const comments = {
                 }
             })
             .subscribe();
+        this.reactionsChannel = this.supabase.channel('reactions_' + key);
+        const onReaction = payload => {
+            const row = payload.new || payload.old;
+            if (!row || !row.comment_key) return;
+            if (row.comment_key !== key && !row.comment_key.startsWith(key + '_')) return;
+            this.refreshCommunityQuiet();
+        };
+        this.reactionsChannel
+            .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'comment_reactions' }, onReaction)
+            .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'comment_reactions' }, onReaction)
+            .subscribe();
         this._commentsChannelKey = key;
     },
 
@@ -414,6 +611,10 @@ export const comments = {
         }
         this.commentsChannel = null;
         this._commentsChannelKey = null;
+        if (this.reactionsChannel && this.supabase) {
+            this.supabase.removeChannel(this.reactionsChannel);
+        }
+        this.reactionsChannel = null;
     },
 
     // Cipher — spoiler tags. text is expected to be already escaped.
@@ -586,35 +787,14 @@ export const comments = {
         });
         const dedupedComments = (comments || []).filter(c => !c.userId || !reviewByUser.has(c.userId + '\u0000' + c.text));
 
-        const commentEntries = dedupedComments.map(c => {
-            const profile = c.userId ? profileById[c.userId] : null;
-            const authorName = profile ? (profile.nickname || profile.username || c.author || 'Member') : (c.author || 'Member');
-            const initial = (c.author || 'G').charAt(0).toUpperCase();
-            const safeId = this.escapeHtml(c.id);
-            const avatar = c.userId && profile
-                ? `<a class="comment-avatar-link" href="#profile/${this.escapeHtml(c.userId)}" aria-label="${this.escapeHtml(authorName)}">${this.avatarHtml(profile, 38)}</a>`
-                : `<div class="comment-avatar" aria-hidden="true">${initial}</div>`;
-            const authorNode = c.userId
-                ? `<a class="comment-author comment-author-link" href="#profile/${this.escapeHtml(c.userId)}">${this.escapeHtml(authorName)}</a>`
-                : `<span class="comment-author">${this.escapeHtml(authorName)}</span>`;
-            return {
-                ts: new Date(c.createdAt || 0).getTime(),
-                html: `
-                <div class="comment-card">
-                    ${avatar}
-                    <div class="comment-body">
-                        <div class="comment-meta">
-                            ${authorNode}
-                            <span class="comment-time">${this.escapeHtml(this.timeago(c.createdAt))}</span>
-                            ${c.isMine ? `
-                                <button type="button" class="comment-delete-btn" aria-label="Delete comment" title="Delete comment" data-key="${safeKey}" data-id="${safeId}" onclick="Alexandria.deleteComment('${safeKey}', '${safeId}')">✕</button>
-                            ` : ''}
-                        </div>
-                        <p class="comment-text">${c.spoiler ? this.spoilerHtml(this.escapeHtml(c.text)) : this.escapeHtml(c.text)}</p>
-                    </div>
-                </div>
-            `};
-        });
+        let reactionsMap = {};
+        if (this.supabase) {
+            const cloudIds = dedupedComments.filter(c => !String(c.id).startsWith('c_')).map(c => c.id);
+            reactionsMap = await this.fetchReactions(cloudIds);
+            if (token !== this._renderToken) return;
+        }
+
+        const commentEntries = this.threadEntries(dedupedComments, profileById, safeKey, reactionsMap);
 
         const mergedHtml = [...ratingEntries, ...commentEntries]
             .sort((a, b) => b.ts - a.ts)

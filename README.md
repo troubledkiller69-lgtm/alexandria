@@ -1,6 +1,6 @@
 # Alexandria
 
-A streaming archive with opinions. Movies, TV, anime, and whole franchises in one dark, fast, single-page app. No frameworks, no build step — one `index.html`, one stylesheet, and a 7,700-line `script.js` that runs the whole thing.
+A streaming archive with opinions. Movies, TV, anime, and whole franchises in one dark, fast, single-page app. No frameworks, no build step — one `index.html`, one stylesheet, and 17 ES modules under `js/` that run the whole thing.
 
 ## What's under the hood
 

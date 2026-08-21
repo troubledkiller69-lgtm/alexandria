@@ -383,6 +383,9 @@ export const core = {
         console.log("Alexandria Protocol: Initializing Handshake...");
         this.bindSecurityGuard();
         this.bindPopupGuard();
+        if ('serviceWorker' in navigator && location.protocol === 'https:') {
+            navigator.serviceWorker.register('/sw.js').catch(() => {});
+        }
         // #region agent log
         this._dbg('E', 'script.js:init', 'app boot', { href: typeof location !== 'undefined' ? location.href : null });
         // #endregion

@@ -6202,3 +6202,101 @@ h1, h2, h3, h4 {
     .watchlist-toolbar-filters .filter-btn { flex: 0 0 auto; }
     .watchlist-toolbar-actions { width: 100%; justify-content: space-between; }
 }
+
+/* Comment reactions & reply threading */
+.comment-reactions-row {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-top: 0.55rem;
+}
+
+.react-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 999px;
+    color: var(--text-secondary);
+    font-family: var(--font-body);
+    font-size: 0.78rem;
+    padding: 0.2rem 0.6rem;
+    cursor: pointer;
+    transition: border-color 0.15s ease, color 0.15s ease, background 0.15s ease;
+}
+
+.react-btn:hover {
+    border-color: rgba(255, 255, 255, 0.28);
+}
+
+.react-btn.active {
+    background: rgba(212, 175, 55, 0.12);
+    border-color: rgba(212, 175, 55, 0.5);
+    color: var(--accent-gold);
+}
+
+.react-count {
+    font-weight: 700;
+    color: inherit;
+}
+
+.comment-reply-btn {
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    cursor: pointer;
+    padding: 0.2rem 0.3rem;
+}
+
+.comment-reply-btn:hover {
+    color: var(--accent-gold);
+}
+
+.comment-thread {
+    display: flex;
+    flex-direction: column;
+}
+
+.comment-replies {
+    margin-left: 3.4rem;
+    padding-left: 0.9rem;
+    border-left: 2px solid rgba(212, 175, 55, 0.25);
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    margin-top: 0.75rem;
+}
+
+.reply-to-pill {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    background: rgba(212, 175, 55, 0.08);
+    border: 1px solid rgba(212, 175, 55, 0.35);
+    color: var(--accent-gold);
+    font-size: 0.75rem;
+    font-weight: 600;
+    border-radius: 4px;
+    padding: 0.3rem 0.6rem;
+    margin-bottom: 0.5rem;
+}
+
+.reply-to-cancel {
+    background: none;
+    border: none;
+    color: var(--accent-gold);
+    cursor: pointer;
+    font-size: 0.8rem;
+    padding: 0;
+}
+
+@media (max-width: 620px) {
+    .comment-replies {
+        margin-left: 1.2rem;
+        padding-left: 0.6rem;
+    }
+}

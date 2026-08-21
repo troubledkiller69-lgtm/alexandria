@@ -47,6 +47,16 @@ export const auth = {
     // ============ WHAT'S NEW — changelog bell ============
     CHANGELOG: [
         {
+            key: 'v1.9.4',
+            date: 'Aug 21, 2026',
+            title: 'Reactions, Replies, and a Leaner Core',
+            items: [
+                'Comment reactions: hit a comment with a ghost or a fire, one per user, counts live-update over realtime',
+                'Reply threading: REPLY under any comment, replies nest under their parent with a gold thread line',
+                'The whole client was split from one 7,700-line file into 17 ES modules — faster loads and way easier maintenance'
+            ]
+        },
+        {
             key: 'v1.9.3',
             date: 'Aug 21, 2026',
             title: 'Community Page Rebuild',
