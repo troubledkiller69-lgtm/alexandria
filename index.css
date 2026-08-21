@@ -6306,64 +6306,93 @@ h1, h2, h3, h4 {
     }
 }
 
-/* Netflix-style search page */
+/* Search page — flush with the surface, site-native controls */
 .modern-search .search-input-container {
-    max-width: 760px;
-    margin: 0 auto 1rem;
-    border-radius: 8px;
-    background: rgba(255, 255, 255, 0.05);
-    border: 1px solid rgba(255, 255, 255, 0.12);
-    transition: border-color 0.2s ease, background 0.2s ease, box-shadow 0.2s ease;
+    max-width: none;
+    margin: 0;
+    border: none;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 0;
+    background: transparent;
+    padding: 0;
+    transition: border-color 0.25s ease;
 }
 
 .modern-search .search-input-container:focus-within {
-    background: rgba(255, 255, 255, 0.07);
-    border-color: rgba(255, 255, 255, 0.28);
-    box-shadow: 0 0 0 3px rgba(212, 175, 55, 0.12);
+    background: transparent;
+    border-color: rgba(212, 175, 55, 0.6);
+    box-shadow: 0 10px 18px -16px rgba(212, 175, 55, 0.6);
 }
 
 .modern-search .search-input-container input {
-    font-size: 1.05rem;
-    padding: 1.05rem 3.2rem;
+    font-size: 1.5rem;
+    padding: 1.4rem 0 1.25rem;
+    font-family: var(--font-display);
+    letter-spacing: 0.03em;
 }
 
-.modern-search .search-filters { gap: 0.4rem; }
+.modern-search .search-input-container input::placeholder {
+    text-transform: uppercase;
+    letter-spacing: 0.16em;
+    font-size: 0.8rem;
+}
+
+.modern-search .search-icon {
+    margin-right: 1.2rem;
+}
+
+.modern-search .search-filters {
+    gap: 1.5rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    width: 100%;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+}
 
 .modern-search .filter-btn {
-    border-radius: 999px;
-    padding: 0.4rem 1.15rem;
-    border: 1px solid rgba(255, 255, 255, 0.14);
-    background: rgba(255, 255, 255, 0.04);
-    color: var(--text-secondary);
-    font-size: 0.8rem;
-    font-weight: 600;
-    letter-spacing: 0.04em;
-    transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+    height: auto;
+    min-height: 0;
+    flex: 0 0 auto;
+    background: none;
+    border: none;
+    border-bottom: 2px solid transparent;
+    border-radius: 0;
+    padding: 0.75rem 0.15rem;
+    color: var(--text-muted);
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    transition: color 0.15s ease, border-color 0.15s ease;
 }
 
 .modern-search .filter-btn:hover {
-    border-color: rgba(255, 255, 255, 0.3);
+    background: none;
+    border-color: transparent;
     color: var(--text-primary);
 }
 
 .modern-search .filter-btn.active {
-    background: #8a0303;
-    border-color: #8a0303;
-    color: #fff;
+    background: none;
+    border-color: #ef4444;
+    color: var(--text-primary);
+    box-shadow: none;
 }
 
 .modern-search .roulette-btn {
-    border-radius: 999px;
-    border: 1px solid rgba(212, 175, 55, 0.4);
+    border-radius: 4px;
+    border: 1px solid rgba(212, 175, 55, 0.45);
     color: var(--accent-gold);
-    background: rgba(212, 175, 55, 0.08);
-    padding: 0.4rem 1.15rem;
+    background: transparent;
+    padding: 0.45rem 1.1rem;
     font-weight: 700;
-    letter-spacing: 0.08em;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    font-size: 0.78rem;
 }
 
 .modern-search .roulette-btn:hover {
-    background: rgba(212, 175, 55, 0.16);
+    background: rgba(212, 175, 55, 0.1);
 }
 
 .search-context-label {
@@ -6407,11 +6436,14 @@ h1, h2, h3, h4 {
     display: inline-flex;
     align-items: center;
     gap: 0.5rem;
-    background: rgba(255, 255, 255, 0.05);
+    background: rgba(255, 255, 255, 0.04);
     border: 1px solid rgba(255, 255, 255, 0.12);
-    border-radius: 999px;
+    border-radius: 3px;
     color: var(--text-secondary);
-    font-size: 0.78rem;
+    font-family: var(--font-display);
+    font-size: 0.7rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
     padding: 0.3rem 0.85rem;
     cursor: pointer;
     transition: border-color 0.15s ease, color 0.15s ease, background 0.15s ease;

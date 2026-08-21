@@ -52,7 +52,7 @@ export const auth = {
             title: 'Letterboxd Import & Netflix-Style Search',
             items: [
                 'Import your Letterboxd export CSV (watched.csv or watchlist.csv) through the sidebar Import Lists button — titles are matched against TMDB, watchlist and ratings sync to your account',
-                'Search page rebuilt: big centered search bar, pill filters, TRENDING NOW / RESULTS headers',
+                'Search page rebuilt: full-width flush search bar, underline type tabs, TRENDING NOW / RESULTS headers',
                 'Recent searches appear as chips on the search page — click to re-run, ✕ to forget, CLEAR to wipe',
                 'Roulette got a gold pill treatment in the search toolbar'
             ]
