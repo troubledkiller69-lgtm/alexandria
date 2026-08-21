@@ -231,6 +231,7 @@ export const router = {
             if (w.querySelector('.trailer-preview')) return;
             this._trailerTimers.set(w, setTimeout(() => {
                 this._trailerTimers.delete(w);
+                if (!w.isConnected || !w.matches(':hover')) return;
                 this.loadTrailerPreview(w);
             }, 650));
         });
@@ -243,7 +244,33 @@ export const router = {
             if (t) { clearTimeout(t); this._trailerTimers.delete(w); }
             const f = w.querySelector('.trailer-preview');
             if (f) f.remove();
+            w.classList.remove('trailer-playing');
         });
+
+        // Scrolling moves cards under a stationary pointer without firing
+        // mouseout, so previews kept playing after you scrolled away. Sweep
+        // previews (and pending hover timers) whose card is no longer under
+        // the pointer on any scroll, including inner carousels (capture).
+        window.addEventListener('scroll', () => {
+            clearTimeout(this._scrollPreviewCleanup);
+            this._scrollPreviewCleanup = setTimeout(() => {
+                this.main.querySelectorAll('.trailer-preview').forEach(f => {
+                    const w = f.closest('.poster-wrapper');
+                    if (w && !w.matches(':hover')) {
+                        f.remove();
+                        w.classList.remove('trailer-playing');
+                    }
+                });
+                if (this._trailerTimers) {
+                    this._trailerTimers.forEach((t, w) => {
+                        if (!w.isConnected || !w.matches(':hover')) {
+                            clearTimeout(t);
+                            this._trailerTimers.delete(w);
+                        }
+                    });
+                }
+            }, 120);
+        }, { capture: true, passive: true });
 
     },
 

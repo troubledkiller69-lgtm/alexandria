@@ -480,6 +480,7 @@ export const search = {
         if (this._trailerCache[cacheKey] === false) return;
         if (typeof this._trailerCache[cacheKey] === 'string') {
             w.insertAdjacentHTML('beforeend', trailerFrame(this._trailerCache[cacheKey]));
+            w.classList.add('trailer-playing');
             return;
         }
         if (this._trailerInflight >= 2) return;
@@ -489,7 +490,10 @@ export const search = {
             const list = (data.videos && data.videos.results) || data.results || [];
             const v = list.find(x => x.site === 'YouTube' && (x.type === 'Trailer' || x.type === 'Teaser') && x.key && x.key.length >= 6 && x.key.length <= 20 && /^[a-zA-Z0-9_-]+$/.test(x.key));
             this._trailerCache[cacheKey] = v ? v.key : false;
-            if (v && w.isConnected && !w.querySelector('.trailer-preview')) w.insertAdjacentHTML('beforeend', trailerFrame(v.key));
+            if (v && w.isConnected && w.matches(':hover') && !w.querySelector('.trailer-preview')) {
+                w.insertAdjacentHTML('beforeend', trailerFrame(v.key));
+                w.classList.add('trailer-playing');
+            }
         }).catch(() => { this._trailerInflight--; });
 
         function trailerFrame(key) {
