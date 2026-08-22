@@ -6528,3 +6528,56 @@ h1, h2, h3, h4 {
     font-size: 0.72rem;
     border-radius: 4px;
 }
+
+/* ---- DUB / SUB pill (player server controls) ---- */
+.audio-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 0;
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    border-radius: 999px;
+    overflow: hidden;
+    background: rgba(255, 255, 255, 0.04);
+}
+.audio-opt {
+    appearance: none;
+    border: none;
+    background: transparent;
+    color: var(--text-secondary, #9aa0a6);
+    font-size: 0.68rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    padding: 0.32rem 0.85rem;
+    cursor: pointer;
+    transition: background 0.15s ease, color 0.15s ease;
+}
+.audio-opt:hover { color: var(--text-primary, #fff); }
+.audio-opt.active {
+    background: #8a0303;
+    color: #fff;
+}
+.audio-opt:focus-visible {
+    outline: 2px solid rgba(138, 3, 3, 0.7);
+    outline-offset: -2px;
+}
+
+/* ---- Dub availability badge (details meta row) ---- */
+.dub-badge {
+    font-size: 0.66rem;
+    font-weight: 800;
+    letter-spacing: 0.1em;
+    padding: 0.22rem 0.55rem;
+    border-radius: 4px;
+    border: 1px solid rgba(16, 185, 129, 0.45);
+    color: #34d399;
+}
+.dub-badge.dub-unknown {
+    border-color: rgba(245, 158, 11, 0.4);
+    color: #fbbf24;
+}
+
+.roulette-watchlist-hint {
+    color: var(--text-secondary, #9aa0a6);
+    font-size: 0.78rem;
+    margin: 0.75rem 0 0.25rem;
+}

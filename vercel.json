@@ -3,7 +3,9 @@
   "name": "alexandria-archive",
   "cleanUrls": true,
   "rewrites": [
-    { "source": "/share/(movie|tv)/([0-9]+)", "destination": "/api/share?type=$1&id=$2" }
+    { "source": "/share/(movie|tv)/([0-9]+)", "destination": "/api/share?type=$1&id=$2" },
+    { "source": "/share/profile/([A-Za-z0-9_-]+)", "destination": "/api/share?type=profile&id=$1" },
+    { "source": "/share/list/([0-9a-fA-F-]+)", "destination": "/api/share?type=list&id=$1" }
   ],
   "headers": [
     {

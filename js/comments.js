@@ -90,9 +90,9 @@ export const comments = {
         let failed = false;
         for (const entry of entries) {
             try {
+                // author is derived server-side by the comments_set_author trigger.
                 const { error } = await this.supabase.from('comments').insert({
                     comment_key: key,
-                    author: entry.author || 'Member',
                     content: entry.text,
                     user_id: userId,
                     spoiler: !!entry.spoiler
@@ -121,7 +121,6 @@ export const comments = {
                     .from('comments')
                     .insert({
                         comment_key: commentKey,
-                        author: commentObj.author,
                         content: commentObj.text,
                         user_id: this.state.authUser.id,
                         spoiler: !!commentObj.spoiler,

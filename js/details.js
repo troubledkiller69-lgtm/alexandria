@@ -94,6 +94,7 @@ export const details = {
                                     ${this.ratingsHtml(tmdbScore)}
                                     ${imdbBadge}
                                     <span class="avg-badge" id="details-avg-badge" hidden></span>
+                                    <span class="dub-badge" id="details-dub-badge" hidden></span>
                                     ${runtime ? `<span>${this.escapeHtml(runtime)}</span>` : ''}
                                     ${genres ? `<span>${this.escapeHtml(genres)}</span>` : ''}
                                 </div>
@@ -156,6 +157,36 @@ export const details = {
                 this.renderResults(similarItems, 'similar-results');
             }
             this.renderCommunitySection(type, id);
+
+            // Anime dub/sub availability — probe is Japanese-animation gated,
+            // resolved through the cached /api/anime bridge.
+            const isJaAnime = (data.genres || []).some(g => Number(g.id) === 16)
+                && data.original_language === 'ja';
+            if (isJaAnime && type === 'tv') {
+                const badgeEl = document.getElementById('details-dub-badge');
+                if (badgeEl) {
+                    badgeEl.hidden = false;
+                    badgeEl.textContent = 'ANIME';
+                    badgeEl.classList.add('dub-unknown');
+                }
+                this.resolveAnime(Number(id)).then(info => {
+                    if (token !== this._renderToken) return;
+                    const b = document.getElementById('details-dub-badge');
+                    if (!b) return;
+                    if (info.dubAvailable === true) {
+                        b.textContent = 'DUB AVAILABLE';
+                        b.classList.remove('dub-unknown');
+                    } else if (info.dubAvailable === false) {
+                        b.textContent = 'SUB ONLY';
+                    } else {
+                        b.textContent = 'ANIME';
+                    }
+                }).catch(() => {
+                    if (token !== this._renderToken) return;
+                    const b = document.getElementById('details-dub-badge');
+                    if (b) b.hidden = true;
+                });
+            }
         } catch(e) {
             console.error("Alexandria Protocol: Details Render Failed", e);
             if (token === this._renderToken) this.renderError('This title could not be decrypted', e.message, 'details');

@@ -133,6 +133,7 @@ export const profiles = {
                         </div>
                         <div class="profile-hero-actions">
                             ${followBtn}
+                            <button type="button" class="btn-secondary" onclick="Alexandria.shareCurrent('${this.escapeHtml(displayName)} on Alexandria')">SHARE</button>
                             ${editBtn}
                         </div>
                     </div>

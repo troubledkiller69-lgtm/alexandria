@@ -1,0 +1,33 @@
+{
+    "name": "Alexandria — Movie & TV Archive",
+    "short_name": "Alexandria",
+    "description": "Discover movies, television, anime, and cinematic franchises in the Alexandria archive.",
+    "start_url": "/",
+    "scope": "/",
+    "display": "standalone",
+    "orientation": "any",
+    "background_color": "#050607",
+    "theme_color": "#050607",
+    "icons": [
+        {
+            "src": "/logo.png",
+            "sizes": "374x86",
+            "type": "image/png",
+            "purpose": "any"
+        }
+    ],
+    "shortcuts": [
+        {
+            "name": "Search the archive",
+            "url": "/#search"
+        },
+        {
+            "name": "My watchlist",
+            "url": "/#watchlist"
+        },
+        {
+            "name": "Franchises",
+            "url": "/#franchises"
+        }
+    ]
+}

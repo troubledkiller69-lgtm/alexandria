@@ -3,7 +3,8 @@ const CACHE = 'alexandria-shell-v1';
 const SHELL = [
     '/',
     '/index.html',
-    '/logo.png'
+    '/logo.png',
+    '/manifest.json'
 ];
 
 self.addEventListener('install', event => {

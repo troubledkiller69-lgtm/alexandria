@@ -37,7 +37,7 @@ export const sharedlists = {
                             </div>
                         </div>
                         <div class="list-hero-actions">
-                            <button type="button" class="btn-secondary" onclick="Alexandria.copyListLink()">COPY LINK</button>
+                            <button type="button" class="btn-secondary" onclick="Alexandria.copyListLink()">SHARE LIST</button>
                             ${isOwner ? `
                             <button type="button" class="btn-secondary" onclick="Alexandria.editListMode()">EDIT</button>
                             <button type="button" class="btn-secondary list-delete-btn" onclick="Alexandria.deleteCurrentList()">DELETE LIST</button>` : ''}
@@ -259,7 +259,12 @@ export const sharedlists = {
     },
 
     async copyListLink() {
-        const url = window.location.href;
+        // Shares the pretty /share/list/... card link (OG tags for Discord &
+        // Telegram unfurls) with the raw hash URL as fallback.
+        const listId = this.state.activeListId;
+        const url = (listId && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(listId))
+            ? this.shareUrlFor('list', listId)
+            : window.location.href;
         if (await this.copyText(url)) this.showToast('Link copied');
         else this.showToast('Copy the address bar URL');
     },

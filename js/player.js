@@ -1,9 +1,17 @@
 export const player = {
     async renderPlayer() {
         const { id, type, season, episode, isAnime } = this.state.activeContent;
+        const animeMode = type === 'tv' && Boolean(isAnime);
+        // Anime-only mirrors make no sense outside anime playback.
+        if (!animeMode && this.servers[this.state.activeServer]?.animeOnly) {
+            this.state.activeServer = this.servers.findIndex(s => !s.animeOnly);
+            if (this.state.activeServer < 0) this.state.activeServer = 0;
+        }
         if (!this.servers[this.state.activeServer]) this.state.activeServer = 0;
         const server = this.servers[this.state.activeServer];
-        const embedUrl = this.buildEmbedUrl(this.state.activeServer);
+        const needsResolve = animeMode && Boolean(server?.animeOnly);
+        const embedUrl = needsResolve ? '' : this.buildEmbedUrl(this.state.activeServer);
+        const dub = this.readAudioPref() === 'dub';
 
         this._triedServers = new Set([this.state.activeServer]);
         this._serverHealthy = false;
@@ -16,13 +24,20 @@ export const player = {
                         <div class="server-controls">
                             <label class="server-label" for="server-selector">SERVER <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"></polyline></svg></label>
                             <select id="server-selector" class="server-select-dropdown" onchange="Alexandria.handleServerChange(this.value)">
-                                ${this.servers.map((s, i) => `<option value="${i}" ${i === this.state.activeServer ? 'selected' : ''}>${s.name}</option>`).join('')}
+                                ${this.servers.map((s, i) => (animeMode || !s.animeOnly)
+                                    ? `<option value="${i}" ${i === this.state.activeServer ? 'selected' : ''}>${s.name}</option>`
+                                    : '').join('')}
                             </select>
                             <button type="button" class="btn-secondary server-next-btn" onclick="Alexandria.failoverToNextServer(true)" title="Try the next mirror">NEXT SERVER</button>
+                            ${animeMode ? `
+                            <div class="audio-pill" id="audio-pill" role="group" aria-label="Audio track">
+                                <button type="button" class="audio-opt ${dub ? 'active' : ''}" aria-pressed="${dub}" onclick="Alexandria.setAudioPref(true)">DUB</button>
+                                <button type="button" class="audio-opt ${dub ? '' : 'active'}" aria-pressed="${!dub}" onclick="Alexandria.setAudioPref(false)">SUB</button>
+                            </div>` : ''}
                             <span id="server-status" class="server-status" aria-live="polite">Connecting to ${this.escapeHtml(server.name)}…</span>
                         </div>
                         <div class="player-frame-container">
-                            <iframe id="video-iframe" title="Alexandria video player" src="${embedUrl}" width="100%" height="100%" scrolling="no" ${this.playerIframeFlags()}></iframe>
+                            <iframe id="video-iframe" title="Alexandria video player" src="${embedUrl || 'about:blank'}" width="100%" height="100%" scrolling="no" ${this.playerIframeFlags()}></iframe>
                         </div>
                     </div>
                     ${type === 'tv' ? `
@@ -48,6 +63,7 @@ export const player = {
         this.prepareResumeSeek();
         this.armFailoverWatch(server);
         this.scheduleEmbedTheme(document.getElementById('video-iframe'));
+        if (needsResolve) this.hydrateAnimeEmbed();
         this.renderComments();
 
         try {
@@ -130,20 +146,24 @@ export const player = {
         }
 
         // Auto-timeout stays on EmbedMaster mirrors only (supportsApi).
-        // Manual NEXT SERVER can still hop to VidSrc / EmbedSU.
+        // Manual NEXT SERVER can still hop to VidSrc / EmbedSU / anime mirrors.
         const preferApiOnly = !manual;
+        const isAnimeMode = this.state.view === 'player'
+            && this.state.activeContent?.type === 'tv'
+            && Boolean(this.state.activeContent?.isAnime);
         let next = (this.state.activeServer + 1) % total;
         let hops = 0;
         while (hops < total) {
             const candidate = this.servers[next];
-            const allowed = !preferApiOnly || candidate?.supportsApi;
+            const visible = !candidate.animeOnly || isAnimeMode;
+            const allowed = visible && (!preferApiOnly || candidate.supportsApi);
             if (allowed && !this._triedServers.has(next)) break;
             next = (next + 1) % total;
             hops += 1;
         }
 
         const nextServer = this.servers[next];
-        const nextAllowed = !preferApiOnly || nextServer?.supportsApi;
+        const nextAllowed = (!nextServer.animeOnly || isAnimeMode) && (!preferApiOnly || nextServer.supportsApi);
         if (!nextAllowed || this._triedServers.has(next) || hops >= total) {
             this.clearFailoverWatch();
             if (preferApiOnly) {
@@ -166,6 +186,52 @@ export const player = {
         const idx = Number.parseInt(value, 10);
         if (!Number.isInteger(idx) || !this.servers[idx]) return null;
         return idx;
+    },
+
+    // ---- Anime mirrors (AniList-backed) ----
+
+    async hydrateAnimeEmbed() {
+        const server = this.servers[this.state.activeServer];
+        const { id, episode } = this.state.activeContent || {};
+        if (!server?.animeOnly) return;
+        const frame = document.getElementById('video-iframe');
+        if (frame && !frame.src.startsWith('about:')) frame.src = 'about:blank';
+        this.setServerStatus(`Resolving AniList ID · ${server.name}…`);
+        try {
+            const info = await this.resolveAnime(id);
+            const dub = this.readAudioPref() === 'dub';
+            const externalId = server.animeSource === 'anilist' ? info.anilistId : id;
+            const url = server.getAnime(externalId, Number(episode) || 1, dub);
+            if (this.state.view !== 'player') return;
+            const live = document.getElementById('video-iframe');
+            if (live && live !== frame) { /* frame replaced mid-flight */ }
+            if (live) {
+                live.src = url;
+                this.scheduleEmbedTheme(live);
+            }
+            this.setServerStatus(
+                info.dubAvailable === false ? `Sub only on this mirror · ${server.name}` : `Loaded · ${server.name}${dub ? ' · DUB' : ''}`
+            );
+        } catch (e) {
+            if (this.state.view !== 'player') return;
+            this.setServerStatus('Anime lookup failed.');
+            this.showToast(e.message || 'Could not resolve this anime — try another server.');
+        }
+    },
+
+    async setAudioPref(dub) {
+        this.writeAudioPref(dub ? 'dub' : 'sub');
+        document.querySelectorAll('#audio-pill .audio-opt').forEach(btn => {
+            const isDubBtn = btn.textContent.trim() === 'DUB';
+            btn.classList.toggle('active', isDubBtn === dub);
+            btn.setAttribute('aria-pressed', String(isDubBtn === dub));
+        });
+        const server = this.servers[this.state.activeServer];
+        if (server?.animeOnly) {
+            await this.hydrateAnimeEmbed();
+        } else if (this.state.activeContent?.isAnime) {
+            this.showToast(dub ? 'DUB saved — switch to an Anime server to use it.' : 'SUB saved — switch to an Anime server to use it.');
+        }
     },
 
     // Host + guest must share the exact same embed URL for a given content + serverIndex.
@@ -201,7 +267,10 @@ export const player = {
         else this._triedServers?.add(serverIndex);
 
         const server = this.servers[this.state.activeServer];
-        const embedUrl = this.buildEmbedUrl(serverIndex);
+        // Anime mirrors resolve asynchronously — the iframe waits on about:blank.
+        const embedUrl = (server.animeOnly && this.state.view === 'player')
+            ? ''
+            : this.buildEmbedUrl(serverIndex);
 
         const selector = document.getElementById('server-selector');
         if (selector) selector.value = String(serverIndex);
@@ -213,11 +282,12 @@ export const player = {
             this._partyFrameReloading = true;
             this._partyEmbedHealthy = false;
         }
-        if (iframe) iframe.src = embedUrl;
+        if (iframe) iframe.src = embedUrl || 'about:blank';
 
         if (this.state.view === 'player') {
             this.prepareResumeSeek();
             this.armFailoverWatch(server);
+            if (!embedUrl) this.hydrateAnimeEmbed();
         } else if (this.state.view === 'party') {
             this.onPartyServerSwitched(server);
         } else {
@@ -500,6 +570,10 @@ export const player = {
         if (this._soloEmbedListener) return;
         this._soloEmbedListener = (event) => {
             if (this.state.view !== 'player') return;
+            // Only accept messages from our own embed frame — payload shape
+            // alone is spoofable by any other window on the page.
+            const frame = document.getElementById('video-iframe');
+            if (frame?.contentWindow && event.source !== frame.contentWindow) return;
             const data = event.data;
             if (!data || typeof data !== 'object') return;
 

@@ -14,42 +14,37 @@ export const storage = {
             if (this.supabase && this.state.authUser) {
                 const uid = this.state.authUser.id;
                 try {
-                    const { data: dbWatchlist } = await this.supabase
-                        .from('survival_cache')
-                        .select('*')
-                        .eq('user_id', uid);
-                    if (Array.isArray(dbWatchlist) && dbWatchlist.length > 0) {
-                        const cloudList = dbWatchlist.map(w => ({
-                            id: w.tmdb_id,
-                            type: w.media_type,
-                            title: w.title,
-                            poster_path: w.poster_path,
-                            status: w.status || 'want',
-                            watched_at: w.watched_at || null
-                        }));
-                        // Local first: changes made on this device (even signed out)
-                        // win over the cloud copy; fresh devices still inherit the cloud.
-                        localWatchlist = this.dedupeItems([...localWatchlist, ...cloudList]);
-                    }
+                    // Three independent reads — fetch them concurrently.
+                const [wlRes, epRes, histRes] = await Promise.all([
+                    this.supabase.from('survival_cache').select('*').eq('user_id', uid),
+                    this.supabase.from('watched_episodes').select('tmdb_id, season, episode').eq('user_id', uid),
+                    this.supabase.from('history').select('*').eq('user_id', uid).order('created_at', { ascending: false })
+                ]);
+                const dbWatchlist = wlRes.data;
+                const dbEpisodes = epRes.data;
+                const dbHistory = histRes.data;
 
-                    const { data: dbEpisodes } = await this.supabase
-                        .from('watched_episodes')
-                        .select('tmdb_id, season, episode')
-                        .eq('user_id', uid);
+                if (Array.isArray(dbWatchlist) && dbWatchlist.length > 0) {
+                    const cloudList = dbWatchlist.map(w => ({
+                        id: w.tmdb_id,
+                        type: w.media_type,
+                        title: w.title,
+                        poster_path: w.poster_path,
+                        status: w.status || 'want',
+                        watched_at: w.watched_at || null
+                    }));
+                    // Local first: changes made on this device (even signed out)
+                    // win over the cloud copy; fresh devices still inherit the cloud.
+                    localWatchlist = this.dedupeItems([...localWatchlist, ...cloudList]);
+                }
 
-                    if (Array.isArray(dbEpisodes)) {
-                        dbEpisodes.forEach(ep => {
-                            localEpisodes[`${ep.tmdb_id}_s${ep.season}e${ep.episode}`] = true;
-                        });
-                    }
+                if (Array.isArray(dbEpisodes)) {
+                    dbEpisodes.forEach(ep => {
+                        localEpisodes[`${ep.tmdb_id}_s${ep.season}e${ep.episode}`] = true;
+                    });
+                }
 
-                    const { data: dbHistory } = await this.supabase
-                        .from('history')
-                        .select('*')
-                        .eq('user_id', uid)
-                        .order('created_at', { ascending: false });
-
-                    if (Array.isArray(dbHistory) && dbHistory.length > 0) {
+                if (Array.isArray(dbHistory) && dbHistory.length > 0) {
                         const cloudHist = dbHistory.map(h => ({
                             id: h.content_id,
                             type: h.type,

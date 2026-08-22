@@ -59,6 +59,23 @@ export const core = {
             supportsApi: false,
             getMovie: id => `https://vidlink.pro/movie/${id}`,
             getTv: (id, s, e) => `https://vidlink.pro/tv/${id}/${s}/${e}`
+        },
+        // Dedicated anime mirrors. `animeSource` declares which ID the builder
+        // consumes: 'anilist' servers need /api/anime to resolve TMDB→AniList
+        // first; 'tmdb' servers can be built immediately.
+        {
+            name: 'MegaPlay Anime',
+            animeOnly: true,
+            animeSource: 'anilist',
+            supportsApi: false,
+            getAnime: (anilistId, ep, dub) => `https://megaplay.buzz/stream/ani/${anilistId}/${ep}/${dub ? 'dub' : 'sub'}`
+        },
+        {
+            name: 'VidSrc Anime',
+            animeOnly: true,
+            animeSource: 'tmdb',
+            supportsApi: false,
+            getAnime: (tmdbId, ep, dub) => `https://vidsrc.cc/v3/embed/anime/tmdb${tmdbId}/${ep}/${dub ? 'dub' : 'sub'}`
         }
     ],
 
@@ -157,7 +174,7 @@ export const core = {
     isTrustedEmbedOrigin(origin) {
         try {
             const host = new URL(origin).hostname;
-            const trusted = ['embedmaster.link', 'embdmstrplayer.com', 'vidsrcme.ru', 'vsembed.ru', 'vidsrc.cc', 'vidsrc.me', 'vidsrc.to', 'vidsrc.net', 'vsrc.su', 'vidlink.pro', 'autoembed.co', 'embed.su'];
+            const trusted = ['embedmaster.link', 'embdmstrplayer.com', 'vidsrcme.ru', 'vsembed.ru', 'vidsrc.cc', 'vidsrc.me', 'vidsrc.to', 'vidsrc.net', 'vsrc.su', 'vidlink.pro', 'autoembed.co', 'embed.su', 'megaplay.buzz'];
             return trusted.some(d => host === d || host.endsWith('.' + d));
         } catch {
             return false;
@@ -391,8 +408,9 @@ export const core = {
         // #endregion
         this.main = document.getElementById('content');
         
-        // Start loading sequence immediately
-        const loadingPromise = this.simulateLoading();
+        // Loading screen is cosmetic only — it cycles status text but never
+        // gates boot; the app reveals as soon as real work finishes.
+        this.runLoadingTheater();
 
         await this.syncFromCloud();
 
@@ -412,7 +430,8 @@ export const core = {
             console.error("Alexandria Protocol: Background Init Failed -", e);
         });
 
-        await Promise.all([loadingPromise, networkPromise]);
+        await networkPromise;
+        this.revealApp();
 
         // Once a session, clear stale community noise (comments, follows, list
         // events) older than 24h. Watching/rating/review rows are kept — the
@@ -431,6 +450,7 @@ export const core = {
         const fileInput = document.getElementById('import-lists-file');
         document.getElementById('import-lists-btn')?.addEventListener('click', () => fileInput?.click());
         fileInput?.addEventListener('change', (event) => this.importLists(event));
+        document.getElementById('import-anilist-btn')?.addEventListener('click', () => this.importAniListFlow());
     },
 
     exportLists() {
@@ -621,16 +641,14 @@ export const core = {
                 status: m.watched ? 'watched' : 'want',
                 watched_at: m.watched ? now : null
             }));
-            const chunk = async (arr) => {
-                for (const row of arr) {
-                    try {
-                        const { error } = await this.supabase.from('survival_cache').upsert(row, { onConflict: 'user_id,tmdb_id,media_type' });
-                        if (!error) cloudCount++;
-                    } catch { /* keep going */ }
-                }
-            };
-            for (let i = 0; i < rowsToUpsert.length; i += 15) {
-                await chunk(rowsToUpsert.slice(i, i + 15));
+            // Batched upserts — one round trip per slice instead of per row.
+            for (let i = 0; i < rowsToUpsert.length; i += 50) {
+                const slice = rowsToUpsert.slice(i, i + 50);
+                try {
+                    const { error } = await this.supabase.from('survival_cache')
+                        .upsert(slice, { onConflict: 'user_id,tmdb_id,media_type' });
+                    if (!error) cloudCount += slice.length;
+                } catch { /* keep going */ }
             }
             for (const m of matched) {
                 if (!m.rating) continue;
@@ -654,6 +672,190 @@ export const core = {
         }
         if (isWatchlistFile && this.state.view !== 'watchlist') {
             this.setView('watchlist');
+        }
+    },
+
+    // ---- AniList import: pull a public AniList anime list into Alexandria ----
+
+    async importAniListFlow() {
+        if (!this.supabase || !this.state.authUser) {
+            this.toggleAuthModal(true, 'login');
+            this.showToast('Sign in to import your AniList.');
+            return;
+        }
+        let modal = document.getElementById('anilist-import-modal');
+        if (!modal) {
+            modal = document.createElement('div');
+            modal.id = 'anilist-import-modal';
+            modal.className = 'profile-modal-overlay';
+            modal.innerHTML = `
+                <div class="profile-modal-card">
+                    <button class="auth-close-btn" type="button" aria-label="Close" onclick="document.getElementById('anilist-import-modal').setAttribute('hidden','')">✕</button>
+                    <h3 class="profile-modal-title">IMPORT FROM ANILIST</h3>
+                    <p style="color: var(--text-secondary); margin-bottom: 1rem;">Pulls your anime list — watching, planning, completed — plus your scores.</p>
+                    <div class="auth-field">
+                        <input type="text" id="anilist-username" placeholder="Your AniList username" maxlength="40" autocomplete="off">
+                    </div>
+                    <div class="profile-modal-actions">
+                        <button type="button" class="btn-secondary" onclick="document.getElementById('anilist-import-modal').setAttribute('hidden','')">CANCEL</button>
+                        <button type="button" class="btn-primary" onclick="Alexandria.runAniListImport()">IMPORT</button>
+                    </div>
+                </div>`;
+            modal.addEventListener('click', e => { if (e.target === modal) modal.setAttribute('hidden', ''); });
+            document.body.appendChild(modal);
+        }
+        modal.removeAttribute('hidden');
+        setTimeout(() => document.getElementById('anilist-username')?.focus(), 50);
+    },
+
+    async fetchAniListList(username) {
+        const query = `
+          query ($name: String) {
+            MediaListCollection(userName: $name, type: ANIME) {
+              lists {
+                entries {
+                  status
+                  score(format: POINT_100)
+                  media { id idMal format title { english romaji } }
+                }
+              }
+            }
+          }`;
+        const res = await fetch('https://graphql.anilist.co', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+            body: JSON.stringify({ query, variables: { name: username } })
+        });
+        const body = await res.json().catch(() => null);
+        if (body?.errors?.length) throw new Error(body.errors[0].message || 'AniList rejected that username.');
+        return body?.data?.MediaListCollection?.lists || [];
+    },
+
+    async runAniListImport() {
+        const input = document.getElementById('anilist-username');
+        const username = (input?.value || '').trim();
+        if (!username) { this.showToast('Enter your AniList username.'); return; }
+        document.getElementById('anilist-import-modal')?.setAttribute('hidden', '');
+
+        let lists;
+        try {
+            lists = await this.fetchAniListList(username);
+        } catch (e) {
+            this.showToast(e.message || 'Could not reach AniList.');
+            return;
+        }
+
+        // Flatten + dedupe per AniList id (titles can repeat across custom lists).
+        const STATUS_MAP = {
+            CURRENT: 'watching', REPEATING: 'watching',
+            PLANNING: 'want', PAUSED: 'want', DROPPED: 'want',
+            COMPLETED: 'watched'
+        };
+        const seen = new Map();
+        for (const list of lists) {
+            for (const entry of list.entries || []) {
+                const m = entry.media;
+                if (!m?.id || !m.title) continue;
+                if (seen.has(m.id)) continue;
+                seen.set(m.id, {
+                    anilistId: m.id,
+                    status: STATUS_MAP[entry.status] || 'want',
+                    score: Math.max(0, Number(entry.score) || 0),
+                    title: m.title.english || m.title.romaji || 'Untitled'
+                });
+            }
+        }
+        const entries = [...seen.values()];
+        if (!entries.length) { this.showToast('That AniList has no anime entries.'); return; }
+
+        this.openImportProgress();
+        const total = entries.length;
+        let done = 0;
+        const matched = [];
+        const notFound = [];
+        await this.mapWithConcurrency(entries, 3, async (entry) => {
+            try {
+                const res = await fetch('/api/anime?anilist=' + encodeURIComponent(entry.anilistId));
+                if (!res.ok) throw new Error('miss');
+                const info = await res.json();
+                if (!info?.tmdbId) throw new Error('miss');
+                matched.push({
+                    id: Number(info.tmdbId),
+                    type: info.tmdbType === 'movie' ? 'movie' : 'tv',
+                    title: info.title || entry.title,
+                    poster_path: '',
+                    status: entry.status,
+                    score: entry.score
+                });
+            } catch {
+                notFound.push(entry.title);
+            }
+            done += 1;
+            this.setImportProgress(done, total);
+        });
+        this.closeImportProgress();
+
+        await this.persistAniListMatches(matched);
+        this.showImportResultModal(matched.length, notFound);
+        this.showToast(matched.length
+            ? `AniList: ${matched.length} title${matched.length === 1 ? '' : 's'} imported.`
+            : 'AniList: nothing matched.');
+        if (this.state.view === 'watchlist' || this.state.view === 'home') this.renderWatchlist();
+    },
+
+    async persistAniListMatches(matched) {
+        if (!matched.length) return;
+        const uid = this.state.authUser?.id;
+        const now = new Date().toISOString();
+
+        for (const m of matched) {
+            const exists = this.state.watchlist.find(i => String(i.id) === String(m.id) && i.type === m.type);
+            if (exists) {
+                exists.status = m.status;
+                if (m.status === 'watched') exists.watched_at = now;
+            } else {
+                this.state.watchlist.push({
+                    id: m.id,
+                    type: m.type,
+                    title: m.title,
+                    poster_path: m.poster_path,
+                    status: m.status,
+                    watched_at: m.status === 'watched' ? now : null
+                });
+            }
+        }
+        this.writeLocalList('alexandria_watchlist', this.state.watchlist);
+
+        if (!this.supabase || !uid) return;
+
+        const rowsToUpsert = matched.map(m => ({
+            user_id: uid,
+            tmdb_id: String(m.id),
+            media_type: m.type,
+            title: m.title,
+            poster_path: m.poster_path || null,
+            status: m.status,
+            watched_at: m.status === 'watched' ? now : null
+        }));
+        for (let i = 0; i < rowsToUpsert.length; i += 50) {
+            try {
+                await this.supabase.from('survival_cache')
+                    .upsert(rowsToUpsert.slice(i, i + 50), { onConflict: 'user_id,tmdb_id,media_type' });
+            } catch { /* keep going */ }
+        }
+
+        for (const m of matched) {
+            if (!m.score || m.score < 1) continue;
+            try {
+                await this.supabase.from('ratings').upsert({
+                    user_id: uid,
+                    content_id: m.id,
+                    content_type: m.type,
+                    rating: Math.max(1, Math.min(5, Math.round(m.score / 20))),
+                    review: '',
+                    spoiler: false
+                }, { onConflict: 'user_id,content_id,content_type' });
+            } catch { /* keep going */ }
         }
     },
 
@@ -727,23 +929,72 @@ export const core = {
         document.body.appendChild(modal);
     },
 
-    async shareCurrent(title = 'Alexandria') {
-        let url = window.location.href;
-        const { id, type, season, episode } = this.state.activeContent || {};
-        if (id && (type === 'movie' || type === 'tv')) {
-            url = location.origin + '/share/' + type + '/' + id;
-            if (type === 'tv' && season && episode) url += `?s=${season}&e=${episode}`;
+    shareUrlFor(kind, id) {
+        return `${location.origin}/share/${kind}/${encodeURIComponent(String(id))}`;
+    },
+
+    // Canonical link for whatever the user is looking at right now.
+    buildShareUrl() {
+        const { id, type } = this.state.activeContent || {};
+        if (id != null && (type === 'movie' || type === 'tv')) return this.shareUrlFor(type, id);
+        if (this.state.view === 'profile' && this.state.activeProfileId) {
+            return this.shareUrlFor('profile', this.state.activeProfileId);
         }
+        if (this.state.view === 'list' && this.state.activeListId) {
+            return this.shareUrlFor('list', this.state.activeListId);
+        }
+        return location.origin + '/';
+    },
+
+    async shareCurrent(title = 'Alexandria') {
+        const url = this.buildShareUrl();
+        const isTouch = window.matchMedia('(pointer: coarse)').matches;
+        // Desktop: clipboard-first — instant and deterministic.
+        if (!isTouch) {
+            try {
+                if (navigator.clipboard?.writeText) {
+                    await navigator.clipboard.writeText(url);
+                    this.showToast('Link copied.');
+                    return;
+                }
+            } catch { /* fall through */ }
+            if (await this.copyText(url)) { this.showToast('Link copied.'); return; }
+        }
+        // Touch devices get the native sheet first; everything else falls back.
         try {
             if (navigator.share) {
                 await navigator.share({ title, url });
                 return;
             }
-        } catch {
-            /* fall through to clipboard */
-        }
+        } catch { /* user closed the sheet */ }
         if (await this.copyText(url)) this.showToast('Link copied.');
-        else this.showToast('Could not share this link.');
+        else this.showToast('Could not copy the link.');
+    },
+
+    // ---- Anime: TMDB→AniList resolution + dub/sub preference ----
+
+    readAudioPref() {
+        try {
+            const raw = localStorage.getItem('alexandria_audio_pref');
+            if (raw === 'dub' || raw === 'sub') return raw;
+        } catch { /* ignore */ }
+        return 'sub';
+    },
+
+    writeAudioPref(pref) {
+        try { localStorage.setItem('alexandria_audio_pref', pref); } catch { /* ignore */ }
+    },
+
+    async resolveAnime(tmdbId) {
+        this._animeResolveCache = this._animeResolveCache || {};
+        const key = String(tmdbId);
+        if (this._animeResolveCache[key]) return this._animeResolveCache[key];
+        const res = await fetch('/api/anime?tmdb=' + encodeURIComponent(key));
+        if (!res.ok) throw new Error(`Anime lookup failed (${res.status})`);
+        const data = await res.json();
+        if (!data || !data.anilistId) throw new Error(data?.error || 'No AniList match found for this title.');
+        this._animeResolveCache[key] = data;
+        return data;
     },
 
     async initNetwork() {
@@ -792,25 +1043,25 @@ export const core = {
         }
     },
 
-    simulateLoading() {
-        return new Promise((resolve) => {
-            const statusText = document.querySelector('#loading-screen .loader-status');
-            let progress = 0;
-            const interval = setInterval(() => {
-                progress += Math.random() * 15;
-                if (progress > 100) progress = 100;
-                if (progress > 30 && progress < 60) statusText.textContent = "STABILIZING ARCHIVE...";
-                if (progress > 60 && progress < 90) statusText.textContent = "LOADING LOCAL LISTS...";
-                if (progress >= 100) {
-                    clearInterval(interval);
-                    setTimeout(() => {
-                        document.getElementById('loading-screen')?.classList.add('hidden');
-                        document.getElementById('app')?.classList.remove('hidden');
-                        resolve();
-                    }, 500);
-                }
-            }, window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 30 : 90);
-        });
+    runLoadingTheater() {
+        const statusText = document.querySelector('#loading-screen .loader-status');
+        let progress = 0;
+        const tick = window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 30 : 90;
+        const interval = setInterval(() => {
+            if (document.getElementById('loading-screen')?.classList.contains('hidden')) {
+                clearInterval(interval);
+                return;
+            }
+            progress += Math.random() * 15;
+            if (progress > 30 && progress < 60 && statusText) statusText.textContent = "STABILIZING ARCHIVE...";
+            if (progress > 60 && progress < 90 && statusText) statusText.textContent = "LOADING LOCAL LISTS...";
+            if (progress > 100) clearInterval(interval);
+        }, tick);
+    },
+
+    revealApp() {
+        document.getElementById('loading-screen')?.classList.add('hidden');
+        document.getElementById('app')?.classList.remove('hidden');
     },
 
 };

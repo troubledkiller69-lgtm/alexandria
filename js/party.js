@@ -743,6 +743,9 @@ export const party = {
             let best = this.getHostPlaybackTime();
 
             const onMsg = (event) => {
+                // Only accept messages from our own embed frame — payload shape
+                // alone is spoofable by any other window on the page.
+                if (frame?.contentWindow && event.source !== frame.contentWindow) return;
                 const originOk = this.isTrustedEmbedOrigin(event.origin);
                 const em = event.data?.source === 'embedmaster_player';
                 const pjs = event.data?.answer !== undefined;

@@ -292,19 +292,23 @@ export const search = {
     renderRouletteModal() {
         const body = document.getElementById('roulette-modal-body');
         if (!body) return;
-        const r = this.state.roulette = this.state.roulette || { type: 'movie', genre: '', rating: 0, votes: 0, runtime: '', yearFrom: '', yearTo: '' };
+        const r = this.state.roulette = this.state.roulette || { type: 'movie', genre: '', rating: 0, votes: 0, runtime: '', yearFrom: '', yearTo: '', source: 'movie' };
+        if (!['movie', 'tv', 'watchlist'].includes(r.source)) r.source = 'movie';
         const genres = r.type === 'tv' ? this._tvGenres : this._movieGenres;
         if (r.genre && !genres.some(([value]) => String(value) === String(r.genre))) r.genre = '';
         const ratingOptions = [[0, 'ANY'], [5, '5+ STARS'], [6, '6+ STARS'], [7, '7+ STARS'], [8, '8+ STARS']];
         const genreOptions = genres.map(([value, label]) => `<option value="${value}" ${String(value) === String(r.genre) ? 'selected' : ''}>${label}</option>`).join('');
         const ratingOptionsHtml = ratingOptions.map(([value, label]) => `<option value="${value}" ${Number(value) === Number(r.rating) ? 'selected' : ''}>${label}</option>`).join('');
+        const poolSize = this.state.watchlist.filter(i => (i.status || 'want') !== 'watched').length;
 
         body.innerHTML = `
             <h2 class="roulette-title">Roulette</h2>
             <div class="roulette-type-toggle">
-                <button type="button" class="roulette-type-btn ${r.type === 'movie' ? 'active' : ''}" onclick="Alexandria.setRouletteType('movie')">MOVIE</button>
-                <button type="button" class="roulette-type-btn ${r.type === 'tv' ? 'active' : ''}" onclick="Alexandria.setRouletteType('tv')">TV</button>
+                <button type="button" class="roulette-type-btn ${r.source === 'movie' ? 'active' : ''}" onclick="Alexandria.setRouletteSource('movie')">MOVIE</button>
+                <button type="button" class="roulette-type-btn ${r.source === 'tv' ? 'active' : ''}" onclick="Alexandria.setRouletteSource('tv')">TV</button>
+                <button type="button" class="roulette-type-btn ${r.source === 'watchlist' ? 'active' : ''}" onclick="Alexandria.setRouletteSource('watchlist')">WATCHLIST (${poolSize})</button>
             </div>
+            ${r.source !== 'watchlist' ? `
             <div class="roulette-controls">
                 <div>
                     <label class="roulette-label" for="roulette-genre">Genre</label>
@@ -327,21 +331,58 @@ export const search = {
                     <label class="roulette-label" for="roulette-runtime">Max Runtime</label>
                     <input type="number" id="roulette-runtime" class="compact-input roulette-control" min="30" max="400" placeholder="MAX MIN" value="${this.escapeHtml(String(r.runtime || ''))}">
                 </div>` : ''}
-            </div>
+            </div>` : '<p class="roulette-watchlist-hint">Spins only titles queued on your watchlist.</p>'}
             <button type="button" class="roulette-spin-btn" onclick="Alexandria.spinRoulette()">SPIN THE WHEEL</button>
             <div id="roulette-result"></div>
         `;
     },
 
-    setRouletteType(t) {
-        const r = this.state.roulette = this.state.roulette || { type: 'movie', genre: '', rating: 0, votes: 0, runtime: '', yearFrom: '', yearTo: '' };
-        r.type = t === 'tv' ? 'tv' : 'movie';
+    setRouletteSource(source) {
+        const r = this.state.roulette = this.state.roulette || { type: 'movie', genre: '', rating: 0, votes: 0, runtime: '', yearFrom: '', yearTo: '', source: 'movie' };
+        r.source = ['movie', 'tv', 'watchlist'].includes(source) ? source : 'movie';
         this._rouletteSpinId = (this._rouletteSpinId || 0) + 1;
         this.renderRouletteModal();
     },
 
+    spinWatchlistRoulette(spin) {
+        const pool = this.state.watchlist.filter(i => i && i.id != null && (i.status || 'want') !== 'watched');
+        const resultEl = document.getElementById('roulette-result');
+        if (!pool.length) {
+            if (resultEl) resultEl.innerHTML = `
+                <div class="placeholder-msg">YOUR QUEUE IS EMPTY — ADD SOME TITLES FIRST</div>`;
+            return;
+        }
+        const pick = pool[Math.floor(Math.random() * pool.length)];
+        const title = pick.title || 'Untitled';
+        const poster = this.imageUrl(pick.poster_path, 'w342');
+        const statusLabel = (pick.status || 'want') === 'watching' ? 'WATCHING' : 'QUEUED';
+        if (resultEl) {
+            resultEl.innerHTML = `
+                <div class="roulette-result">
+                    ${poster ? `<img class="roulette-result-poster" src="${this.escapeHtml(poster)}" alt="${this.escapeHtml(title)} poster" loading="lazy">` : ''}
+                    <div class="roulette-result-info">
+                        <span class="roulette-rating-badge">${statusLabel} · ${String(pick.type || 'movie').toUpperCase()}</span>
+                        <h3>${this.escapeHtml(title)}</h3>
+                        <div class="roulette-result-btns">
+                            <button type="button" class="btn-primary" onclick="Alexandria.closeRouletteModal(); window.location.hash = '#details/${this.escapeHtml(pick.type)}/${Number(pick.id)}'">OPEN TITLE</button>
+                            <button type="button" class="btn-secondary" onclick="Alexandria.spinRoulette()">SPIN AGAIN</button>
+                        </div>
+                    </div>
+                </div>`;
+        }
+    },
+
     async spinRoulette() {
-        const r = this.state.roulette = this.state.roulette || { type: 'movie', genre: '', rating: 0, votes: 0, runtime: '', yearFrom: '', yearTo: '' };
+        const r = this.state.roulette = this.state.roulette || { type: 'movie', genre: '', rating: 0, votes: 0, runtime: '', yearFrom: '', yearTo: '', source: 'movie' };
+
+        this._rouletteSpinId = (this._rouletteSpinId || 0) + 1;
+        const spin = this._rouletteSpinId;
+
+        if (r.source === 'watchlist') {
+            this.spinWatchlistRoulette(spin);
+            return;
+        }
+
         const read = id => document.getElementById(id)?.value || '';
         r.genre = read('roulette-genre');
         r.rating = Number(read('roulette-rating')) || 0;
@@ -349,9 +390,6 @@ export const search = {
         r.yearFrom = read('roulette-year-from');
         r.yearTo = read('roulette-year-to');
         const type = r.type;
-
-        this._rouletteSpinId = (this._rouletteSpinId || 0) + 1;
-        const spin = this._rouletteSpinId;
 
         const result = document.getElementById('roulette-result');
         if (result) result.innerHTML = '<div class="placeholder-msg"><span class="pulse-dot"></span>SPINNING THE WHEEL...</div>';
