@@ -136,6 +136,11 @@ async function jikanWalk(base, { season, episode, isMovie }) {
   return { cursor, eff };
 }
 
+// Short-lived memory so an outage doesn't add multi-second Jikan retry
+// latency to every request on warm instances.
+const jikanFailMemory = new Map();
+const JIKAN_FAIL_TTL = 5 * 60 * 1000;
+
 export default async function handler(req, res) {
   if (req.method !== 'GET' && req.method !== 'POST') {
     res.setHeader('Allow', 'GET, POST');
@@ -260,8 +265,9 @@ export default async function handler(req, res) {
     (episode != null && (base?.anilist_episodes == null || episode > (base.anilist_episodes || Infinity)));
 
   if (needsLive) {
+    const failAt = jikanFailMemory.get(tmdbId);
     const apiKey = process.env.TMDB_API_KEY;
-    if (apiKey) {
+    if (!(failAt && Date.now() - failAt < JIKAN_FAIL_TTL) && apiKey) {
       try {
         const tvMeta = await getTmdbMeta(`tv/${tmdbId}`, apiKey);
         const movieMeta = tvMeta ? null : await getTmdbMeta(`movie/${tmdbId}`, apiKey);
@@ -305,7 +311,9 @@ export default async function handler(req, res) {
           });
         }
       } catch {
-        // Jikan down/mismatched — fall through to whatever the cache had.
+        // Jikan down/mismatched — remember briefly, fall through to cache.
+        jikanFailMemory.set(tmdbId, Date.now());
+        if (jikanFailMemory.size > 500) jikanFailMemory.clear();
       }
     }
   }
