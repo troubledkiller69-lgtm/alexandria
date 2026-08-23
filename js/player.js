@@ -64,12 +64,19 @@ export const player = {
         this.prepareResumeSeek();
         this.armFailoverWatch(server);
         this.scheduleEmbedTheme(document.getElementById('video-iframe'));
-        if (needsResolve) this.hydrateAnimeEmbed();
+        if (needsResolve) this.setServerStatus(`Reading title metadata · ${server.name}…`);
         this.renderComments();
 
         try {
             const data = await this.getJson(type + '/' + id);
             const title = type === 'movie' ? data.title : data.name;
+            // Hint consumed by browser-side AniList resolution (MegaPlay etc).
+            this._playerMeta = {
+                title: data.name || data.title || '',
+                originalTitle: data.original_name || data.original_title || '',
+                year: Number((data.first_air_date || data.release_date || '').slice(0, 4)) || null,
+                isMovie: type === 'movie'
+            };
             // Anime detection happens here because the router can't know it at
             // parse time: Animation genre + Japanese origin language.
             const detectedAnime = type === 'tv'
@@ -95,8 +102,20 @@ export const player = {
                 this.populateSeasonSelector(data, season);
                 await this.loadEpisodes(id, season);
             }
+            // Metadata (hint) is in place — now resolve the AniList id.
+            if (needsResolve && token === this._renderToken) await this.hydrateAnimeEmbed();
         } catch (e) {
             console.error("Alexandria: Player metadata failed", e);
+            if (needsResolve && !this._animeFallbackUsed) {
+                // No metadata means no AniList hint — hop to a TMDB-native mirror.
+                const fallbackIdx = this.servers.findIndex(s => s.name === 'VidCore');
+                if (fallbackIdx >= 0) {
+                    this._animeFallbackUsed = true;
+                    this.showToast('Anime lookup unavailable — switched to VidCore.');
+                    this.applyServer(fallbackIdx, { resetTried: true });
+                    return;
+                }
+            }
             if (type === 'tv') {
                 await this.initSeasonSelector(id, season);
                 await this.loadEpisodes(id, season);
@@ -237,8 +256,15 @@ export const player = {
         try {
             // Season-aware: sequel seasons are separate AniList entries, and
             // some TMDB shows pack every season into one giant "Season 1" —
-            // the resolver walks the sequel chain for both cases.
-            const info = await this.resolveAnime(id, Number(season) || 1, Number(episode) || null);
+            // the resolver walks the sequel chain for both cases. Hint comes
+            // from the metadata already fetched above (browser-side lookup).
+            const meta = this._playerMeta || {};
+            const info = await this.resolveAnime(id, Number(season) || 1, Number(episode) || null, {
+                title: meta.title,
+                originalTitle: meta.originalTitle,
+                year: meta.year,
+                isMovie: meta.isMovie
+            });
             const dub = this.readAudioPref() === 'dub';
             const externalId = server.animeSource === 'anilist' ? info.anilistId : id;
             const epForUrl = server.animeSource === 'anilist'

@@ -721,7 +721,7 @@ export const core = {
                 entries {
                   status
                   score(format: POINT_100)
-                  media { id idMal format title { english romaji } }
+                  media { id idMal format startDate { year } title { english romaji } }
                 }
               }
             }
@@ -766,7 +766,9 @@ export const core = {
                     anilistId: m.id,
                     status: STATUS_MAP[entry.status] || 'want',
                     score: Math.max(0, Number(entry.score) || 0),
-                    title: m.title.english || m.title.romaji || 'Untitled'
+                    title: m.title.english || m.title.romaji || 'Untitled',
+                    year: m.startDate?.year ? String(m.startDate.year) : '',
+                    isMovie: m.format === 'MOVIE'
                 });
             }
         }
@@ -780,18 +782,23 @@ export const core = {
         const notFound = [];
         await this.mapWithConcurrency(entries, 3, async (entry) => {
             try {
-                const res = await fetch('/api/anime?anilist=' + encodeURIComponent(entry.anilistId));
-                if (!res.ok) throw new Error('miss');
-                const info = await res.json();
-                if (!info?.tmdbId) throw new Error('miss');
+                // Match straight against TMDB from the browser (proxy route);
+                // the old server-side AniList reverse lookup is retired.
+                const m = await this.matchTmdb(entry.title, entry.year);
+                if (!m) throw new Error('miss');
                 matched.push({
-                    id: Number(info.tmdbId),
-                    type: info.tmdbType === 'movie' ? 'movie' : 'tv',
-                    title: info.title || entry.title,
-                    poster_path: '',
+                    id: Number(m.id),
+                    type: m.type,
+                    title: m.title || entry.title,
+                    poster_path: m.poster_path || '',
                     status: entry.status,
                     score: entry.score
                 });
+                fetch('/api/anime', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ tmdbId: Number(m.id), season: 1, anilistId: entry.anilistId })
+                }).catch(() => {});
             } catch {
                 notFound.push(entry.title);
             }
@@ -990,25 +997,190 @@ export const core = {
         try { localStorage.setItem('alexandria_audio_pref', pref); } catch { /* ignore */ }
     },
 
-    async resolveAnime(tmdbId, season = 1, episode = null) {
-        this._animeResolveCache = this._animeResolveCache || {};
-        // Episode participates in the key: absolute-numbered shows map
-        // different episodes of one "season" onto different AniList entries.
-        const key = `${tmdbId}_s${season || 1}_e${episode || 0}`;
-        if (this._animeResolveCache[key]) return this._animeResolveCache[key];
-        const params = new URLSearchParams({ tmdb: String(tmdbId) });
-        if (season && season > 1) params.set('season', String(season));
-        if (episode && episode > 1) params.set('episode', String(episode));
-        const res = await fetch('/api/anime?' + params.toString());
-        if (!res.ok) {
-            let msg = `Anime lookup failed (${res.status})`;
-            try { msg = (await res.json())?.error || msg; } catch { /* keep default */ }
-            throw new Error(msg);
+    // ---- Anime: TMDB↔AniList resolution (runs in the VISITOR'S browser) ----
+    // Vercel/datacenter IPs get 403-blocked by AniList, so all GraphQL traffic
+    // originates from the user (residential IP, CORS-open endpoint) exactly
+    // like miruro does. /api/anime is only a shared Supabase-backed cache.
+
+    ANI_GQL: 'https://graphql.anilist.co',
+
+    async aniQuery(query, variables, attempt = 0) {
+        const res = await fetch(this.ANI_GQL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+            body: JSON.stringify({ query, variables })
+        });
+        const body = await res.json().catch(() => null);
+        // Post-outage throttling is real — back off once and retry.
+        if ((!res.ok || body?.errors) && (res.status === 429 || res.status >= 500) && attempt < 1) {
+            await new Promise(r => setTimeout(r, 900));
+            return this.aniQuery(query, variables, attempt + 1);
         }
-        const data = await res.json();
-        if (!data || !data.anilistId) throw new Error(data?.error || 'No AniList match found for this title.');
-        this._animeResolveCache[key] = data;
-        return data;
+        if (!res.ok || body?.errors?.length || !body?.data) {
+            throw new Error(body?.errors?.[0]?.message || `AniList request failed (${res.status})`);
+        }
+        return body.data;
+    },
+
+    pickAniListMatch(candidates, hint) {
+        let best = null;
+        let bestScore = 0;
+        for (const m of candidates) {
+            if (!m?.id) continue;
+            let score = 0;
+            if (m.countryOfOrigin === 'JP') score += 3;
+            const mYear = m.startDate?.year;
+            if (hint.year && mYear) {
+                const delta = Math.abs(mYear - hint.year);
+                if (delta === 0) score += 4;
+                else if (delta === 1) score += 2;
+                else score -= 2;
+            }
+            const titles = [m.title?.english, m.title?.romaji, m.title?.native]
+                .filter(Boolean).map(t => t.toLowerCase());
+            const want = [hint.title, hint.originalTitle].filter(Boolean).map(t => t.toLowerCase());
+            if (want.some(w => titles.includes(w))) score += 3;
+            if ((hint.isMovie === true) === (m.format === 'MOVIE')) score += 1;
+            if (score > bestScore) { bestScore = score; best = m; }
+        }
+        return bestScore >= 5 ? best : null;
+    },
+
+    async aniSequelChain(anilistId, maxHops = 12) {
+        const gql = `
+          query ($id: Int) {
+            Media(id: $id, type: ANIME) {
+              id
+              relations { edges { relationType node { id idMal format episodes countryOfOrigin startDate { year } title { english romaji } } } }
+            }
+          }`;
+        const chain = [];
+        let currentId = anilistId;
+        const visited = new Set([anilistId]);
+        for (let hop = 0; hop < maxHops; hop++) {
+            const data = await this.aniQuery(gql, { id: currentId });
+            const edges = data?.Media?.relations?.edges || [];
+            const edge = edges.find(e => e?.relationType === 'SEQUEL' && e.node?.id && !visited.has(e.node.id));
+            if (!edge) break;
+            chain.push(edge.node);
+            visited.add(edge.node.id);
+            currentId = edge.node.id;
+        }
+        return chain;
+    },
+
+    readAnimeCache(key) {
+        try {
+            const store = this.readStorageJson(localStorage, 'alexandria_anime_cache', {}) || {};
+            const hit = store[key];
+            if (!hit) return null;
+            if (Date.now() - hit.at > 7 * 24 * 60 * 60 * 1000) { delete store[key]; return null; }
+            return hit.data;
+        } catch { return null; }
+    },
+
+    writeAnimeCache(key, data) {
+        try {
+            const store = this.readStorageJson(localStorage, 'alexandria_anime_cache', {}) || {};
+            store[key] = { data, at: Date.now() };
+            const keys = Object.keys(store);
+            if (keys.length > 300) delete store[keys[0]];
+            this.writeStorage(localStorage, 'alexandria_anime_cache', JSON.stringify(store));
+        } catch { /* ignore */ }
+    },
+
+    async resolveAnime(tmdbId, season = 1, episode = null, hint = null) {
+        season = season || 1;
+        const key = `${tmdbId}_s${season}_e${episode || 0}`;
+        this._animeResolveCache = this._animeResolveCache || {};
+        if (this._animeResolveCache[key]) return this._animeResolveCache[key];
+        const local = this.readAnimeCache(key);
+        if (local) { this._animeResolveCache[key] = local; return local; }
+
+        // Shared cross-user cache first (Supabase-backed, unaffected by blocks).
+        try {
+            const params = new URLSearchParams({ tmdb: String(tmdbId) });
+            if (season > 1) params.set('season', String(season));
+            if (episode && episode > 1) params.set('episode', String(episode));
+            const res = await fetch('/api/anime?' + params.toString());
+            if (res.ok) {
+                const cached = await res.json();
+                if (cached?.found && cached.anilistId) {
+                    this._animeResolveCache[key] = cached;
+                    this.writeAnimeCache(key, cached);
+                    return cached;
+                }
+            }
+        } catch { /* cache miss is normal */ }
+
+        if (!hint?.title) {
+            const err = new Error('Metadata not ready for anime lookup.');
+            err.soft = true;
+            throw err;
+        }
+
+        const MEDIA_FIELDS = 'id idMal format episodes countryOfOrigin startDate { year } title { romaji english native }';
+        const searchGql = `
+          query ($search: String) {
+            Page(perPage: 10) { media(search: $search, type: ANIME, sort: SEARCH_MATCH) { ${MEDIA_FIELDS} } }
+          }`;
+        const page = await this.aniQuery(searchGql, { search: hint.title });
+        let target = this.pickAniListMatch(page?.media || [], hint);
+        if (!target) throw new Error('No confident AniList match for this title.');
+
+        let effectiveEpisode = episode;
+
+        if (!hint.isMovie && season > 1) {
+            const chain = await this.aniSequelChain(target.id, Math.min(season - 1, 12));
+            const node = chain[season - 2];
+            if (!node) throw new Error(`Could not map season ${season} on AniList.`);
+            target = node;
+        }
+
+        if (
+            !hint.isMovie && season <= 1 && episode &&
+            Number.isInteger(target.episodes) && target.episodes > 0 &&
+            episode > target.episodes
+        ) {
+            const chain = await this.aniSequelChain(target.id, 12);
+            let cursor = { ...target };
+            let eff = episode;
+            for (const next of chain) {
+                if (!(Number.isInteger(cursor.episodes) && cursor.episodes > 0)) break;
+                if (eff <= cursor.episodes) break;
+                eff -= cursor.episodes;
+                cursor = next;
+            }
+            target = cursor;
+            effectiveEpisode = eff;
+        }
+
+        const result = {
+            found: true,
+            tmdbId,
+            season,
+            anilistId: target.id,
+            malId: target.idMal ?? null,
+            title: target.title?.english || target.title?.romaji || hint.title,
+            episodes: target.episodes ?? null,
+            requestedEpisode: effectiveEpisode,
+            dubAvailable: null
+        };
+        this._animeResolveCache[key] = result;
+        this.writeAnimeCache(key, result);
+
+        // Persist for every other visitor — fire-and-forget, never blocks.
+        fetch('/api/anime', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                tmdbId, season, anilistId: target.id, malId: result.malId,
+                title: result.title, episodes: result.episodes,
+                requestedEpisode: effectiveEpisode
+            })
+        }).catch(() => {});
+
+        return result;
     },
 
     async initNetwork() {
