@@ -150,47 +150,54 @@ export default async function handler(req, res) {
   const cfg = supabaseConfig();
   if (!cfg) return json(res, 503, { error: 'Anime cache is not configured.' });
 
-  // ---------- POST: persist a client-resolved mapping ----------
+  // ---------- POST: persist client-resolved mappings ----------
   if (req.method === 'POST') {
     const b = req.body || {};
-    const tmdbId = Number.parseInt(b.tmdbId, 10);
-    const season = Math.max(1, Number.parseInt(b.season, 10) || 1);
-    const anilistId = Number.parseInt(b.anilistId, 10);
-    const malId = Number.parseInt(b.malId, 10);
-    if (!Number.isInteger(tmdbId) || (!Number.isInteger(anilistId) && !Number.isInteger(malId))) {
-      return json(res, 400, { error: 'tmdbId plus anilistId or malId are required.' });
+    const items = Array.isArray(b.rows) ? b.rows : [b];
+    const parsed = [];
+    for (const it of items) {
+      const tmdbId = Number.parseInt(it.tmdbId, 10);
+      const season = Math.max(1, Number.parseInt(it.season, 10) || 1);
+      const anilistId = Number.parseInt(it.anilistId, 10);
+      const malId = Number.parseInt(it.malId, 10);
+      if (!Number.isInteger(tmdbId) || (!Number.isInteger(anilistId) && !Number.isInteger(malId))) continue;
+      parsed.push({
+        tmdb_id: tmdbId,
+        season,
+        anilist_id: Number.isInteger(anilistId) ? anilistId : null,
+        mal_id: malId,
+        title: typeof it.title === 'string' ? it.title.slice(0, 200) : null,
+        anilist_episodes: Number.parseInt(it.episodes, 10) || null,
+        original_episode: Number.parseInt(it.originalEpisode, 10)
+          || Number.parseInt(it.requestedEpisode, 10)
+          || null,
+        requested_episode: Number.parseInt(it.requestedEpisode, 10) || null,
+        resolved_at: new Date().toISOString()
+      });
     }
-    const row = {
-      tmdb_id: tmdbId,
-      season,
-      anilist_id: Number.isInteger(anilistId) ? anilistId : null,
-      mal_id: malId,
-      title: typeof b.title === 'string' ? b.title.slice(0, 200) : null,
-      anilist_episodes: Number.parseInt(b.episodes, 10) || null,
-      original_episode: Number.parseInt(b.originalEpisode, 10)
-        || Number.parseInt(b.requestedEpisode, 10)
-        || null,
-      requested_episode: Number.parseInt(b.requestedEpisode, 10) || null,
-      resolved_at: new Date().toISOString()
-    };
-    await sb(cfg, 'anime_season_map', {
-      prefer: 'resolution=merge-duplicates',
-      fetch: { method: 'POST', body: JSON.stringify(row) }
-    });
-    if (season === 1 && row.anilist_id != null && row.anilist_episodes == null) {
-      // Keep the legacy base table warm for S1 too.
+    if (!parsed.length) return json(res, 400, { error: 'No valid rows.' });
+
+    for (let i = 0; i < parsed.length; i += 200) {
+      await sb(cfg, 'anime_season_map', {
+        prefer: 'resolution=merge-duplicates',
+        fetch: { method: 'POST', body: JSON.stringify(parsed.slice(i, i + 200)) }
+      });
+    }
+    // Keep the legacy base table warm for S1 entries that carry AniList ids.
+    const s1Base = parsed.filter(p => p.season === 1 && p.anilist_id != null && p.anilist_episodes == null);
+    for (let i = 0; i < s1Base.length; i += 200) {
       await sb(cfg, 'anime_map', {
         prefer: 'resolution=merge-duplicates',
         fetch: {
           method: 'POST',
-          body: JSON.stringify({
-            tmdb_id: tmdbId,
-            anilist_id: row.anilist_id,
-            mal_id: row.mal_id,
-            title: row.title,
-            dub_available: typeof b.dubAvailable === 'boolean' ? b.dubAvailable : null,
-            resolved_at: row.resolved_at
-          })
+          body: JSON.stringify(s1Base.slice(i, i + 200).map(p => ({
+            tmdb_id: p.tmdb_id,
+            anilist_id: p.anilist_id,
+            mal_id: p.mal_id,
+            title: p.title,
+            dub_available: null,
+            resolved_at: p.resolved_at
+          })))
         }
       });
     }
