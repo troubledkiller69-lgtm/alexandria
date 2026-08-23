@@ -2105,7 +2105,20 @@ h1, h2, h3, h4 {
 }
 .details-actions {
     display: flex;
-    gap: 1rem;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.6rem;
+    row-gap: 0.6rem;
+}
+/* Inline margin-left styles on action buttons fight the flex gap and cause
+   overflow — neutralize them; the gap above owns spacing now. */
+.details-actions > * { margin-left: 0 !important; }
+@media (max-width: 720px) {
+    .details-actions .btn-primary,
+    .details-actions .btn-secondary {
+        padding-inline: 1rem;
+        font-size: 0.8rem;
+    }
 }
 .cast-grid {
     display: flex;

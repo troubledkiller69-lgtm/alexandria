@@ -69,6 +69,15 @@ export const player = {
         try {
             const data = await this.getJson(type + '/' + id);
             const title = type === 'movie' ? data.title : data.name;
+            // Anime detection happens here because the router can't know it at
+            // parse time: Animation genre + Japanese origin language.
+            const detectedAnime = type === 'tv'
+                && (data.genres || []).some(g => Number(g.id) === 16)
+                && data.original_language === 'ja';
+            if (detectedAnime && !this.state.activeContent.isAnime) {
+                this.state.activeContent.isAnime = true;
+                if (token === this._renderToken) this.refreshAnimeControls();
+            }
             if (title) {
                 const existing = this.state.history.find(h => String(h.id) === String(id) && h.type === type);
                 const keepProgress = type === 'tv'
@@ -98,6 +107,31 @@ export const player = {
     setServerStatus(message) {
         const el = document.getElementById('server-status');
         if (el) el.textContent = message;
+    },
+
+    // Called once TMDB metadata confirms anime playback: reveal the anime
+    // mirrors in the server dropdown and mount the DUB/SUB pill.
+    refreshAnimeControls() {
+        const sel = document.getElementById('server-selector');
+        if (sel) {
+            sel.innerHTML = this.servers.map((s, i) =>
+                `<option value="${i}" ${i === this.state.activeServer ? 'selected' : ''}>${s.name}</option>`
+            ).join('');
+        }
+        if (!document.getElementById('audio-pill')) {
+            const nextBtn = document.querySelector('.server-controls .server-next-btn');
+            if (!nextBtn) return;
+            const dub = this.readAudioPref() === 'dub';
+            const wrap = document.createElement('div');
+            wrap.className = 'audio-pill';
+            wrap.id = 'audio-pill';
+            wrap.setAttribute('role', 'group');
+            wrap.setAttribute('aria-label', 'Audio track');
+            wrap.innerHTML = `
+                <button type="button" class="audio-opt ${dub ? 'active' : ''}" aria-pressed="${dub}" onclick="Alexandria.setAudioPref(true)">DUB</button>
+                <button type="button" class="audio-opt ${dub ? '' : 'active'}" aria-pressed="${!dub}" onclick="Alexandria.setAudioPref(false)">SUB</button>`;
+            nextBtn.after(wrap);
+        }
     },
 
     clearFailoverWatch() {

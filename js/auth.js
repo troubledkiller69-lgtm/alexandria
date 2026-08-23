@@ -47,6 +47,21 @@ export const auth = {
     // ============ WHAT'S NEW — changelog bell ============
     CHANGELOG: [
         {
+            key: 'v1.10.0',
+            date: 'Aug 23, 2026',
+            title: 'Anime Mirrors & Share Everything',
+            items: [
+                'Dedicated anime servers — MegaPlay (AniList-powered) and VidSrc Anime appear automatically when you open an anime, with a DUB/SUB toggle in the player bar that sticks across sessions',
+                'Details pages for anime show DUB AVAILABLE / SUB ONLY badges',
+                'Roulette gains a WATCHLIST mode — spin your own queue when you cannot pick',
+                'Profiles and Movie Night lists get real share cards — links unfurl with name, stats, and posters on Discord & Telegram',
+                'Import from AniList: hit the new AniList button in the sidebar, enter your username, and your list plus scores land here',
+                'SHARE buttons rebuilt — instant clipboard copy with confirmation, native share sheet on phones',
+                'Faster boots (no more fake loading gate), batched imports, parallel cloud sync',
+                'Alexandria is now installable — manifest added for home-screen / app use'
+            ]
+        },
+        {
             key: 'v1.9.7',
             date: 'Aug 21, 2026',
             title: 'Party Play/Pause Control',
