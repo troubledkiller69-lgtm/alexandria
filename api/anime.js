@@ -162,6 +162,9 @@ export default async function handler(req, res) {
       mal_id: malId,
       title: typeof b.title === 'string' ? b.title.slice(0, 200) : null,
       anilist_episodes: Number.parseInt(b.episodes, 10) || null,
+      original_episode: Number.parseInt(b.originalEpisode, 10)
+        || Number.parseInt(b.requestedEpisode, 10)
+        || null,
       requested_episode: Number.parseInt(b.requestedEpisode, 10) || null,
       resolved_at: new Date().toISOString()
     };
@@ -227,13 +230,9 @@ export default async function handler(req, res) {
   if (episode) {
     const rows = await sb(
       cfg,
-      `anime_season_map?tmdb_id=eq.${tmdbId}&season=eq.1&requested_episode=eq.${episode}&select=*`
+      `anime_season_map?tmdb_id=eq.${tmdbId}&season=eq.1&original_episode=eq.${episode}&select=*`
     );
-    const exact = rows?.find(r =>
-      r.anilist_episodes == null ||
-      r.requested_episode == null ||
-      episode <= (r.anilist_episodes || Infinity)
-    );
+    const exact = rows?.[0];
     if (exact && (exact.anilist_id || exact.mal_id)) {
       return json(res, 200, {
         found: true,
@@ -243,7 +242,7 @@ export default async function handler(req, res) {
         malId: exact.mal_id ?? null,
         title: exact.title ?? null,
         episodes: exact.anilist_episodes ?? null,
-        requestedEpisode: episode,
+        requestedEpisode: exact.requested_episode ?? episode,
         dubAvailable: typeof exact.dub_available === 'boolean' ? exact.dub_available : null
       });
     }
@@ -285,6 +284,7 @@ export default async function handler(req, res) {
             mal_id: cursor.malId,
             title: best.title_english || best.title || hint.title,
             anilist_episodes: cursor.episodes ?? null,
+            original_episode: episode ?? null,
             requested_episode: eff ?? episode ?? null,
             resolved_at: new Date().toISOString()
           };

@@ -1316,6 +1316,7 @@ export const core = {
             body: JSON.stringify({
                 tmdbId, season, anilistId: target.id, malId: result.malId,
                 title: result.title, episodes: result.episodes,
+                originalEpisode: episode,
                 requestedEpisode: effectiveEpisode
             })
         }).catch(() => {});
