@@ -51,14 +51,34 @@ export const core = {
         {
             name: 'EmbedSU',
             supportsApi: false,
-            getMovie: id => `https://embed.su/embed/movie/${id}`,
-            getTv: (id, s, e) => `https://embed.su/embed/tv/${id}/${s}/${e}`
+            getMovie: id => `https://www.embed.su/embed/movie/${id}`,
+            getTv: (id, s, e) => `https://www.embed.su/embed/tv/${id}/${s}/${e}`
         },
         {
             name: 'VidLink',
             supportsApi: false,
             getMovie: id => `https://vidlink.pro/movie/${id}`,
             getTv: (id, s, e) => `https://vidlink.pro/tv/${id}/${s}/${e}`
+        },
+        // Verified live Aug 2026 (probed with real TMDB ids). VidCore also
+        // carries anime and cycles internal upstreams on its own.
+        {
+            name: 'VidCore',
+            supportsApi: false,
+            getMovie: id => `https://vidcore.org/embed/movie/${id}`,
+            getTv: (id, s, e) => `https://vidcore.org/embed/tv/${id}/${s}/${e}`
+        },
+        {
+            name: 'VidFast',
+            supportsApi: false,
+            getMovie: id => `https://vidfast.vc/movie/${id}`,
+            getTv: (id, s, e) => `https://vidfast.vc/tv/${id}/${s}/${e}`
+        },
+        {
+            name: 'VidLux',
+            supportsApi: false,
+            getMovie: id => `https://vidlux.xyz/embed/movie/${id}`,
+            getTv: (id, s, e) => `https://vidlux.xyz/embed/tv/${id}/${s}/${e}`
         },
         // Dedicated anime mirrors. `animeSource` declares which ID the builder
         // consumes: 'anilist' servers need /api/anime to resolve TMDB→AniList
@@ -174,7 +194,7 @@ export const core = {
     isTrustedEmbedOrigin(origin) {
         try {
             const host = new URL(origin).hostname;
-            const trusted = ['embedmaster.link', 'embdmstrplayer.com', 'vidsrcme.ru', 'vsembed.ru', 'vidsrc.cc', 'vidsrc.me', 'vidsrc.to', 'vidsrc.net', 'vsrc.su', 'vidlink.pro', 'autoembed.co', 'embed.su', 'megaplay.buzz'];
+            const trusted = ['embedmaster.link', 'embdmstrplayer.com', 'vidsrcme.ru', 'vsembed.ru', 'vidsrc.cc', 'vidsrc.me', 'vidsrc.to', 'vidsrc.net', 'vsrc.su', 'embed.su', 'vidlink.pro', 'autoembed.co', 'vidcore.org', 'vidfast.vc', 'vidlux.xyz', 'megaplay.buzz'];
             return trusted.some(d => host === d || host.endsWith('.' + d));
         } catch {
             return false;
