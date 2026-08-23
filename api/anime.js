@@ -39,6 +39,103 @@ async function sb(cfg, path, opts = {}) {
   }
 }
 
+const TMDB_KEY_CHECK = () => process.env.TMDB_API_KEY;
+
+async function getTmdbMeta(path, apiKey) {
+  const target = new URL(`https://api.themoviedb.org/3/${path}`);
+  target.searchParams.set('api_key', apiKey);
+  target.searchParams.set('language', 'en-US');
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 8000);
+  try {
+    const res = await fetch(target, { signal: controller.signal });
+    clearTimeout(timer);
+    return res.ok ? await res.json().catch(() => null) : null;
+  } catch {
+    clearTimeout(timer);
+    return null;
+  }
+}
+
+// ---- Server-side Jikan (MAL) resolution — independent of AniList ----
+
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+async function jikan(path, attempt = 0) {
+  let res;
+  try {
+    res = await fetch(`https://api.jikan.moe/v4${path}`);
+  } catch {
+    if (attempt < 2) { await sleep(1100); return jikan(path, attempt + 1); }
+    throw new Error('jikan unreachable');
+  }
+  if ((res.status === 429 || res.status >= 500) && attempt < 2) {
+    await sleep(1200);
+    return jikan(path, attempt + 1);
+  }
+  if (!res.ok) throw new Error(`jikan ${res.status}`);
+  const body = await res.json().catch(() => null);
+  if (!body?.data) throw new Error('jikan empty');
+  return body.data;
+}
+
+function jikanScore(entry, hint) {
+  let s = 0;
+  const mY = entry.year || (entry.aired?.from ? Number(String(entry.aired.from).slice(0, 4)) : null);
+  if (hint.year && mY) {
+    const d = Math.abs(mY - hint.year);
+    if (d === 0) s += 4; else if (d === 1) s += 2; else s -= 2;
+  }
+  const titles = [entry.title, entry.title_english, entry.title_japanese]
+    .filter(Boolean).map(t => t.toLowerCase());
+  const want = [hint.title, hint.originalTitle].filter(Boolean).map(t => t.toLowerCase());
+  if (want.some(w => titles.includes(w))) s += 3;
+  if ((hint.isMovie === true) === (entry.type === 'Movie')) s += 1;
+  return s;
+}
+
+async function jikanMatch(hint) {
+  const results = await jikan(`/anime?q=${encodeURIComponent(hint.title)}&limit=6&sfw=true`);
+  let best = null, bs = 0;
+  for (const e of results || []) {
+    if (!e?.mal_id) continue;
+    const s = jikanScore(e, hint);
+    if (s > bs) { bs = s; best = e; }
+  }
+  if (bs < 5 || !best) throw new Error('No confident MAL match.');
+  return best;
+}
+
+// Walk MAL sequel relations so multi-season and absolute-numbered shows land
+// on the right entry — mirrors the client-side AniList walk.
+async function jikanWalk(base, { season, episode, isMovie }) {
+  let cursor = { malId: base.mal_id, episodes: base.episodes ?? null };
+  let eff = episode;
+
+  async function hop() {
+    await sleep(420);
+    const rel = await jikan(`/anime/${cursor.malId}/relations`);
+    const seq = (rel || []).find(r => r.relation === 'Sequel')?.entry?.find(x => x.type === 'anime');
+    if (!seq?.mal_id || !cursor.episodes) return false;
+    eff -= cursor.episodes;
+    await sleep(420);
+    const full = await jikan(`/anime/${seq.mal_id}/full`);
+    cursor = { malId: seq.mal_id, episodes: full?.episodes ?? null };
+    return true;
+  }
+
+  if (!isMovie && season > 1) {
+    for (let i = 1; i < season; i++) {
+      if (!(await hop())) throw new Error(`Could not map season ${season} on MAL.`);
+    }
+    return { cursor, eff: episode };
+  }
+  while (eff && Number.isInteger(cursor.episodes) && cursor.episodes > 0 && eff > cursor.episodes) {
+    if (!(await hop())) break;
+  }
+  return { cursor, eff };
+}
+
 export default async function handler(req, res) {
   if (req.method !== 'GET' && req.method !== 'POST') {
     res.setHeader('Allow', 'GET, POST');
@@ -154,7 +251,66 @@ export default async function handler(req, res) {
 
   const baseRows = await sb(cfg, `anime_map?tmdb_id=eq.${tmdbId}&select=*`);
   const base = baseRows?.[0];
-  if (base && (base.anilist_id || base.mal_id)) {
+  const baseUsable = Boolean(base && (base.anilist_id || base.mal_id));
+
+  // ---------- Live resolve via Jikan (server can reach MAL; browsers and
+  // datacenters alike). Runs on cache misses AND to refine ambiguous base
+  // rows that cannot prove they cover the requested episode. ----------
+  const needsLive =
+    !baseUsable ||
+    (episode != null && (base?.anilist_episodes == null || episode > (base.anilist_episodes || Infinity)));
+
+  if (needsLive) {
+    const apiKey = process.env.TMDB_API_KEY;
+    if (apiKey) {
+      try {
+        const tvMeta = await getTmdbMeta(`tv/${tmdbId}`, apiKey);
+        const movieMeta = tvMeta ? null : await getTmdbMeta(`movie/${tmdbId}`, apiKey);
+        const meta = tvMeta || movieMeta;
+        if (meta) {
+          const hint = {
+            title: meta.name || meta.title,
+            originalTitle: meta.original_name || meta.original_title,
+            year: Number((meta.first_air_date || meta.release_date || '').slice(0, 4)) || null,
+            isMovie: !tvMeta
+          };
+          const best = await jikanMatch(hint);
+          const { cursor, eff } = await jikanWalk(best, {
+            season, episode, isMovie: hint.isMovie
+          });
+          const row = {
+            tmdb_id: tmdbId,
+            season,
+            anilist_id: null,
+            mal_id: cursor.malId,
+            title: best.title_english || best.title || hint.title,
+            anilist_episodes: cursor.episodes ?? null,
+            requested_episode: eff ?? episode ?? null,
+            resolved_at: new Date().toISOString()
+          };
+          await sb(cfg, 'anime_season_map', {
+            prefer: 'resolution=merge-duplicates',
+            fetch: { method: 'POST', body: JSON.stringify(row) }
+          });
+          return json(res, 200, {
+            found: true,
+            tmdbId,
+            season,
+            anilistId: null,
+            malId: row.mal_id,
+            title: row.title,
+            episodes: row.anilist_episodes,
+            requestedEpisode: row.requested_episode,
+            dubAvailable: null
+          });
+        }
+      } catch {
+        // Jikan down/mismatched — fall through to whatever the cache had.
+      }
+    }
+  }
+
+  if (baseUsable) {
     return json(res, 200, {
       found: true,
       tmdbId,
