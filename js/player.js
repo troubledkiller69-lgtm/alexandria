@@ -180,7 +180,7 @@ export const player = {
         }
 
         // Auto-timeout stays on EmbedMaster mirrors only (supportsApi).
-        // Manual NEXT SERVER can still hop to VidSrc / EmbedSU / anime mirrors.
+        // Manual NEXT SERVER can still hop to any other visible mirror.
         const preferApiOnly = !manual;
         const isAnimeMode = this.state.view === 'player'
             && this.state.activeContent?.type === 'tv'
@@ -228,6 +228,10 @@ export const player = {
         const server = this.servers[this.state.activeServer];
         const { id, episode } = this.state.activeContent || {};
         if (!server?.animeOnly) return;
+        // The DUB/SUB pill must exist the moment an anime server is active —
+        // not only when genre detection fires. Without it a manual server pick
+        // locks the user to sub with no way to switch.
+        this.refreshAnimeControls();
         const frame = document.getElementById('video-iframe');
         if (frame && !frame.src.startsWith('about:')) frame.src = 'about:blank';
         this.setServerStatus(`Resolving AniList ID · ${server.name}…`);

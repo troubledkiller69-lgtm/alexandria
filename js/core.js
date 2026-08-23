@@ -37,18 +37,6 @@ export const core = {
             getTv: (id, s, e) => `https://embedmaster.link/tv/${id}/${s}/${e}`
         },
         {
-            name: 'VidSrc',
-            supportsApi: false,
-            getMovie: id => `https://vidsrc.cc/v2/embed/movie/${id}`,
-            getTv: (id, s, e) => `https://vidsrc.cc/v2/embed/tv/${id}/${s}/${e}`
-        },
-        {
-            name: 'VidSrc TO',
-            supportsApi: false,
-            getMovie: id => `https://vidsrc.to/embed/movie/${id}`,
-            getTv: (id, s, e) => `https://vidsrc.to/embed/tv/${id}/${s}/${e}`
-        },
-        {
             name: 'EmbedSU',
             supportsApi: false,
             getMovie: id => `https://www.embed.su/embed/movie/${id}`,
@@ -61,7 +49,8 @@ export const core = {
             getTv: (id, s, e) => `https://vidlink.pro/tv/${id}/${s}/${e}`
         },
         // Verified live Aug 2026 (probed with real TMDB ids). VidCore also
-        // carries anime and cycles internal upstreams on its own.
+        // carries anime with its own audio-track menu — often has dubs that
+        // MegaPlay lacks.
         {
             name: 'VidCore',
             supportsApi: false,
@@ -80,22 +69,14 @@ export const core = {
             getMovie: id => `https://vidlux.xyz/embed/movie/${id}`,
             getTv: (id, s, e) => `https://vidlux.xyz/embed/tv/${id}/${s}/${e}`
         },
-        // Dedicated anime mirrors. `animeSource` declares which ID the builder
-        // consumes: 'anilist' servers need /api/anime to resolve TMDB→AniList
-        // first; 'tmdb' servers can be built immediately.
+        // Dedicated anime mirror. `animeSource` declares which ID the builder
+        // consumes: 'anilist' needs /api/anime to resolve TMDB→AniList first.
         {
             name: 'MegaPlay Anime',
             animeOnly: true,
             animeSource: 'anilist',
             supportsApi: false,
             getAnime: (anilistId, ep, dub) => `https://megaplay.buzz/stream/ani/${anilistId}/${ep}/${dub ? 'dub' : 'sub'}`
-        },
-        {
-            name: 'VidSrc Anime',
-            animeOnly: true,
-            animeSource: 'tmdb',
-            supportsApi: false,
-            getAnime: (tmdbId, ep, dub) => `https://vidsrc.cc/v3/embed/anime/tmdb${tmdbId}/${ep}/${dub ? 'dub' : 'sub'}`
         }
     ],
 
@@ -194,7 +175,7 @@ export const core = {
     isTrustedEmbedOrigin(origin) {
         try {
             const host = new URL(origin).hostname;
-            const trusted = ['embedmaster.link', 'embdmstrplayer.com', 'vidsrcme.ru', 'vsembed.ru', 'vidsrc.cc', 'vidsrc.me', 'vidsrc.to', 'vidsrc.net', 'vsrc.su', 'embed.su', 'vidlink.pro', 'autoembed.co', 'vidcore.org', 'vidfast.vc', 'vidlux.xyz', 'megaplay.buzz'];
+            const trusted = ['embedmaster.link', 'embdmstrplayer.com', 'embed.su', 'vidlink.pro', 'vidcore.org', 'vidfast.vc', 'vidlux.xyz', 'megaplay.buzz'];
             return trusted.some(d => host === d || host.endsWith('.' + d));
         } catch {
             return false;
@@ -435,13 +416,17 @@ export const core = {
         await this.syncFromCloud();
 
         try {
-            const savedServer = Number.parseInt(localStorage.getItem('alexandria_activeServer'), 10);
-            if (Number.isInteger(savedServer) && this.servers[savedServer]) {
+            // Aug 2026 mirror purge shifted server indexes; remap saved
+            // selections so nobody boots onto a removed or anime-only slot.
+            const REMAP = { 0: 0, 1: 1, 4: 2, 5: 3, 6: 4, 7: 5, 8: 6, 9: 7 };
+            const savedRaw = Number.parseInt(localStorage.getItem('alexandria_activeServer'), 10);
+            const savedServer = Number.isInteger(savedRaw) && savedRaw in REMAP ? REMAP[savedRaw] : -1;
+            if (savedServer >= 0 && this.servers[savedServer]) {
                 this.state.activeServer = savedServer;
             } else {
                 this.state.activeServer = 0;
-                localStorage.setItem('alexandria_activeServer', '0');
             }
+            localStorage.setItem('alexandria_activeServer', String(this.state.activeServer));
         } catch { /* ignore */ }
 
         // Supabase is optional; used only for Watch Party Realtime.
