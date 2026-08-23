@@ -992,7 +992,9 @@ export const core = {
 
     async resolveAnime(tmdbId, season = 1, episode = null) {
         this._animeResolveCache = this._animeResolveCache || {};
-        const key = `${tmdbId}_s${season || 1}`;
+        // Episode participates in the key: absolute-numbered shows map
+        // different episodes of one "season" onto different AniList entries.
+        const key = `${tmdbId}_s${season || 1}_e${episode || 0}`;
         if (this._animeResolveCache[key]) return this._animeResolveCache[key];
         const params = new URLSearchParams({ tmdb: String(tmdbId) });
         if (season && season > 1) params.set('season', String(season));

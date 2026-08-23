@@ -221,8 +221,12 @@ export default async function handler(req, res) {
     const episode = Number.isInteger(episodeRaw) && episodeRaw >= 1 ? episodeRaw : null;
     const cfg = supabaseConfig();
 
-    // Season-level cache answers first — it already encodes the sequel hop.
-    if (cfg) {
+    // Season-level cache is only valid for TRUE seasons (season >= 2), where a
+    // whole TMDB season maps to exactly one AniList entry. Absolute-numbered
+    // shows (giant "Season 1") map per-EPISODE, so those answers are served
+    // from the edge cache keyed by the full query string instead — persisting
+    // them here would poison every other episode in the season.
+    if (cfg && season > 1) {
       const cachedSeason = await seasonMapRead(cfg, tmdbId, season);
       if (cachedSeason?.anilist_id) {
         res.setHeader('Cache-Control', 's-maxage=21600, stale-while-revalidate=86400');
@@ -297,17 +301,18 @@ export default async function handler(req, res) {
       }
 
       const dubAvailable = await probeDub(target.id);
-      const row = {
-        tmdb_id: tmdbId,
-        season,
-        anilist_id: target.id,
-        mal_id: target.idMal ?? null,
-        title: target.title?.english || target.title?.romaji || title,
-        anilist_episodes: target.episodes ?? null,
-        dub_available: dubAvailable,
-        resolved_at: new Date().toISOString()
-      };
-      if (cfg) await seasonMapUpsert(cfg, row);
+      if (cfg && season > 1) {
+        await seasonMapUpsert(cfg, {
+          tmdb_id: tmdbId,
+          season,
+          anilist_id: target.id,
+          mal_id: target.idMal ?? null,
+          title: target.title?.english || target.title?.romaji || title,
+          anilist_episodes: target.episodes ?? null,
+          dub_available: dubAvailable,
+          resolved_at: new Date().toISOString()
+        });
+      }
       // Keep the base table in sync for season 1 so reverse lookups and the
       // details badge keep working off anime_map too.
       if (cfg && season === 1) {
@@ -327,7 +332,7 @@ export default async function handler(req, res) {
         season,
         anilistId: target.id,
         malId: target.idMal ?? null,
-        title: row.title,
+        title: target.title?.english || target.title?.romaji || title,
         episodes: target.episodes ?? null,
         requestedEpisode: effectiveEpisode,
         dubAvailable
