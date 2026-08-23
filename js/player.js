@@ -266,11 +266,12 @@ export const player = {
                 isMovie: meta.isMovie
             });
             const dub = this.readAudioPref() === 'dub';
-            const externalId = server.animeSource === 'anilist' ? info.anilistId : id;
-            const epForUrl = server.animeSource === 'anilist'
-                ? (info.requestedEpisode || Number(episode) || 1)
-                : (Number(episode) || 1);
-            const url = server.getAnime(externalId, epForUrl, dub);
+            let ref = null;
+            if (info.anilistId) ref = 'ani/' + info.anilistId;
+            else if (info.malId) ref = 'mal/' + info.malId;
+            if (!ref) throw new Error('Resolver returned no usable id.');
+            const epForUrl = info.requestedEpisode || Number(episode) || 1;
+            const url = server.getAnime(ref, epForUrl, dub);
             if (this.state.view !== 'player') return;
             const live = document.getElementById('video-iframe');
             if (live) {

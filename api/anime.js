@@ -54,14 +54,15 @@ export default async function handler(req, res) {
     const tmdbId = Number.parseInt(b.tmdbId, 10);
     const season = Math.max(1, Number.parseInt(b.season, 10) || 1);
     const anilistId = Number.parseInt(b.anilistId, 10);
-    if (!Number.isInteger(tmdbId) || !Number.isInteger(anilistId)) {
-      return json(res, 400, { error: 'tmdbId and anilistId are required.' });
+    const malId = Number.parseInt(b.malId, 10);
+    if (!Number.isInteger(tmdbId) || (!Number.isInteger(anilistId) && !Number.isInteger(malId))) {
+      return json(res, 400, { error: 'tmdbId plus anilistId or malId are required.' });
     }
     const row = {
       tmdb_id: tmdbId,
       season,
-      anilist_id: anilistId,
-      mal_id: Number.parseInt(b.malId, 10) || null,
+      anilist_id: Number.isInteger(anilistId) ? anilistId : null,
+      mal_id: malId,
       title: typeof b.title === 'string' ? b.title.slice(0, 200) : null,
       anilist_episodes: Number.parseInt(b.episodes, 10) || null,
       requested_episode: Number.parseInt(b.requestedEpisode, 10) || null,
@@ -71,7 +72,7 @@ export default async function handler(req, res) {
       prefer: 'resolution=merge-duplicates',
       fetch: { method: 'POST', body: JSON.stringify(row) }
     });
-    if (season === 1 && row.anilist_episodes == null) {
+    if (season === 1 && row.anilist_id != null && row.anilist_episodes == null) {
       // Keep the legacy base table warm for S1 too.
       await sb(cfg, 'anime_map', {
         prefer: 'resolution=merge-duplicates',
@@ -79,7 +80,7 @@ export default async function handler(req, res) {
           method: 'POST',
           body: JSON.stringify({
             tmdb_id: tmdbId,
-            anilist_id: anilistId,
+            anilist_id: row.anilist_id,
             mal_id: row.mal_id,
             title: row.title,
             dub_available: typeof b.dubAvailable === 'boolean' ? b.dubAvailable : null,
@@ -105,12 +106,12 @@ export default async function handler(req, res) {
       `anime_season_map?tmdb_id=eq.${tmdbId}&season=eq.${season}&select=*`
     );
     const hit = rows?.[0];
-    if (hit?.anilist_id) {
+    if (hit && (hit.anilist_id || hit.mal_id)) {
       return json(res, 200, {
         found: true,
         tmdbId,
         season,
-        anilistId: hit.anilist_id,
+        anilistId: hit.anilist_id ?? null,
         malId: hit.mal_id ?? null,
         title: hit.title ?? null,
         episodes: hit.anilist_episodes ?? null,
@@ -129,19 +130,19 @@ export default async function handler(req, res) {
   if (episode) {
     const rows = await sb(
       cfg,
-      `anime_season_map?tmdb_id=eq.${tmdbId}&season=eq.1&anilist_id=not.is.null&requested_episode=eq.${episode}&select=*`
+      `anime_season_map?tmdb_id=eq.${tmdbId}&season=eq.1&requested_episode=eq.${episode}&select=*`
     );
     const exact = rows?.find(r =>
       r.anilist_episodes == null ||
       r.requested_episode == null ||
       episode <= (r.anilist_episodes || Infinity)
     );
-    if (exact?.anilist_id && exact.anilist_episodes != null && episode <= exact.anilist_episodes) {
+    if (exact && (exact.anilist_id || exact.mal_id)) {
       return json(res, 200, {
         found: true,
         tmdbId,
         season: 1,
-        anilistId: exact.anilist_id,
+        anilistId: exact.anilist_id ?? null,
         malId: exact.mal_id ?? null,
         title: exact.title ?? null,
         episodes: exact.anilist_episodes ?? null,
@@ -153,12 +154,12 @@ export default async function handler(req, res) {
 
   const baseRows = await sb(cfg, `anime_map?tmdb_id=eq.${tmdbId}&select=*`);
   const base = baseRows?.[0];
-  if (base?.anilist_id) {
+  if (base && (base.anilist_id || base.mal_id)) {
     return json(res, 200, {
       found: true,
       tmdbId,
       season: 1,
-      anilistId: base.anilist_id,
+      anilistId: base.anilist_id ?? null,
       malId: base.mal_id ?? null,
       title: base.title ?? null,
       episodes: null,

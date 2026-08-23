@@ -74,9 +74,10 @@ export const core = {
         {
             name: 'MegaPlay Anime',
             animeOnly: true,
-            animeSource: 'anilist',
             supportsApi: false,
-            getAnime: (anilistId, ep, dub) => `https://megaplay.buzz/stream/ani/${anilistId}/${ep}/${dub ? 'dub' : 'sub'}`
+            // `ref` is precomposed by the resolver: 'ani/{anilistId}' or
+            // 'mal/{malId}' depending on which database answered.
+            getAnime: (ref, ep, dub) => `https://megaplay.buzz/stream/${ref}/${ep}/${dub ? 'dub' : 'sub'}`
         }
     ],
 
@@ -997,7 +998,67 @@ export const core = {
         try { localStorage.setItem('alexandria_audio_pref', pref); } catch { /* ignore */ }
     },
 
-    // ---- Anime: TMDB↔AniList resolution (runs in the VISITOR'S browser) ----
+    // ---- MAL fallback via Jikan (independent of AniList entirely) ----
+
+    async jikanGet(path, attempt = 0) {
+        let res;
+        try {
+            res = await fetch('https://api.jikan.moe/v4' + path);
+        } catch (e) {
+            if (attempt < 1) { await new Promise(r => setTimeout(r, 1100)); return this.jikanGet(path, attempt + 1); }
+            throw new Error('Jikan unreachable.');
+        }
+        // Jikan is a free community mirror — 429s and 5xx are routine.
+        if ((res.status === 429 || res.status >= 500) && attempt < 1) {
+            await new Promise(r => setTimeout(r, 1100));
+            return this.jikanGet(path, attempt + 1);
+        }
+        if (!res.ok) throw new Error(`Jikan request failed (${res.status})`);
+        const body = await res.json().catch(() => null);
+        if (!body?.data) throw new Error('Unreadable Jikan response.');
+        return body.data;
+    },
+
+    jikanScore(entry, hint) {
+        let score = 0;
+        const mYear = entry.year || (entry.aired?.from ? Number(String(entry.aired.from).slice(0, 4)) : null);
+        if (hint.year && mYear) {
+            const delta = Math.abs(mYear - hint.year);
+            if (delta === 0) score += 4;
+            else if (delta === 1) score += 2;
+            else score -= 2;
+        }
+        const titles = [entry.title, entry.title_english, entry.title_japanese]
+            .filter(Boolean).map(t => t.toLowerCase());
+        const want = [hint.title, hint.originalTitle].filter(Boolean).map(t => t.toLowerCase());
+        if (want.some(w => titles.includes(w))) score += 3;
+        if ((hint.isMovie === true) === (entry.type === 'Movie')) score += 1;
+        return score;
+    },
+
+    async jikanResolve(hint) {
+        const q = encodeURIComponent(hint.title);
+        const results = await this.jikanGet(`/anime?q=${q}&limit=6&sfw=true`);
+        let best = null;
+        let bestScore = 0;
+        for (const e of results || []) {
+            if (!e?.mal_id) continue;
+            const s = this.jikanScore(e, hint);
+            if (s > bestScore) { bestScore = s; best = e; }
+        }
+        if (bestScore < 5 || !best) throw new Error('No confident MAL match for this title.');
+
+        const target = { malId: best.mal_id, episodes: best.episodes ?? null, title: best.title_english || best.title };
+        return {
+            found: true,
+            anilistId: null,
+            malId: target.malId,
+            title: target.title,
+            episodes: target.episodes,
+            dubAvailable: null,
+            __source: 'jikan'
+        };
+    },
     // Vercel/datacenter IPs get 403-blocked by AniList, so all GraphQL traffic
     // originates from the user (residential IP, CORS-open endpoint) exactly
     // like miruro does. /api/anime is only a shared Supabase-backed cache.
@@ -1109,7 +1170,7 @@ export const core = {
                 // THIS episode — absolute-numbered shows map different episodes
                 // of one "season" onto different AniList entries, so a bare
                 // base-row hit must not short-circuit the sequel walk.
-                const trusted = cached?.found && cached.anilistId && (
+                const trusted = cached?.found && (cached.anilistId || cached.malId) && (
                     season > 1 ||
                     episode == null ||
                     (Number.isInteger(cached.requestedEpisode) && cached.requestedEpisode === episode) ||
@@ -1140,12 +1201,64 @@ export const core = {
             const page = await this.aniQuery(searchGql, { search: hint.title });
             return this.pickAniListMatch(page?.media || [], hint);
         };
-        let target = await searchOnce();
-        if (!target) {
-            await new Promise(r => setTimeout(r, 1200));
+        let target = null;
+        let aniError = null;
+        try {
             target = await searchOnce();
+            if (!target) {
+                await new Promise(r => setTimeout(r, 1200));
+                target = await searchOnce();
+            }
+        } catch (e) {
+            aniError = e;
         }
-        if (!target) throw new Error('AniList could not match this title right now — it may be under load. Try again or switch server.');
+
+        // AniList down/throttled/mismatched? Try the entirely separate
+        // MyAnimeList ecosystem via Jikan before giving up.
+        if (!target) {
+            try {
+                const malBase = await this.jikanResolve(hint);
+                let cursor = { malId: malBase.malId, episodes: malBase.episodes };
+                let eff = episode;
+                if (!hint.isMovie && season > 1) {
+                    for (let hop = 1; hop < season && cursor.malId; hop++) {
+                        await new Promise(r => setTimeout(r, 420));
+                        const rel = await this.jikanGet(`/anime/${cursor.malId}/relations`);
+                        const seq = (rel || []).find(r => r.relation === 'Sequel')?.entry?.find(x => x.type === 'anime');
+                        if (!seq?.mal_id) throw new Error(`Could not map season ${season} on MAL.`);
+                        await new Promise(r => setTimeout(r, 420));
+                        const full = await this.jikanGet(`/anime/${seq.mal_id}`);
+                        cursor = { malId: seq.mal_id, episodes: full?.episodes ?? null };
+                    }
+                    eff = episode;
+                } else if (!hint.isMovie && episode && Number.isInteger(cursor.episodes) && cursor.episodes > 0 && episode > cursor.episodes) {
+                    eff = episode;
+                    while (eff > (cursor.episodes || Infinity)) {
+                        await new Promise(r => setTimeout(r, 420));
+                        const rel = await this.jikanGet(`/anime/${cursor.malId}/relations`);
+                        const seq = (rel || []).find(r => r.relation === 'Sequel')?.entry?.find(x => x.type === 'anime');
+                        if (!seq?.mal_id || !cursor.episodes) break;
+                        eff -= cursor.episodes;
+                        await new Promise(r => setTimeout(r, 420));
+                        const full = await this.jikanGet(`/anime/${seq.mal_id}`);
+                        cursor = { malId: seq.mal_id, episodes: full?.episodes ?? null };
+                    }
+                }
+                return {
+                    found: true,
+                    anilistId: null,
+                    malId: cursor.malId,
+                    title: malBase.title,
+                    episodes: cursor.episodes ?? null,
+                    requestedEpisode: eff,
+                    dubAvailable: null
+                };
+            } catch (malErr) {
+                // Surface whichever story is most useful.
+                if (aniError) throw aniError;
+                throw malErr;
+            }
+        }
 
         let effectiveEpisode = episode;
 
