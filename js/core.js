@@ -1105,7 +1105,17 @@ export const core = {
             const res = await fetch('/api/anime?' + params.toString());
             if (res.ok) {
                 const cached = await res.json();
-                if (cached?.found && cached.anilistId) {
+                // Only trust a shared-cache answer when it unambiguously covers
+                // THIS episode — absolute-numbered shows map different episodes
+                // of one "season" onto different AniList entries, so a bare
+                // base-row hit must not short-circuit the sequel walk.
+                const trusted = cached?.found && cached.anilistId && (
+                    season > 1 ||
+                    episode == null ||
+                    (Number.isInteger(cached.requestedEpisode) && cached.requestedEpisode === episode) ||
+                    (Number.isInteger(cached.episodes) && cached.episodes > 0 && episode <= cached.episodes)
+                );
+                if (trusted) {
                     this._animeResolveCache[key] = cached;
                     this.writeAnimeCache(key, cached);
                     return cached;
