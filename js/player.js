@@ -329,6 +329,9 @@ export const player = {
         if (idx == null) return;
         serverIndex = idx;
 
+        // A deliberate pick of an anime mirror earns a fresh fallback budget.
+        if (this.servers[serverIndex]?.animeOnly) this._animeFallbackUsed = false;
+
         // Watch Party play/pause sync needs EmbedMaster postMessage API.
         if (this.state.view === 'party' && !this.servers[serverIndex].supportsApi) {
             this.showToast('That mirror can’t sync in Watch Party. Use Alexandria or EmbedMaster.');

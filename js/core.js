@@ -1134,9 +1134,18 @@ export const core = {
           query ($search: String) {
             Page(perPage: 10) { media(search: $search, type: ANIME, sort: SEARCH_MATCH) { ${MEDIA_FIELDS} } }
           }`;
-        const page = await this.aniQuery(searchGql, { search: hint.title });
-        let target = this.pickAniListMatch(page?.media || [], hint);
-        if (!target) throw new Error('No confident AniList match for this title.');
+        // AniList flaps during stability incidents — a degraded window can
+        // return 200-with-empty-results. Give the search a second chance.
+        const searchOnce = async () => {
+            const page = await this.aniQuery(searchGql, { search: hint.title });
+            return this.pickAniListMatch(page?.media || [], hint);
+        };
+        let target = await searchOnce();
+        if (!target) {
+            await new Promise(r => setTimeout(r, 1200));
+            target = await searchOnce();
+        }
+        if (!target) throw new Error('AniList could not match this title right now — it may be under load. Try again or switch server.');
 
         let effectiveEpisode = episode;
 
