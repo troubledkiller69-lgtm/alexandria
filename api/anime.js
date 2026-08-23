@@ -25,7 +25,7 @@ async function getTmdb(path, apiKey) {
   return ok ? data : null;
 }
 
-async function anilistQuery(query, variables) {
+async function anilistQuery(query, variables, attempt = 0) {
   const { ok, status, data } = await fetchJson(ANILIST_GRAPHQL, {
     method: 'POST',
     headers: {
@@ -34,6 +34,11 @@ async function anilistQuery(query, variables) {
     },
     body: JSON.stringify({ query, variables })
   }, 9000);
+  // AniList throttles hard after stability incidents — back off once and retry.
+  if ((!ok && (status === 429 || status >= 500)) && attempt < 1) {
+    await new Promise(r => setTimeout(r, 900));
+    return anilistQuery(query, variables, attempt + 1);
+  }
   if (!ok || !data?.data) {
     throw Object.assign(new Error(`AniList request failed (${status})`), { status: 502 });
   }
@@ -338,6 +343,8 @@ export default async function handler(req, res) {
         dubAvailable
       });
     } catch (e) {
+      // Never allow transient upstream failures to be edge-cached.
+      res.setHeader('Cache-Control', 'no-store');
       return json(res, e.status || 502, { error: e.message || 'AniList lookup failed.' });
     }
   }

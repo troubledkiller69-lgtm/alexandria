@@ -16,6 +16,7 @@ export const player = {
         this._triedServers = new Set([this.state.activeServer]);
         this._serverHealthy = false;
         this._currentSeasonEpisodes = [];
+        this._animeFallbackUsed = false;
 
         this.main.innerHTML = `
             <section class="player-page-container">
@@ -256,6 +257,16 @@ export const player = {
             );
         } catch (e) {
             if (this.state.view !== 'player') return;
+            // AniList down or throttled? Playback must not die with it — hop
+            // to a TMDB-native mirror that needs no resolution at all.
+            const fallbackIdx = this.servers.findIndex(s => !s.animeOnly && s.name === 'VidCore');
+            const alreadyFallback = this._animeFallbackUsed;
+            if (fallbackIdx >= 0 && !alreadyFallback) {
+                this._animeFallbackUsed = true;
+                this.showToast('Anime lookup failed — switched to VidCore (no AniList needed).');
+                this.applyServer(fallbackIdx, { resetTried: true });
+                return;
+            }
             this.setServerStatus('Anime lookup failed.');
             this.showToast(e.message || 'Could not resolve this anime — try another server.');
         }
