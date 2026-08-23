@@ -1072,7 +1072,14 @@ export const core = {
             body: JSON.stringify({ query, variables })
         });
         const body = await res.json().catch(() => null);
-        // Post-outage throttling is real — back off once and retry.
+        // Rate limited? Their docs promise Retry-After seconds on a 429.
+        // Wait for it only when it's short — long timeouts fail fast so the
+        // VidCore fallback can take over instead of stalling the player.
+        if (res.status === 429 && attempt < 1) {
+            const wait = Math.min(Number(res.headers.get('retry-after')) || 3, 8);
+            await new Promise(r => setTimeout(r, wait * 1000));
+            return this.aniQuery(query, variables, attempt + 1);
+        }
         if ((!res.ok || body?.errors) && (res.status === 429 || res.status >= 500) && attempt < 1) {
             await new Promise(r => setTimeout(r, 900));
             return this.aniQuery(query, variables, attempt + 1);
@@ -1119,6 +1126,7 @@ export const core = {
         let currentId = anilistId;
         const visited = new Set([anilistId]);
         for (let hop = 0; hop < maxHops; hop++) {
+            if (hop > 0) await new Promise(r => setTimeout(r, 320));
             const data = await this.aniQuery(gql, { id: currentId });
             const edges = data?.Media?.relations?.edges || [];
             const edge = edges.find(e => e?.relationType === 'SEQUEL' && e.node?.id && !visited.has(e.node.id));
