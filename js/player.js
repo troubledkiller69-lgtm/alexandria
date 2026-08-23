@@ -24,7 +24,7 @@ export const player = {
                         <div class="server-controls">
                             <label class="server-label" for="server-selector">SERVER <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"></polyline></svg></label>
                             <select id="server-selector" class="server-select-dropdown" onchange="Alexandria.handleServerChange(this.value)">
-                                ${this.servers.map((s, i) => (animeMode || !s.animeOnly)
+                                ${this.servers.map((s, i) => (type === 'tv' || !s.animeOnly)
                                     ? `<option value="${i}" ${i === this.state.activeServer ? 'selected' : ''}>${s.name}</option>`
                                     : '').join('')}
                             </select>
