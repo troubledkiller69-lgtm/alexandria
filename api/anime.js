@@ -44,6 +44,7 @@ const MEDIA_FIELDS = `
   id
   idMal
   format
+  episodes
   countryOfOrigin
   startDate { year }
   title { romaji english native }
@@ -58,6 +59,39 @@ async function searchAniList(title, year) {
     }`;
   const data = await anilistQuery(gql, { search: title });
   return data?.Page?.media || [];
+}
+
+// Sequel seasons live under separate AniList ids connected by SEQUEL edges.
+// Walk the chain so TMDB season N maps to its own AniList entry.
+async function getSequelChain(anilistId, maxHops = 12) {
+  const gql = `
+    query ($id: Int) {
+      Media(id: $id, type: ANIME) {
+        id
+        relations {
+          edges {
+            relationType
+            node { ${MEDIA_FIELDS} }
+          }
+        }
+      }
+    }`;
+  const chain = [];
+  let currentId = anilistId;
+  const visited = new Set([anilistId]);
+  for (let hop = 0; hop < maxHops; hop++) {
+    const data = await anilistQuery(gql, { id: currentId });
+    const edges = data?.Media?.relations?.edges || [];
+    const sequelEdge = edges.find(e =>
+      e?.relationType === 'SEQUEL' && e.node?.id && !visited.has(e.node.id)
+    );
+    if (!sequelEdge) break;
+    const node = { ...sequelEdge.node, __relationType: sequelEdge.relationType };
+    chain.push(node);
+    visited.add(node.id);
+    currentId = node.id;
+  }
+  return chain;
 }
 
 function pickAniListMatch(candidates, { title, originalTitle, year, isMovie }) {
@@ -119,10 +153,7 @@ function supabaseConfig() {
 async function mapRead(cfg, column, value) {
   const target = `${cfg.url}/rest/v1/anime_map?${column}=eq.${encodeURIComponent(value)}&select=*`;
   const res = await fetch(target, {
-    headers: {
-      apikey: cfg.key,
-      Authorization: `Bearer ${cfg.key}`
-    }
+    headers: { apikey: cfg.key, Authorization: `Bearer ${cfg.key}` }
   });
   if (!res.ok) return null;
   const rows = await res.json().catch(() => []);
@@ -132,6 +163,31 @@ async function mapRead(cfg, column, value) {
 async function mapUpsert(cfg, row) {
   try {
     await fetch(`${cfg.url}/rest/v1/anime_map`, {
+      method: 'POST',
+      headers: {
+        apikey: cfg.key,
+        Authorization: `Bearer ${cfg.key}`,
+        'Content-Type': 'application/json',
+        Prefer: 'resolution=merge-duplicates'
+      },
+      body: JSON.stringify(row)
+    });
+  } catch { /* cache write failures must not fail the request */ }
+}
+
+async function seasonMapRead(cfg, tmdbId, season) {
+  const target = `${cfg.url}/rest/v1/anime_season_map?tmdb_id=eq.${tmdbId}&season=eq.${season}&select=*`;
+  const res = await fetch(target, {
+    headers: { apikey: cfg.key, Authorization: `Bearer ${cfg.key}` }
+  });
+  if (!res.ok) return null;
+  const rows = await res.json().catch(() => []);
+  return Array.isArray(rows) && rows[0] ? rows[0] : null;
+}
+
+async function seasonMapUpsert(cfg, row) {
+  try {
+    await fetch(`${cfg.url}/rest/v1/anime_season_map`, {
       method: 'POST',
       headers: {
         apikey: cfg.key,
@@ -156,20 +212,28 @@ export default async function handler(req, res) {
 
   if (!tmdbKey) return json(res, 503, { error: 'TMDB is not configured on this deployment.' });
 
-  // ---------- Forward: TMDB id → AniList id ----------
+  // ---------- Forward: TMDB id (+ optional season/episode) → AniList ----------
   if (tmdbIdRaw && !Array.isArray(tmdbIdRaw) && /^\d{1,7}$/.test(tmdbIdRaw)) {
     const tmdbId = Number(tmdbIdRaw);
+    const seasonRaw = Number.parseInt(Array.isArray(req.query.season) ? req.query.season[0] : req.query.season, 10);
+    const season = Number.isInteger(seasonRaw) && seasonRaw >= 1 ? seasonRaw : 1;
+    const episodeRaw = Number.parseInt(Array.isArray(req.query.episode) ? req.query.episode[0] : req.query.episode, 10);
+    const episode = Number.isInteger(episodeRaw) && episodeRaw >= 1 ? episodeRaw : null;
     const cfg = supabaseConfig();
+
+    // Season-level cache answers first — it already encodes the sequel hop.
     if (cfg) {
-      const cached = await mapRead(cfg, 'tmdb_id', tmdbId);
-      if (cached?.anilist_id) {
+      const cachedSeason = await seasonMapRead(cfg, tmdbId, season);
+      if (cachedSeason?.anilist_id) {
         res.setHeader('Cache-Control', 's-maxage=21600, stale-while-revalidate=86400');
         return json(res, 200, {
           tmdbId,
-          anilistId: cached.anilist_id,
-          malId: cached.mal_id ?? null,
-          title: cached.title ?? null,
-          dubAvailable: typeof cached.dub_available === 'boolean' ? cached.dub_available : null
+          season,
+          anilistId: cachedSeason.anilist_id,
+          malId: cachedSeason.mal_id ?? null,
+          title: cachedSeason.title ?? null,
+          episodes: cachedSeason.anilist_episodes ?? null,
+          dubAvailable: typeof cachedSeason.dub_available === 'boolean' ? cachedSeason.dub_available : null
         });
       }
     }
@@ -178,45 +242,94 @@ export default async function handler(req, res) {
     const movie = tv ? null : await getTmdb(`movie/${tmdbId}`, tmdbKey);
     const meta = tv || movie;
     if (!meta) return json(res, 404, { error: 'Unknown TMDB id.' });
-    if (!tv && !movie?.overview) { /* fallthrough handled below */ }
 
     const type = tv ? 'tv' : 'movie';
-    if (type !== 'tv') {
-      // Anime movies exist but are rare in this catalog; still attempt.
-    }
     const year = Number((meta.first_air_date || meta.release_date || '').slice(0, 4)) || null;
     const title = meta.name || meta.title || '';
     if (!title) return json(res, 404, { error: 'TMDB record has no title.' });
 
     try {
+      // Resolve the BASE entry (first season / source work).
       const candidates = await searchAniList(title, year);
-      const match = pickAniListMatch(candidates, {
+      const base = pickAniListMatch(candidates, {
         title,
         originalTitle: meta.original_name || meta.original_title,
         year,
         isMovie: type === 'movie'
       });
-      if (!match) {
+      if (!base) {
         res.setHeader('Cache-Control', 'no-store');
         return json(res, 404, { error: 'No confident AniList match for this title.' });
       }
-      const dubAvailable = await probeDub(match.id);
-      if (cfg) {
+
+      let target = { ...base };
+      let effectiveEpisode = episode;
+
+      // Case A: explicit season > 1 → hop the sequel chain.
+      if (type === 'tv' && season > 1) {
+        const chain = await getSequelChain(base.id, Math.min(season - 1, 12));
+        const targetNode = chain[season - 2];
+        if (!targetNode) {
+          res.setHeader('Cache-Control', 'no-store');
+          return json(res, 404, { error: `Could not map season ${season} on AniList.` });
+        }
+        target = targetNode;
+      }
+
+      // Case B: absolute-numbered shows (TMDB packs every season into S1).
+      // Walk sequels subtracting episode counts until we land inside one.
+      if (
+        type === 'tv' && season <= 1 && episode &&
+        Number.isInteger(target.episodes) && target.episodes > 0 &&
+        episode > target.episodes
+      ) {
+        const chain = await getSequelChain(base.id, 12);
+        let cursor = { ...base };
+        let eff = episode;
+        for (const next of chain) {
+          if (!(Number.isInteger(cursor.episodes) && cursor.episodes > 0)) break;
+          if (eff <= cursor.episodes) break;
+          eff -= cursor.episodes;
+          cursor = next;
+        }
+        target = cursor;
+        effectiveEpisode = eff;
+      }
+
+      const dubAvailable = await probeDub(target.id);
+      const row = {
+        tmdb_id: tmdbId,
+        season,
+        anilist_id: target.id,
+        mal_id: target.idMal ?? null,
+        title: target.title?.english || target.title?.romaji || title,
+        anilist_episodes: target.episodes ?? null,
+        dub_available: dubAvailable,
+        resolved_at: new Date().toISOString()
+      };
+      if (cfg) await seasonMapUpsert(cfg, row);
+      // Keep the base table in sync for season 1 so reverse lookups and the
+      // details badge keep working off anime_map too.
+      if (cfg && season === 1) {
         await mapUpsert(cfg, {
           tmdb_id: tmdbId,
-          anilist_id: match.id,
-          mal_id: match.idMal ?? null,
+          anilist_id: base.id,
+          mal_id: base.idMal ?? null,
           title,
           dub_available: dubAvailable,
           resolved_at: new Date().toISOString()
         });
       }
+
       res.setHeader('Cache-Control', 's-maxage=21600, stale-while-revalidate=86400');
       return json(res, 200, {
         tmdbId,
-        anilistId: match.id,
-        malId: match.idMal ?? null,
-        title,
+        season,
+        anilistId: target.id,
+        malId: target.idMal ?? null,
+        title: row.title,
+        episodes: target.episodes ?? null,
+        requestedEpisode: effectiveEpisode,
         dubAvailable
       });
     } catch (e) {
@@ -244,7 +357,7 @@ export default async function handler(req, res) {
     try {
       const gql = `
         query ($id: Int) {
-          Media(id: $id, type: ANIME) { ${MEDIA_FIELDS} episodes }
+          Media(id: $id, type: ANIME) { ${MEDIA_FIELDS} }
         }`;
       const data = await anilistQuery(gql, { id: anilistId });
       const media = data?.Media;

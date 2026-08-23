@@ -226,29 +226,33 @@ export const player = {
 
     async hydrateAnimeEmbed() {
         const server = this.servers[this.state.activeServer];
-        const { id, episode } = this.state.activeContent || {};
+        const { id, season, episode } = this.state.activeContent || {};
         if (!server?.animeOnly) return;
         // The DUB/SUB pill must exist the moment an anime server is active —
         // not only when genre detection fires. Without it a manual server pick
         // locks the user to sub with no way to switch.
         this.refreshAnimeControls();
-        const frame = document.getElementById('video-iframe');
-        if (frame && !frame.src.startsWith('about:')) frame.src = 'about:blank';
         this.setServerStatus(`Resolving AniList ID · ${server.name}…`);
         try {
-            const info = await this.resolveAnime(id);
+            // Season-aware: sequel seasons are separate AniList entries, and
+            // some TMDB shows pack every season into one giant "Season 1" —
+            // the resolver walks the sequel chain for both cases.
+            const info = await this.resolveAnime(id, Number(season) || 1, Number(episode) || null);
             const dub = this.readAudioPref() === 'dub';
             const externalId = server.animeSource === 'anilist' ? info.anilistId : id;
-            const url = server.getAnime(externalId, Number(episode) || 1, dub);
+            const epForUrl = server.animeSource === 'anilist'
+                ? (info.requestedEpisode || Number(episode) || 1)
+                : (Number(episode) || 1);
+            const url = server.getAnime(externalId, epForUrl, dub);
             if (this.state.view !== 'player') return;
             const live = document.getElementById('video-iframe');
-            if (live && live !== frame) { /* frame replaced mid-flight */ }
             if (live) {
                 live.src = url;
                 this.scheduleEmbedTheme(live);
             }
+            const dubNote = dub && info.dubAvailable === false ? ' · no dub on mirror, playing sub' : '';
             this.setServerStatus(
-                info.dubAvailable === false ? `Sub only on this mirror · ${server.name}` : `Loaded · ${server.name}${dub ? ' · DUB' : ''}`
+                `${server.name}${dubNote || (dub ? ' · DUB' : '')}`.trim()
             );
         } catch (e) {
             if (this.state.view !== 'player') return;

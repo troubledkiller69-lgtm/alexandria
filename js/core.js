@@ -990,12 +990,19 @@ export const core = {
         try { localStorage.setItem('alexandria_audio_pref', pref); } catch { /* ignore */ }
     },
 
-    async resolveAnime(tmdbId) {
+    async resolveAnime(tmdbId, season = 1, episode = null) {
         this._animeResolveCache = this._animeResolveCache || {};
-        const key = String(tmdbId);
+        const key = `${tmdbId}_s${season || 1}`;
         if (this._animeResolveCache[key]) return this._animeResolveCache[key];
-        const res = await fetch('/api/anime?tmdb=' + encodeURIComponent(key));
-        if (!res.ok) throw new Error(`Anime lookup failed (${res.status})`);
+        const params = new URLSearchParams({ tmdb: String(tmdbId) });
+        if (season && season > 1) params.set('season', String(season));
+        if (episode && episode > 1) params.set('episode', String(episode));
+        const res = await fetch('/api/anime?' + params.toString());
+        if (!res.ok) {
+            let msg = `Anime lookup failed (${res.status})`;
+            try { msg = (await res.json())?.error || msg; } catch { /* keep default */ }
+            throw new Error(msg);
+        }
         const data = await res.json();
         if (!data || !data.anilistId) throw new Error(data?.error || 'No AniList match found for this title.');
         this._animeResolveCache[key] = data;
