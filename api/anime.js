@@ -31,7 +31,11 @@ async function sb(cfg, path, opts = {}) {
       ...opts.fetch
     });
     clearTimeout(timer);
-    if (opts.write) return { ok: res.ok, status: res.status };
+    if (opts.write) {
+      if (res.ok) return { ok: true, status: res.status };
+      const text = await res.text().catch(() => '');
+      return { ok: false, status: res.status, error: text.slice(0, 300) };
+    }
     if (!res.ok && res.status !== 404) return null;
     const rows = await res.json().catch(() => []);
     return Array.isArray(rows) ? rows : null;
@@ -178,7 +182,7 @@ export default async function handler(req, res) {
     }
     if (!parsed.length) return json(res, 400, { error: 'No valid rows.' });
 
-    let inserted = 0, failed = 0;
+    let inserted = 0, failed = 0, firstErr = null;
     for (let i = 0; i < parsed.length; i += 200) {
       const chunk = parsed.slice(i, i + 200);
       // columns= pins the ON CONFLICT arbiter to the real identity constraint;
@@ -189,9 +193,9 @@ export default async function handler(req, res) {
         fetch: { method: 'POST', body: JSON.stringify(chunk) }
       });
       if (out?.ok) inserted += chunk.length;
-      else failed += chunk.length;
+      else { failed += chunk.length; if (!firstErr) firstErr = out?.error || `status ${out?.status}`; }
     }
-    return json(res, 200, { inserted, failed });
+    return json(res, 200, { inserted, failed, error: firstErr || null });
     // Keep the legacy base table warm for S1 entries that carry AniList ids.
     const s1Base = parsed.filter(p => p.season === 1 && p.anilist_id != null && p.anilist_episodes == null);
     for (let i = 0; i < s1Base.length; i += 200) {
