@@ -175,7 +175,7 @@ export default async function handler(req, res) {
         anilist_episodes: Number.parseInt(it.episodes, 10) || null,
         original_episode: Number.parseInt(it.originalEpisode, 10)
           || Number.parseInt(it.requestedEpisode, 10)
-          || null,
+          || 0,
         requested_episode: Number.parseInt(it.requestedEpisode, 10) || null,
         resolved_at: new Date().toISOString()
       });
@@ -335,7 +335,7 @@ export default async function handler(req, res) {
             mal_id: cursor.malId,
             title: best.title_english || best.title || hint.title,
             anilist_episodes: cursor.episodes ?? null,
-            original_episode: episode ?? null,
+            original_episode: episode ?? 0,
             requested_episode: eff ?? episode ?? null,
             resolved_at: new Date().toISOString()
           };
