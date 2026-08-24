@@ -278,24 +278,74 @@ export default async function handler(req, res) {
         });
       }
     }
-    // Exact per-episode rows (client-resolved singles).
-    const rows = await sb(
+    // Season-level coverage: sequels may live as distinct plain seasons
+    // instead of stacked segments.
+    const allRows = await sb(
       cfg,
-      `anime_season_map?tmdb_id=eq.${tmdbId}&season=eq.1&original_episode=eq.${episode}&select=*`
+      `anime_season_map?tmdb_id=eq.${tmdbId}&order=season.asc&select=*`
     );
-    const exact = rows?.[0];
-    if (exact && (exact.anilist_id || exact.mal_id)) {
+    const usable = (allRows || []).filter(r =>
+      r.season >= 1 && (r.anilist_id || r.mal_id)
+    );
+
+    // Direct ask for a stored season (true multi-season URLs).
+    const exactSeason = usable.find(r => r.season === season);
+    if (exactSeason && season > 1) {
       return json(res, 200, {
         found: true,
         tmdbId,
-        season: 1,
-        anilistId: exact.anilist_id ?? null,
-        malId: exact.mal_id ?? null,
-        title: exact.title ?? null,
-        episodes: exact.anilist_episodes ?? null,
-        requestedEpisode: exact.requested_episode ?? episode,
-        dubAvailable: typeof exact.dub_available === 'boolean' ? exact.dub_available : null
+        season,
+        anilistId: exactSeason.anilist_id ?? null,
+        malId: exactSeason.mal_id ?? null,
+        title: exactSeason.title ?? null,
+        episodes: exactSeason.anilist_episodes ?? null,
+        requestedEpisode: episode ?? null,
+        dubAvailable: typeof exactSeason.dub_available === 'boolean' ? exactSeason.dub_available : null
       });
+    }
+
+    // Per-episode client-resolved singles.
+    if (episode != null) {
+      const perEp = usable.find(r => (r.original_episode ?? 0) === episode);
+      if (perEp) {
+        return json(res, 200, {
+          found: true,
+          tmdbId,
+          season: 1,
+          anilistId: perEp.anilist_id ?? null,
+          malId: perEp.mal_id ?? null,
+          title: perEp.title ?? null,
+          episodes: perEp.anilist_episodes ?? null,
+          requestedEpisode: perEp.requested_episode ?? episode,
+          dubAvailable: typeof perEp.dub_available === 'boolean' ? perEp.dub_available : null
+        });
+      }
+    }
+
+    // Cumulative walk across seasons with known counts — handles absolute
+    // numbering where TMDB packs every sequel into one giant "Season 1".
+    if (episode != null) {
+      const walkable = usable.filter(r => Number.isInteger(r.anilist_episodes) && r.anilist_episodes > 0)
+        .sort((a, b) => (a.original_episode ?? 0) - (b.original_episode ?? 0) || a.season - b.season);
+      let eff = episode;
+      let chosen = null;
+      for (const r of walkable) {
+        if (eff <= r.anilist_episodes) { chosen = r; break; }
+        eff -= r.anilist_episodes;
+      }
+      if (chosen) {
+        return json(res, 200, {
+          found: true,
+          tmdbId,
+          season,
+          anilistId: chosen.anilist_id ?? null,
+          malId: chosen.mal_id ?? null,
+          title: chosen.title ?? null,
+          episodes: chosen.anilist_episodes ?? null,
+          requestedEpisode: eff,
+          dubAvailable: typeof chosen.dub_available === 'boolean' ? chosen.dub_available : null
+        });
+      }
     }
   }
 
