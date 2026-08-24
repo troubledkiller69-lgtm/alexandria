@@ -181,7 +181,9 @@ export default async function handler(req, res) {
     let inserted = 0, failed = 0;
     for (let i = 0; i < parsed.length; i += 200) {
       const chunk = parsed.slice(i, i + 200);
-      const out = await sb(cfg, 'anime_season_map', {
+      // columns= pins the ON CONFLICT arbiter to the real identity constraint;
+      // without it PostgREST targets the identity PK and never conflicts.
+      const out = await sb(cfg, 'anime_season_map?columns=tmdb_id,season,original_episode', {
         write: true,
         prefer: 'resolution=merge-duplicates',
         fetch: { method: 'POST', body: JSON.stringify(chunk) }
@@ -193,7 +195,7 @@ export default async function handler(req, res) {
     // Keep the legacy base table warm for S1 entries that carry AniList ids.
     const s1Base = parsed.filter(p => p.season === 1 && p.anilist_id != null && p.anilist_episodes == null);
     for (let i = 0; i < s1Base.length; i += 200) {
-      await sb(cfg, 'anime_map', {
+      await sb(cfg, 'anime_map?columns=tmdb_id', {
         prefer: 'resolution=merge-duplicates',
         fetch: {
           method: 'POST',
@@ -333,7 +335,7 @@ export default async function handler(req, res) {
             requested_episode: eff ?? episode ?? null,
             resolved_at: new Date().toISOString()
           };
-          await sb(cfg, 'anime_season_map', {
+          await sb(cfg, 'anime_season_map?columns=tmdb_id,season,original_episode', {
             prefer: 'resolution=merge-duplicates',
             fetch: { method: 'POST', body: JSON.stringify(row) }
           });
