@@ -261,8 +261,10 @@ export default async function handler(req, res) {
     );
     const seg = segRows?.[0];
     if (seg && (seg.anilist_id || seg.mal_id)) {
-      const shift = episode - (seg.original_episode ?? 1);
-      if (seg.anilist_episodes == null || shift < seg.anilist_episodes) {
+      // original_episode = first TMDB episode this entry serves (offset+1),
+      // so the within-entry episode is simply E - original + 1.
+      const innerEp = episode - (seg.original_episode ?? 1) + 1;
+      if (seg.anilist_episodes == null || innerEp <= seg.anilist_episodes) {
         return json(res, 200, {
           found: true,
           tmdbId,
@@ -271,7 +273,7 @@ export default async function handler(req, res) {
           malId: seg.mal_id ?? null,
           title: seg.title ?? null,
           episodes: seg.anilist_episodes ?? null,
-          requestedEpisode: (seg.requested_episode ?? 1) + shift,
+          requestedEpisode: innerEp,
           dubAvailable: typeof seg.dub_available === 'boolean' ? seg.dub_available : null
         });
       }
@@ -363,6 +365,16 @@ export default async function handler(req, res) {
   }
 
   if (baseUsable) {
+    // Enrich with the static season row so callers get an episode count —
+    // that's what lets the client trust the answer for numbered episodes.
+    let episodes = null;
+    if (episode != null) {
+      const sRows = await sb(
+        cfg,
+        `anime_season_map?tmdb_id=eq.${tmdbId}&season=eq.1&original_episode=eq.0&select=anilist_episodes`
+      );
+      episodes = sRows?.[0]?.anilist_episodes ?? null;
+    }
     return json(res, 200, {
       found: true,
       tmdbId,
@@ -370,7 +382,8 @@ export default async function handler(req, res) {
       anilistId: base.anilist_id ?? null,
       malId: base.mal_id ?? null,
       title: base.title ?? null,
-      episodes: null,
+      episodes,
+      requestedEpisode: episode ?? null,
       dubAvailable: typeof base.dub_available === 'boolean' ? base.dub_available : null
     });
   }
