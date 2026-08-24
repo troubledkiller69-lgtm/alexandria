@@ -31,6 +31,7 @@ async function sb(cfg, path, opts = {}) {
       ...opts.fetch
     });
     clearTimeout(timer);
+    if (opts.write) return { ok: res.ok, status: res.status };
     if (!res.ok && res.status !== 404) return null;
     const rows = await res.json().catch(() => []);
     return Array.isArray(rows) ? rows : null;
@@ -177,12 +178,18 @@ export default async function handler(req, res) {
     }
     if (!parsed.length) return json(res, 400, { error: 'No valid rows.' });
 
+    let inserted = 0, failed = 0;
     for (let i = 0; i < parsed.length; i += 200) {
-      await sb(cfg, 'anime_season_map', {
+      const chunk = parsed.slice(i, i + 200);
+      const out = await sb(cfg, 'anime_season_map', {
+        write: true,
         prefer: 'resolution=merge-duplicates',
-        fetch: { method: 'POST', body: JSON.stringify(parsed.slice(i, i + 200)) }
+        fetch: { method: 'POST', body: JSON.stringify(chunk) }
       });
+      if (out?.ok) inserted += chunk.length;
+      else failed += chunk.length;
     }
+    return json(res, 200, { inserted, failed });
     // Keep the legacy base table warm for S1 entries that carry AniList ids.
     const s1Base = parsed.filter(p => p.season === 1 && p.anilist_id != null && p.anilist_episodes == null);
     for (let i = 0; i < s1Base.length; i += 200) {
