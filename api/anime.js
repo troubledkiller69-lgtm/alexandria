@@ -322,11 +322,36 @@ export default async function handler(req, res) {
       }
     }
 
-    // Cumulative walk across seasons with known counts — handles absolute
-    // numbering where TMDB packs every sequel into one giant "Season 1".
+    // Cumulative coverage for absolute numbering. Segments (offset-stacked)
+    // take priority; plain per-season rows walk only when no segments exist,
+    // otherwise both conventions double-count the same seasons.
     if (episode != null) {
-      const walkable = usable.filter(r => Number.isInteger(r.anilist_episodes) && r.anilist_episodes > 0)
-        .sort((a, b) => (a.original_episode ?? 0) - (b.original_episode ?? 0) || a.season - b.season);
+      const segs = usable.filter(r => (r.original_episode ?? 0) > 0)
+        .sort((a, b) => a.original_episode - b.original_episode);
+      if (segs.length && episode >= segs[0].original_episode) {
+        let chosen = null;
+        for (const s of segs) {
+          const end = s.original_episode + (Number.isInteger(s.anilist_episodes) ? s.anilist_episodes : Infinity) - 1;
+          if (episode <= end) { chosen = s; break; }
+        }
+        if (!chosen) chosen = segs[segs.length - 1];
+        return json(res, 200, {
+          found: true,
+          tmdbId,
+          season,
+          anilistId: chosen.anilist_id ?? null,
+          malId: chosen.mal_id ?? null,
+          title: chosen.title ?? null,
+          episodes: chosen.anilist_episodes ?? null,
+          requestedEpisode: episode - chosen.original_episode + 1,
+          dubAvailable: typeof chosen.dub_available === 'boolean' ? chosen.dub_available : null
+        });
+      }
+
+      const walkable = usable.filter(r =>
+        (r.original_episode ?? 0) === 0 &&
+        Number.isInteger(r.anilist_episodes) && r.anilist_episodes > 0
+      ).sort((a, b) => a.season - b.season);
       let eff = episode;
       let chosen = null;
       for (const r of walkable) {
