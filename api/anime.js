@@ -183,14 +183,13 @@ export default async function handler(req, res) {
     if (!parsed.length) return json(res, 400, { error: 'No valid rows.' });
 
     let inserted = 0, failed = 0, firstErr = null;
+    // Route bulk writes through the anime_seed RPC — it owns the ON CONFLICT
+    // clause directly instead of relying on PostgREST arbiter inference.
     for (let i = 0; i < parsed.length; i += 200) {
       const chunk = parsed.slice(i, i + 200);
-      // columns= pins the ON CONFLICT arbiter to the real identity constraint;
-      // without it PostgREST targets the identity PK and never conflicts.
-      const out = await sb(cfg, 'anime_season_map?columns=tmdb_id,season,original_episode', {
+      const out = await sb(cfg, 'rpc/anime_seed', {
         write: true,
-        prefer: 'resolution=merge-duplicates',
-        fetch: { method: 'POST', body: JSON.stringify(chunk) }
+        fetch: { method: 'POST', body: JSON.stringify({ p_rows: chunk }) }
       });
       if (out?.ok) inserted += chunk.length;
       else { failed += chunk.length; if (!firstErr) firstErr = out?.error || `status ${out?.status}`; }
