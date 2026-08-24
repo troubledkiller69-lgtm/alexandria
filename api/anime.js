@@ -247,6 +247,31 @@ export default async function handler(req, res) {
   const episode = Number.isInteger(epRaw) ? epRaw : null;
 
   if (episode) {
+    // Segments first: stacked absolute-numbered shows store one row per
+    // original-episode offset (original_episode = first caller episode the
+    // segment serves). Find the latest offset <= episode.
+    const segRows = await sb(
+      cfg,
+      `anime_season_map?tmdb_id=eq.${tmdbId}&season=eq.1&original_episode=lte.${episode}&original_episode=gt.0&order=original_episode.desc&limit=1&select=*`
+    );
+    const seg = segRows?.[0];
+    if (seg && (seg.anilist_id || seg.mal_id)) {
+      const shift = episode - (seg.original_episode ?? 1);
+      if (seg.anilist_episodes == null || shift < seg.anilist_episodes) {
+        return json(res, 200, {
+          found: true,
+          tmdbId,
+          season: 1,
+          anilistId: seg.anilist_id ?? null,
+          malId: seg.mal_id ?? null,
+          title: seg.title ?? null,
+          episodes: seg.anilist_episodes ?? null,
+          requestedEpisode: (seg.requested_episode ?? 1) + shift,
+          dubAvailable: typeof seg.dub_available === 'boolean' ? seg.dub_available : null
+        });
+      }
+    }
+    // Exact per-episode rows (client-resolved singles).
     const rows = await sb(
       cfg,
       `anime_season_map?tmdb_id=eq.${tmdbId}&season=eq.1&original_episode=eq.${episode}&select=*`
