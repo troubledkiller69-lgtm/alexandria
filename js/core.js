@@ -37,6 +37,18 @@ export const core = {
             getTv: (id, s, e) => `https://embedmaster.link/tv/${id}/${s}/${e}`
         },
         {
+            name: 'VidSrc',
+            supportsApi: false,
+            getMovie: id => `https://vidsrc.cc/v2/embed/movie/${id}`,
+            getTv: (id, s, e) => `https://vidsrc.cc/v2/embed/tv/${id}/${s}/${e}`
+        },
+        {
+            name: 'VidSrc TO',
+            supportsApi: false,
+            getMovie: id => `https://vidsrc.to/embed/movie/${id}`,
+            getTv: (id, s, e) => `https://vidsrc.to/embed/tv/${id}/${s}/${e}`
+        },
+        {
             name: 'EmbedSU',
             supportsApi: false,
             getMovie: id => `https://www.embed.su/embed/movie/${id}`,
@@ -49,8 +61,7 @@ export const core = {
             getTv: (id, s, e) => `https://vidlink.pro/tv/${id}/${s}/${e}`
         },
         // Verified live Aug 2026 (probed with real TMDB ids). VidCore also
-        // carries anime with its own audio-track menu — often has dubs that
-        // MegaPlay lacks.
+        // carries anime and cycles internal upstreams on its own.
         {
             name: 'VidCore',
             supportsApi: false,
@@ -69,15 +80,22 @@ export const core = {
             getMovie: id => `https://vidlux.xyz/embed/movie/${id}`,
             getTv: (id, s, e) => `https://vidlux.xyz/embed/tv/${id}/${s}/${e}`
         },
-        // Dedicated anime mirror. `animeSource` declares which ID the builder
-        // consumes: 'anilist' needs /api/anime to resolve TMDB→AniList first.
+        // Dedicated anime mirrors. `animeSource` declares which ID the builder
+        // consumes: 'anilist' servers need /api/anime to resolve TMDB→AniList
+        // first; 'tmdb' servers can be built immediately.
         {
             name: 'MegaPlay Anime',
             animeOnly: true,
+            animeSource: 'anilist',
             supportsApi: false,
-            // `ref` is precomposed by the resolver: 'ani/{anilistId}' or
-            // 'mal/{malId}' depending on which database answered.
-            getAnime: (ref, ep, dub) => `https://megaplay.buzz/stream/${ref}/${ep}/${dub ? 'dub' : 'sub'}`
+            getAnime: (anilistId, ep, dub) => `https://megaplay.buzz/stream/ani/${anilistId}/${ep}/${dub ? 'dub' : 'sub'}`
+        },
+        {
+            name: 'VidSrc Anime',
+            animeOnly: true,
+            animeSource: 'tmdb',
+            supportsApi: false,
+            getAnime: (tmdbId, ep, dub) => `https://vidsrc.cc/v3/embed/anime/tmdb${tmdbId}/${ep}/${dub ? 'dub' : 'sub'}`
         }
     ],
 
@@ -176,7 +194,7 @@ export const core = {
     isTrustedEmbedOrigin(origin) {
         try {
             const host = new URL(origin).hostname;
-            const trusted = ['embedmaster.link', 'embdmstrplayer.com', 'embed.su', 'vidlink.pro', 'vidcore.org', 'vidfast.vc', 'vidlux.xyz', 'megaplay.buzz'];
+            const trusted = ['embedmaster.link', 'embdmstrplayer.com', 'vidsrcme.ru', 'vsembed.ru', 'vidsrc.cc', 'vidsrc.me', 'vidsrc.to', 'vidsrc.net', 'vsrc.su', 'embed.su', 'vidlink.pro', 'autoembed.co', 'vidcore.org', 'vidfast.vc', 'vidlux.xyz', 'megaplay.buzz'];
             return trusted.some(d => host === d || host.endsWith('.' + d));
         } catch {
             return false;
@@ -417,17 +435,13 @@ export const core = {
         await this.syncFromCloud();
 
         try {
-            // Aug 2026 mirror purge shifted server indexes; remap saved
-            // selections so nobody boots onto a removed or anime-only slot.
-            const REMAP = { 0: 0, 1: 1, 4: 2, 5: 3, 6: 4, 7: 5, 8: 6, 9: 7 };
-            const savedRaw = Number.parseInt(localStorage.getItem('alexandria_activeServer'), 10);
-            const savedServer = Number.isInteger(savedRaw) && savedRaw in REMAP ? REMAP[savedRaw] : -1;
-            if (savedServer >= 0 && this.servers[savedServer]) {
+            const savedServer = Number.parseInt(localStorage.getItem('alexandria_activeServer'), 10);
+            if (Number.isInteger(savedServer) && this.servers[savedServer]) {
                 this.state.activeServer = savedServer;
             } else {
                 this.state.activeServer = 0;
+                localStorage.setItem('alexandria_activeServer', '0');
             }
-            localStorage.setItem('alexandria_activeServer', String(this.state.activeServer));
         } catch { /* ignore */ }
 
         // Supabase is optional; used only for Watch Party Realtime.
@@ -722,7 +736,7 @@ export const core = {
                 entries {
                   status
                   score(format: POINT_100)
-                  media { id idMal format startDate { year } title { english romaji } }
+                  media { id idMal format title { english romaji } }
                 }
               }
             }
@@ -767,9 +781,7 @@ export const core = {
                     anilistId: m.id,
                     status: STATUS_MAP[entry.status] || 'want',
                     score: Math.max(0, Number(entry.score) || 0),
-                    title: m.title.english || m.title.romaji || 'Untitled',
-                    year: m.startDate?.year ? String(m.startDate.year) : '',
-                    isMovie: m.format === 'MOVIE'
+                    title: m.title.english || m.title.romaji || 'Untitled'
                 });
             }
         }
@@ -783,23 +795,18 @@ export const core = {
         const notFound = [];
         await this.mapWithConcurrency(entries, 3, async (entry) => {
             try {
-                // Match straight against TMDB from the browser (proxy route);
-                // the old server-side AniList reverse lookup is retired.
-                const m = await this.matchTmdb(entry.title, entry.year);
-                if (!m) throw new Error('miss');
+                const res = await fetch('/api/anime?anilist=' + encodeURIComponent(entry.anilistId));
+                if (!res.ok) throw new Error('miss');
+                const info = await res.json();
+                if (!info?.tmdbId) throw new Error('miss');
                 matched.push({
-                    id: Number(m.id),
-                    type: m.type,
-                    title: m.title || entry.title,
-                    poster_path: m.poster_path || '',
+                    id: Number(info.tmdbId),
+                    type: info.tmdbType === 'movie' ? 'movie' : 'tv',
+                    title: info.title || entry.title,
+                    poster_path: '',
                     status: entry.status,
                     score: entry.score
                 });
-                fetch('/api/anime', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ tmdbId: Number(m.id), season: 1, anilistId: entry.anilistId })
-                }).catch(() => {});
             } catch {
                 notFound.push(entry.title);
             }
@@ -998,330 +1005,16 @@ export const core = {
         try { localStorage.setItem('alexandria_audio_pref', pref); } catch { /* ignore */ }
     },
 
-    // ---- MAL fallback via Jikan (independent of AniList entirely) ----
-
-    async jikanGet(path, attempt = 0) {
-        let res;
-        try {
-            res = await fetch('https://api.jikan.moe/v4' + path);
-        } catch (e) {
-            if (attempt < 1) { await new Promise(r => setTimeout(r, 1100)); return this.jikanGet(path, attempt + 1); }
-            throw new Error('Jikan unreachable.');
-        }
-        // Jikan is a free community mirror — 429s and 5xx are routine.
-        if ((res.status === 429 || res.status >= 500) && attempt < 1) {
-            await new Promise(r => setTimeout(r, 1100));
-            return this.jikanGet(path, attempt + 1);
-        }
-        if (!res.ok) throw new Error(`Jikan request failed (${res.status})`);
-        const body = await res.json().catch(() => null);
-        if (!body?.data) throw new Error('Unreadable Jikan response.');
-        return body.data;
-    },
-
-    jikanScore(entry, hint) {
-        let score = 0;
-        const mYear = entry.year || (entry.aired?.from ? Number(String(entry.aired.from).slice(0, 4)) : null);
-        if (hint.year && mYear) {
-            const delta = Math.abs(mYear - hint.year);
-            if (delta === 0) score += 4;
-            else if (delta === 1) score += 2;
-            else score -= 2;
-        }
-        const titles = [entry.title, entry.title_english, entry.title_japanese]
-            .filter(Boolean).map(t => t.toLowerCase());
-        const want = [hint.title, hint.originalTitle].filter(Boolean).map(t => t.toLowerCase());
-        if (want.some(w => titles.includes(w))) score += 3;
-        if ((hint.isMovie === true) === (entry.type === 'Movie')) score += 1;
-        return score;
-    },
-
-    async jikanResolve(hint) {
-        const q = encodeURIComponent(hint.title);
-        const results = await this.jikanGet(`/anime?q=${q}&limit=6&sfw=true`);
-        let best = null;
-        let bestScore = 0;
-        for (const e of results || []) {
-            if (!e?.mal_id) continue;
-            const s = this.jikanScore(e, hint);
-            if (s > bestScore) { bestScore = s; best = e; }
-        }
-        if (bestScore < 5 || !best) throw new Error('No confident MAL match for this title.');
-
-        const target = { malId: best.mal_id, episodes: best.episodes ?? null, title: best.title_english || best.title };
-        return {
-            found: true,
-            anilistId: null,
-            malId: target.malId,
-            title: target.title,
-            episodes: target.episodes,
-            dubAvailable: null,
-            __source: 'jikan'
-        };
-    },
-    // Vercel/datacenter IPs get 403-blocked by AniList, so all GraphQL traffic
-    // originates from the user (residential IP, CORS-open endpoint) exactly
-    // like miruro does. /api/anime is only a shared Supabase-backed cache.
-
-    ANI_GQL: 'https://graphql.anilist.co',
-
-    async aniQuery(query, variables, attempt = 0) {
-        const res = await fetch(this.ANI_GQL, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-            body: JSON.stringify({ query, variables })
-        });
-        const body = await res.json().catch(() => null);
-        // Rate limited? Their docs promise Retry-After seconds on a 429.
-        // Wait for it only when it's short — long timeouts fail fast so the
-        // VidCore fallback can take over instead of stalling the player.
-        if (res.status === 429 && attempt < 1) {
-            const wait = Math.min(Number(res.headers.get('retry-after')) || 3, 8);
-            await new Promise(r => setTimeout(r, wait * 1000));
-            return this.aniQuery(query, variables, attempt + 1);
-        }
-        if ((!res.ok || body?.errors) && (res.status === 429 || res.status >= 500) && attempt < 1) {
-            await new Promise(r => setTimeout(r, 900));
-            return this.aniQuery(query, variables, attempt + 1);
-        }
-        if (!res.ok || body?.errors?.length || !body?.data) {
-            throw new Error(body?.errors?.[0]?.message || `AniList request failed (${res.status})`);
-        }
-        return body.data;
-    },
-
-    pickAniListMatch(candidates, hint) {
-        let best = null;
-        let bestScore = 0;
-        for (const m of candidates) {
-            if (!m?.id) continue;
-            let score = 0;
-            if (m.countryOfOrigin === 'JP') score += 3;
-            const mYear = m.startDate?.year;
-            if (hint.year && mYear) {
-                const delta = Math.abs(mYear - hint.year);
-                if (delta === 0) score += 4;
-                else if (delta === 1) score += 2;
-                else score -= 2;
-            }
-            const titles = [m.title?.english, m.title?.romaji, m.title?.native]
-                .filter(Boolean).map(t => t.toLowerCase());
-            const want = [hint.title, hint.originalTitle].filter(Boolean).map(t => t.toLowerCase());
-            if (want.some(w => titles.includes(w))) score += 3;
-            if ((hint.isMovie === true) === (m.format === 'MOVIE')) score += 1;
-            if (score > bestScore) { bestScore = score; best = m; }
-        }
-        return bestScore >= 5 ? best : null;
-    },
-
-    async aniSequelChain(anilistId, maxHops = 12) {
-        const gql = `
-          query ($id: Int) {
-            Media(id: $id, type: ANIME) {
-              id
-              relations { edges { relationType node { id idMal format episodes countryOfOrigin startDate { year } title { english romaji } } } }
-            }
-          }`;
-        const chain = [];
-        let currentId = anilistId;
-        const visited = new Set([anilistId]);
-        for (let hop = 0; hop < maxHops; hop++) {
-            if (hop > 0) await new Promise(r => setTimeout(r, 320));
-            const data = await this.aniQuery(gql, { id: currentId });
-            const edges = data?.Media?.relations?.edges || [];
-            const edge = edges.find(e => e?.relationType === 'SEQUEL' && e.node?.id && !visited.has(e.node.id));
-            if (!edge) break;
-            chain.push(edge.node);
-            visited.add(edge.node.id);
-            currentId = edge.node.id;
-        }
-        return chain;
-    },
-
-    readAnimeCache(key) {
-        try {
-            const store = this.readStorageJson(localStorage, 'alexandria_anime_cache', {}) || {};
-            const hit = store[key];
-            if (!hit) return null;
-            if (Date.now() - hit.at > 7 * 24 * 60 * 60 * 1000) { delete store[key]; return null; }
-            return hit.data;
-        } catch { return null; }
-    },
-
-    writeAnimeCache(key, data) {
-        try {
-            const store = this.readStorageJson(localStorage, 'alexandria_anime_cache', {}) || {};
-            store[key] = { data, at: Date.now() };
-            const keys = Object.keys(store);
-            if (keys.length > 300) delete store[keys[0]];
-            this.writeStorage(localStorage, 'alexandria_anime_cache', JSON.stringify(store));
-        } catch { /* ignore */ }
-    },
-
-    async resolveAnime(tmdbId, season = 1, episode = null, hint = null) {
-        season = season || 1;
-        const key = `${tmdbId}_s${season}_e${episode || 0}`;
+    async resolveAnime(tmdbId) {
         this._animeResolveCache = this._animeResolveCache || {};
+        const key = String(tmdbId);
         if (this._animeResolveCache[key]) return this._animeResolveCache[key];
-        const local = this.readAnimeCache(key);
-        if (local) { this._animeResolveCache[key] = local; return local; }
-
-        // Shared cross-user cache first (Supabase-backed, unaffected by blocks).
-        try {
-            const params = new URLSearchParams({ tmdb: String(tmdbId) });
-            if (season > 1) params.set('season', String(season));
-            if (episode && episode > 1) params.set('episode', String(episode));
-            const res = await fetch('/api/anime?' + params.toString());
-            if (res.ok) {
-                const cached = await res.json();
-                // Only trust a shared-cache answer when it unambiguously covers
-                // THIS episode — absolute-numbered shows map different episodes
-                // of one "season" onto different AniList entries, so a bare
-                // base-row hit must not short-circuit the sequel walk.
-                const trusted = cached?.found && (cached.anilistId || cached.malId) && (
-                    season > 1 ||
-                    episode == null ||
-                    (Number.isInteger(cached.requestedEpisode) && cached.requestedEpisode === episode) ||
-                    (Number.isInteger(cached.episodes) && cached.episodes > 0 && episode <= cached.episodes)
-                );
-                if (trusted) {
-                    this._animeResolveCache[key] = cached;
-                    this.writeAnimeCache(key, cached);
-                    return cached;
-                }
-            }
-        } catch { /* cache miss is normal */ }
-
-        if (!hint?.title) {
-            const err = new Error('Metadata not ready for anime lookup.');
-            err.soft = true;
-            throw err;
-        }
-
-        const MEDIA_FIELDS = 'id idMal format episodes countryOfOrigin startDate { year } title { romaji english native }';
-        const searchGql = `
-          query ($search: String) {
-            Page(perPage: 10) { media(search: $search, type: ANIME, sort: SEARCH_MATCH) { ${MEDIA_FIELDS} } }
-          }`;
-        // AniList flaps during stability incidents — a degraded window can
-        // return 200-with-empty-results. Give the search a second chance.
-        const searchOnce = async () => {
-            const page = await this.aniQuery(searchGql, { search: hint.title });
-            return this.pickAniListMatch(page?.media || [], hint);
-        };
-        let target = null;
-        let aniError = null;
-        try {
-            target = await searchOnce();
-            if (!target) {
-                await new Promise(r => setTimeout(r, 1200));
-                target = await searchOnce();
-            }
-        } catch (e) {
-            aniError = e;
-        }
-
-        // AniList down/throttled/mismatched? Try the entirely separate
-        // MyAnimeList ecosystem via Jikan before giving up.
-        if (!target) {
-            try {
-                const malBase = await this.jikanResolve(hint);
-                let cursor = { malId: malBase.malId, episodes: malBase.episodes };
-                let eff = episode;
-                if (!hint.isMovie && season > 1) {
-                    for (let hop = 1; hop < season && cursor.malId; hop++) {
-                        await new Promise(r => setTimeout(r, 420));
-                        const rel = await this.jikanGet(`/anime/${cursor.malId}/relations`);
-                        const seq = (rel || []).find(r => r.relation === 'Sequel')?.entry?.find(x => x.type === 'anime');
-                        if (!seq?.mal_id) throw new Error(`Could not map season ${season} on MAL.`);
-                        await new Promise(r => setTimeout(r, 420));
-                        const full = await this.jikanGet(`/anime/${seq.mal_id}`);
-                        cursor = { malId: seq.mal_id, episodes: full?.episodes ?? null };
-                    }
-                    eff = episode;
-                } else if (!hint.isMovie && episode && Number.isInteger(cursor.episodes) && cursor.episodes > 0 && episode > cursor.episodes) {
-                    eff = episode;
-                    while (eff > (cursor.episodes || Infinity)) {
-                        await new Promise(r => setTimeout(r, 420));
-                        const rel = await this.jikanGet(`/anime/${cursor.malId}/relations`);
-                        const seq = (rel || []).find(r => r.relation === 'Sequel')?.entry?.find(x => x.type === 'anime');
-                        if (!seq?.mal_id || !cursor.episodes) break;
-                        eff -= cursor.episodes;
-                        await new Promise(r => setTimeout(r, 420));
-                        const full = await this.jikanGet(`/anime/${seq.mal_id}`);
-                        cursor = { malId: seq.mal_id, episodes: full?.episodes ?? null };
-                    }
-                }
-                return {
-                    found: true,
-                    anilistId: null,
-                    malId: cursor.malId,
-                    title: malBase.title,
-                    episodes: cursor.episodes ?? null,
-                    requestedEpisode: eff,
-                    dubAvailable: null
-                };
-            } catch (malErr) {
-                // Surface whichever story is most useful.
-                if (aniError) throw aniError;
-                throw malErr;
-            }
-        }
-
-        let effectiveEpisode = episode;
-
-        if (!hint.isMovie && season > 1) {
-            const chain = await this.aniSequelChain(target.id, Math.min(season - 1, 12));
-            const node = chain[season - 2];
-            if (!node) throw new Error(`Could not map season ${season} on AniList.`);
-            target = node;
-        }
-
-        if (
-            !hint.isMovie && season <= 1 && episode &&
-            Number.isInteger(target.episodes) && target.episodes > 0 &&
-            episode > target.episodes
-        ) {
-            const chain = await this.aniSequelChain(target.id, 12);
-            let cursor = { ...target };
-            let eff = episode;
-            for (const next of chain) {
-                if (!(Number.isInteger(cursor.episodes) && cursor.episodes > 0)) break;
-                if (eff <= cursor.episodes) break;
-                eff -= cursor.episodes;
-                cursor = next;
-            }
-            target = cursor;
-            effectiveEpisode = eff;
-        }
-
-        const result = {
-            found: true,
-            tmdbId,
-            season,
-            anilistId: target.id,
-            malId: target.idMal ?? null,
-            title: target.title?.english || target.title?.romaji || hint.title,
-            episodes: target.episodes ?? null,
-            requestedEpisode: effectiveEpisode,
-            dubAvailable: null
-        };
-        this._animeResolveCache[key] = result;
-        this.writeAnimeCache(key, result);
-
-        // Persist for every other visitor — fire-and-forget, never blocks.
-        fetch('/api/anime', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                tmdbId, season, anilistId: target.id, malId: result.malId,
-                title: result.title, episodes: result.episodes,
-                originalEpisode: episode,
-                requestedEpisode: effectiveEpisode
-            })
-        }).catch(() => {});
-
-        return result;
+        const res = await fetch('/api/anime?tmdb=' + encodeURIComponent(key));
+        if (!res.ok) throw new Error(`Anime lookup failed (${res.status})`);
+        const data = await res.json();
+        if (!data || !data.anilistId) throw new Error(data?.error || 'No AniList match found for this title.');
+        this._animeResolveCache[key] = data;
+        return data;
     },
 
     async initNetwork() {

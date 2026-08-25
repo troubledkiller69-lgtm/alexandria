@@ -169,12 +169,7 @@ export const details = {
                     badgeEl.textContent = 'ANIME';
                     badgeEl.classList.add('dub-unknown');
                 }
-                this.resolveAnime(Number(id), 1, null, {
-                    title: data.name || data.title || '',
-                    originalTitle: data.original_name || data.original_title || '',
-                    year: Number((data.first_air_date || data.release_date || '').slice(0, 4)) || null,
-                    isMovie: type === 'movie'
-                }).then(info => {
+                this.resolveAnime(Number(id)).then(info => {
                     if (token !== this._renderToken) return;
                     const b = document.getElementById('details-dub-badge');
                     if (!b) return;

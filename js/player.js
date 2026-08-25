@@ -16,7 +16,6 @@ export const player = {
         this._triedServers = new Set([this.state.activeServer]);
         this._serverHealthy = false;
         this._currentSeasonEpisodes = [];
-        this._animeFallbackUsed = false;
 
         this.main.innerHTML = `
             <section class="player-page-container">
@@ -64,19 +63,12 @@ export const player = {
         this.prepareResumeSeek();
         this.armFailoverWatch(server);
         this.scheduleEmbedTheme(document.getElementById('video-iframe'));
-        if (needsResolve) this.setServerStatus(`Reading title metadata · ${server.name}…`);
+        if (needsResolve) this.hydrateAnimeEmbed();
         this.renderComments();
 
         try {
             const data = await this.getJson(type + '/' + id);
             const title = type === 'movie' ? data.title : data.name;
-            // Hint consumed by browser-side AniList resolution (MegaPlay etc).
-            this._playerMeta = {
-                title: data.name || data.title || '',
-                originalTitle: data.original_name || data.original_title || '',
-                year: Number((data.first_air_date || data.release_date || '').slice(0, 4)) || null,
-                isMovie: type === 'movie'
-            };
             // Anime detection happens here because the router can't know it at
             // parse time: Animation genre + Japanese origin language.
             const detectedAnime = type === 'tv'
@@ -102,20 +94,8 @@ export const player = {
                 this.populateSeasonSelector(data, season);
                 await this.loadEpisodes(id, season);
             }
-            // Metadata (hint) is in place — now resolve the AniList id.
-            if (needsResolve && token === this._renderToken) await this.hydrateAnimeEmbed();
         } catch (e) {
             console.error("Alexandria: Player metadata failed", e);
-            if (needsResolve && !this._animeFallbackUsed) {
-                // No metadata means no AniList hint — hop to a TMDB-native mirror.
-                const fallbackIdx = this.servers.findIndex(s => s.name === 'VidCore');
-                if (fallbackIdx >= 0) {
-                    this._animeFallbackUsed = true;
-                    this.showToast('Anime lookup unavailable — switched to VidCore.');
-                    this.applyServer(fallbackIdx, { resetTried: true });
-                    return;
-                }
-            }
             if (type === 'tv') {
                 await this.initSeasonSelector(id, season);
                 await this.loadEpisodes(id, season);
@@ -200,7 +180,7 @@ export const player = {
         }
 
         // Auto-timeout stays on EmbedMaster mirrors only (supportsApi).
-        // Manual NEXT SERVER can still hop to any other visible mirror.
+        // Manual NEXT SERVER can still hop to VidSrc / EmbedSU / anime mirrors.
         const preferApiOnly = !manual;
         const isAnimeMode = this.state.view === 'player'
             && this.state.activeContent?.type === 'tv'
@@ -246,54 +226,28 @@ export const player = {
 
     async hydrateAnimeEmbed() {
         const server = this.servers[this.state.activeServer];
-        const { id, season, episode } = this.state.activeContent || {};
+        const { id, episode } = this.state.activeContent || {};
         if (!server?.animeOnly) return;
-        // The DUB/SUB pill must exist the moment an anime server is active —
-        // not only when genre detection fires. Without it a manual server pick
-        // locks the user to sub with no way to switch.
-        this.refreshAnimeControls();
+        const frame = document.getElementById('video-iframe');
+        if (frame && !frame.src.startsWith('about:')) frame.src = 'about:blank';
         this.setServerStatus(`Resolving AniList ID · ${server.name}…`);
         try {
-            // Season-aware: sequel seasons are separate AniList entries, and
-            // some TMDB shows pack every season into one giant "Season 1" —
-            // the resolver walks the sequel chain for both cases. Hint comes
-            // from the metadata already fetched above (browser-side lookup).
-            const meta = this._playerMeta || {};
-            const info = await this.resolveAnime(id, Number(season) || 1, Number(episode) || null, {
-                title: meta.title,
-                originalTitle: meta.originalTitle,
-                year: meta.year,
-                isMovie: meta.isMovie
-            });
+            const info = await this.resolveAnime(id);
             const dub = this.readAudioPref() === 'dub';
-            let ref = null;
-            if (info.anilistId) ref = 'ani/' + info.anilistId;
-            else if (info.malId) ref = 'mal/' + info.malId;
-            if (!ref) throw new Error('Resolver returned no usable id.');
-            const epForUrl = info.requestedEpisode || Number(episode) || 1;
-            const url = server.getAnime(ref, epForUrl, dub);
+            const externalId = server.animeSource === 'anilist' ? info.anilistId : id;
+            const url = server.getAnime(externalId, Number(episode) || 1, dub);
             if (this.state.view !== 'player') return;
             const live = document.getElementById('video-iframe');
+            if (live && live !== frame) { /* frame replaced mid-flight */ }
             if (live) {
                 live.src = url;
                 this.scheduleEmbedTheme(live);
             }
-            const dubNote = dub && info.dubAvailable === false ? ' · no dub on mirror, playing sub' : '';
             this.setServerStatus(
-                `${server.name}${dubNote || (dub ? ' · DUB' : '')}`.trim()
+                info.dubAvailable === false ? `Sub only on this mirror · ${server.name}` : `Loaded · ${server.name}${dub ? ' · DUB' : ''}`
             );
         } catch (e) {
             if (this.state.view !== 'player') return;
-            // AniList down or throttled? Playback must not die with it — hop
-            // to a TMDB-native mirror that needs no resolution at all.
-            const fallbackIdx = this.servers.findIndex(s => !s.animeOnly && s.name === 'VidCore');
-            const alreadyFallback = this._animeFallbackUsed;
-            if (fallbackIdx >= 0 && !alreadyFallback) {
-                this._animeFallbackUsed = true;
-                this.showToast('Anime lookup failed — switched to VidCore (no AniList needed).');
-                this.applyServer(fallbackIdx, { resetTried: true });
-                return;
-            }
             this.setServerStatus('Anime lookup failed.');
             this.showToast(e.message || 'Could not resolve this anime — try another server.');
         }
@@ -329,9 +283,6 @@ export const player = {
         const idx = this.normalizeServerIndex(serverIndex);
         if (idx == null) return;
         serverIndex = idx;
-
-        // A deliberate pick of an anime mirror earns a fresh fallback budget.
-        if (this.servers[serverIndex]?.animeOnly) this._animeFallbackUsed = false;
 
         // Watch Party play/pause sync needs EmbedMaster postMessage API.
         if (this.state.view === 'party' && !this.servers[serverIndex].supportsApi) {
