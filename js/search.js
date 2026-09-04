@@ -1,16 +1,6 @@
 export const search = {
     renderSearch() {
-        const discoverPanel = this.state.searchFilter === 'person' ? `
-                    <div class="discover-toggle-row">
-                        <span class="discover-person-hint">Search actors, directors, and creators above.</span>
-                        <button type="button" class="roulette-btn" onclick="Alexandria.openRouletteModal()">Roulette</button>
-                    </div>
-                ` : `
-                    <div class="discover-toggle-row">
-                        <button type="button" class="filter-btn discover-toggle" id="discover-toggle-btn" aria-expanded="false" aria-controls="discover-panel" onclick="Alexandria.toggleDiscoverPanel()">FILTERS</button>
-                        <span id="discover-active-count" class="discover-active-count" hidden></span>
-                        <button type="button" class="roulette-btn" onclick="Alexandria.openRouletteModal()">Roulette</button>
-                    </div>
+        const discoverPanel = this.state.searchFilter === 'person' ? '' : `
                     <div id="discover-panel" class="discover-panel minimalist-discover" hidden>
                         <div class="filter-group">
                             <label class="sr-only" for="discover-genre">Genre</label>
@@ -66,6 +56,7 @@ export const search = {
                         <button class="clear-search" id="clear-search-btn" type="button" aria-label="Clear search" style="display:none" onclick="document.getElementById('tmdb-search').value=''; Alexandria.handleSearchInput();">
                             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
                         </button>
+                        <div id="search-history" class="search-history-dropdown" hidden></div>
                     </div>
                     <div class="search-toolbar-row">
                         <div class="search-filters" aria-label="Search type">
@@ -74,11 +65,19 @@ export const search = {
                             <button class="filter-btn ${this.state.searchFilter === 'tv' ? 'active' : ''}" type="button" aria-pressed="${this.state.searchFilter === 'tv'}" onclick="Alexandria.setSearchFilter('tv')">TV Shows</button>
                             <button class="filter-btn ${this.state.searchFilter === 'person' ? 'active' : ''}" type="button" aria-pressed="${this.state.searchFilter === 'person'}" onclick="Alexandria.setSearchFilter('person')">People</button>
                         </div>
-                        <div id="search-discover" class="search-discover">${discoverPanel}</div>
+                        <div class="search-toolbar-actions">
+                            ${this.state.searchFilter === 'person' ? `
+                                <span class="discover-person-hint">Search actors, directors, and creators above.</span>
+                            ` : `
+                                <button type="button" class="filter-btn discover-toggle" id="discover-toggle-btn" aria-expanded="false" aria-controls="discover-panel" onclick="Alexandria.toggleDiscoverPanel()">FILTERS</button>
+                                <span id="discover-active-count" class="discover-active-count" hidden></span>
+                            `}
+                            <button type="button" class="roulette-btn" onclick="Alexandria.openRouletteModal()">Roulette</button>
+                        </div>
                     </div>
+                    <div id="search-discover" class="search-discover">${discoverPanel}</div>
                 </div>
                 <div id="search-context-label" class="search-context-label" hidden></div>
-                <div id="search-history" class="search-history-row" hidden></div>
                 <div class="results-grid" id="search-results"></div>
             </section>
         `;
@@ -88,6 +87,21 @@ export const search = {
             ? 'Search actors, directors, creators...'
             : 'Search titles, actors, genres...';
         searchInput.addEventListener('input', () => this.handleSearchInput());
+        searchInput.addEventListener('focus', () => {
+            if (!searchInput.value.trim() && !this.state.searchQuery) {
+                this.renderSearchHistory();
+                const dropdown = document.getElementById('search-history');
+                if (dropdown && dropdown.children.length) dropdown.removeAttribute('hidden');
+            }
+        });
+        searchInput.addEventListener('blur', (e) => {
+            const dropdown = document.getElementById('search-history');
+            if (dropdown && dropdown.contains(e.relatedTarget)) return;
+            setTimeout(() => {
+                const current = document.getElementById('search-history');
+                if (current && !current.contains(document.activeElement)) current.setAttribute('hidden', '');
+            }, 200);
+        });
         
         if (this.state.searchQuery) {
             searchInput.value = this.state.searchQuery;
@@ -194,6 +208,7 @@ export const search = {
         const clearBtn = document.getElementById('clear-search-btn');
         if (clearBtn) clearBtn.style.display = 'block';
         this.setDiscoverVisible(false);
+        document.getElementById('search-history')?.setAttribute('hidden', '');
         this.executeSearch(term);
     },
 
