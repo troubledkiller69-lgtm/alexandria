@@ -1,9 +1,17 @@
 export const search = {
     renderSearch() {
         const discoverPanel = this.state.searchFilter === 'person' ? `
-                    <div class="placeholder-msg" style="padding: 0.5rem 0; min-height: 0;">Search actors, directors, and creators above.</div>
+                    <div class="discover-toggle-row">
+                        <span class="discover-person-hint">Search actors, directors, and creators above.</span>
+                        <button type="button" class="roulette-btn" onclick="Alexandria.openRouletteModal()">Roulette</button>
+                    </div>
                 ` : `
-                    <div class="discover-panel minimalist-discover">
+                    <div class="discover-toggle-row">
+                        <button type="button" class="filter-btn discover-toggle" id="discover-toggle-btn" aria-expanded="false" aria-controls="discover-panel" onclick="Alexandria.toggleDiscoverPanel()">FILTERS</button>
+                        <span id="discover-active-count" class="discover-active-count" hidden></span>
+                        <button type="button" class="roulette-btn" onclick="Alexandria.openRouletteModal()">Roulette</button>
+                    </div>
+                    <div id="discover-panel" class="discover-panel minimalist-discover" hidden>
                         <div class="filter-group">
                             <label class="sr-only" for="discover-genre">Genre</label>
                             <select id="discover-genre" class="compact-select" onchange="Alexandria.executeDiscover()">
@@ -44,9 +52,6 @@ export const search = {
                         <div class="filter-group">
                             <label class="sr-only" for="discover-runtime">Max Runtime</label>
                             <input type="number" id="discover-runtime" class="compact-input" placeholder="MAX MIN" min="30" max="400" onchange="Alexandria.executeDiscover()">
-                        </div>
-                        <div class="filter-group">
-                            <button type="button" class="roulette-btn" onclick="Alexandria.openRouletteModal()">Roulette</button>
                         </div>
                     </div>
                 `;
@@ -140,13 +145,46 @@ export const search = {
         container.removeAttribute('hidden');
         container.innerHTML = `
             <span class="search-history-title">RECENT SEARCHES</span>
-            ${h.map(t => `
+            ${h.slice(0, 5).map(t => `
                 <button type="button" class="search-history-chip" onclick="Alexandria.runSearchFromHistory('${this.escapeHtml(t)}')">
                     <span>${this.escapeHtml(t)}</span>
                     <span class="search-history-x" onclick="event.stopPropagation(); Alexandria.removeSearchHistory('${this.escapeHtml(t)}')" aria-label="Remove ${this.escapeHtml(t)}">✕</span>
                 </button>
             `).join('')}
             <button type="button" class="search-history-clear" onclick="Alexandria.clearSearchHistory()">CLEAR</button>`;
+    },
+
+    toggleDiscoverPanel() {
+        const panel = document.getElementById('discover-panel');
+        const btn = document.getElementById('discover-toggle-btn');
+        if (!panel) return;
+        const open = panel.hidden;
+        panel.hidden = !open;
+        if (btn) btn.setAttribute('aria-expanded', String(open));
+        this.refreshDiscoverCount();
+    },
+
+    refreshDiscoverCount() {
+        const genre = document.getElementById('discover-genre')?.value || '';
+        const sort = document.getElementById('discover-sort')?.value || 'popularity.desc';
+        const year = document.getElementById('discover-year')?.value || '';
+        const rating = document.getElementById('discover-rating')?.value || '0';
+        const votes = document.getElementById('discover-votes')?.value || '0';
+        const runtime = document.getElementById('discover-runtime')?.value || '';
+        let n = 0;
+        if (genre) n += 1;
+        if (sort && sort !== 'popularity.desc') n += 1;
+        if (year) n += 1;
+        if (rating && rating !== '0') n += 1;
+        if (votes && votes !== '0') n += 1;
+        if (runtime) n += 1;
+        const el = document.getElementById('discover-active-count');
+        const btn = document.getElementById('discover-toggle-btn');
+        if (el) {
+            el.textContent = n ? `${n} ACTIVE` : '';
+            el.hidden = !n;
+        }
+        if (btn) btn.textContent = n ? `FILTERS (${n})` : 'FILTERS';
     },
 
     runSearchFromHistory(term) {
@@ -219,6 +257,7 @@ export const search = {
         const type = this.state.searchFilter === 'tv' ? 'tv' : 'movie';
 
         this.setDiscoverVisible(true);
+        this.refreshDiscoverCount();
         const label = document.getElementById('search-context-label');
         if (label && !this.state.searchQuery) {
             label.textContent = 'TRENDING NOW';
