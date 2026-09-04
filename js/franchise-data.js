@@ -1,0 +1,38 @@
+// Bundled franchise definitions. Used as the fallback when the live
+// `franchises` table can't be reached, so the archive never renders empty.
+// The live table is the source of truth; edit these only to seed new installs.
+export const FALLBACK_FRANCHISES = [
+    { name: 'Marvel Cinematic Universe', movieIds: [1726, 1724, 10138, 10195, 1771, 24428, 68721, 76338, 100402, 118340, 99861, 102899, 271110, 284052, 283995, 315635, 284053, 284054, 299536, 363088, 299537, 299534, 429617, 497698, 566525, 524434, 634649, 453395, 616037, 505642, 640146, 447365, 609681, 533535], accent: '#e23636', subtitle: 'The Infinity Saga & Beyond', genre: 'Superhero' },
+    { name: 'Transformers', movieIds: [1858, 8373, 38356, 91314, 335988, 424783, 667538, 698687], accent: '#0070f3', subtitle: 'More Than Meets the Eye', genre: 'Action' },
+    { name: 'Star Wars', collectionId: 10, accent: '#FFE81F', subtitle: 'A Galaxy Far, Far Away', genre: 'Sci-Fi' },
+    { name: 'Harry Potter', collectionId: 1241, accent: '#946B2D', subtitle: 'The Wizarding World', genre: 'Fantasy' },
+    { name: 'The Lord of the Rings', collectionId: 119, accent: '#C9A84C', subtitle: 'One Ring to Rule Them All', genre: 'Fantasy' },
+    { name: 'DC Extended Universe', movieIds: [49521, 209112, 297761, 297762, 141052, 297802, 287947, 460465, 464052, 791373, 436969, 436270, 594767, 298618, 565770, 572802], accent: '#0078D7', subtitle: 'Gods Among Us', genre: 'Superhero' },
+    { name: 'The Walking Dead Universe', tvIds: [1402, 62286, 94305, 194583, 211684, 206586], accent: '#4a7c3f', subtitle: 'Fight the Dead. Fear the Living.', isTv: true, genre: 'Horror' },
+    { name: 'Fast & Furious', collectionId: 9485, accent: '#FF6B00', subtitle: 'Family. No Matter What.', genre: 'Action' },
+    { name: 'Jurassic Park', collectionId: 328, accent: '#2E8B57', subtitle: 'Life Finds a Way', genre: 'Sci-Fi' },
+    { name: 'The Hunger Games', collectionId: 131635, accent: '#C4151C', subtitle: 'May The Odds Be Ever In Your Favor', genre: 'Sci-Fi' },
+    { name: 'Pirates of the Caribbean', collectionId: 295, accent: '#8B6914', subtitle: 'Not All Treasure Is Silver and Gold', genre: 'Adventure' },
+    { name: 'The Conjuring Universe', collectionId: 313086, accent: '#7a1f1f', subtitle: 'Based on the True Case Files of the Warrens', genre: 'Horror' },
+    { name: 'Saw', collectionId: 656, accent: '#8d9aa6', subtitle: 'Live or Die, Make Your Choice', genre: 'Horror' },
+    { name: 'Scream', collectionId: 2602, accent: '#ff1744', subtitle: "What's Your Favorite Scary Movie?", genre: 'Horror' },
+    { name: 'Halloween', collectionId: 91361, accent: '#ff8f00', subtitle: 'The Night He Came Home', genre: 'Horror' },
+    { name: 'Friday the 13th', collectionId: 9735, accent: '#1b5e20', subtitle: 'Welcome to Crystal Lake', genre: 'Horror' },
+    { name: 'A Nightmare on Elm Street', collectionId: 8581, accent: '#8e24aa', subtitle: "One, Two, Freddy's Coming for You", genre: 'Horror' },
+    { name: 'The Evil Dead', collectionId: 1960, accent: '#795548', subtitle: 'Dead by Dawn', genre: 'Horror' },
+    { name: 'Alien', collectionId: 8091, accent: '#00c853', subtitle: 'In Space No One Can Hear You Scream', genre: 'Sci-Fi' },
+    { name: 'Predator', collectionId: 399, accent: '#ffb300', subtitle: 'If It Bleeds, We Can Kill It', genre: 'Sci-Fi' },
+    { name: 'Final Destination', collectionId: 8864, accent: '#546e7a', subtitle: "You Can't Cheat Death", genre: 'Horror' },
+    { name: 'Paranormal Activity', collectionId: 41437, accent: '#283593', subtitle: 'What Happens When You Sleep?', genre: 'Horror' },
+    { name: 'Insidious', collectionId: 228446, accent: '#d32f2f', subtitle: "It's Not the House That's Haunted", genre: 'Horror' },
+    { name: 'The Matrix', collectionId: 2344, accent: '#00e676', subtitle: 'There Is No Spoon', genre: 'Sci-Fi' },
+    { name: 'Mission: Impossible', collectionId: 87359, accent: '#1e88e5', subtitle: 'Your Mission, Should You Choose to Accept It', genre: 'Action' },
+    { name: 'John Wick', collectionId: 404609, accent: '#e5c27e', subtitle: 'With Pencil. With a Fucking Pencil.', genre: 'Action' },
+    { name: 'James Bond', collectionId: 645, accent: '#aeb6bf', subtitle: 'Licensed to Kill', genre: 'Action' },
+    { name: 'Indiana Jones', collectionId: 84, accent: '#8b5a2b', subtitle: 'Snakes. Why Did It Have to Be Snakes?', genre: 'Adventure' },
+    { name: 'Dune', collectionId: 726871, accent: '#d4a33c', subtitle: 'Fear Is the Mind-Killer', genre: 'Sci-Fi' },
+    { name: 'Mad Max', collectionId: 8945, accent: '#e0662e', subtitle: 'Witness Me!', genre: 'Action' },
+    { name: 'Breaking Bad Universe', tvIds: [1396, 60059], accent: '#1b7f3a', subtitle: 'I Am the One Who Knocks', isTv: true, genre: 'Crime' },
+    { name: 'The Witcher', tvIds: [71912, 106541], accent: '#8e6b3f', subtitle: 'Toss a Coin to Your Witcher', isTv: true, genre: 'Fantasy' },
+    { name: 'The Boys', tvIds: [76479, 205715], accent: '#4a4a6a', subtitle: 'Fuck the Seven. Fuck Homelander.', isTv: true, genre: 'Superhero' }
+];

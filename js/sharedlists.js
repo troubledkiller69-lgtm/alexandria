@@ -104,8 +104,7 @@ export const sharedlists = {
                 if (token !== this._renderToken) return;
                 const rows = Array.isArray(items) ? items : [];
                 const adderUids = [...new Set(rows.map(i => i.added_by).filter(Boolean))];
-                const adders = {};
-                await Promise.all(adderUids.map(uid => this.fetchProfile(uid).then(p => { if (p) adders[uid] = p; }).catch(() => {})));
+                const adders = await this.fetchProfilesBulk(adderUids);
                 if (token !== this._renderToken) return;
                 const current = document.getElementById('list-items');
                 if (!current) return;

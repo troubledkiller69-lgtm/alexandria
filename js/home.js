@@ -182,41 +182,40 @@ export const home = {
         return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
     },
 
-    // TMDB's tv/on_the_air is popularity-ordered, so page 1 alone misses most
-    // of the week's real airings. Pull a few pages and resolve each show's
-    // next_episode_to_air (cached by getJson) for the true air date + episode.
+    // One discover/tv call filtered to the air-date window returns only shows
+    // with an episode this week, so every detail call below lands. The old
+    // version pulled 3 pages of on_the_air (60 shows) and detail-fetched all
+    // of them, wasting most calls on shows airing nowhere near the window.
     async fetchAiringThisWeek(limit = 24) {
         try {
             const today = new Date();
             const minIso = this.localISODate(today);
             const maxIso = this.localISODate(new Date(today.getFullYear(), today.getMonth(), today.getDate() + 7));
-            const seen = new Set();
-            const tvShows = [];
-            const tvPages = await Promise.all([1, 2, 3].map(p => this.getJson('tv/on_the_air?page=' + p).catch(() => null)));
-            for (const page of tvPages) {
-                for (const s of (page?.results || [])) {
-                    if (s && s.id && !seen.has(s.id)) { seen.add(s.id); tvShows.push(s); }
-                }
-            }
-            const tvRows = await this.mapWithConcurrency(tvShows, 6, async s => {
-                try {
-                    const detail = await this.getJson('tv/' + s.id);
-                    const next = detail.next_episode_to_air;
-                    if (!next || !next.air_date) return null;
-                    if (next.air_date < minIso || next.air_date > maxIso) return null;
-                    return {
-                        id: s.id,
-                        type: 'tv',
-                        name: s.name || detail.name || 'Untitled',
-                        poster_path: detail.poster_path || s.poster_path,
-                        air_date: next.air_date,
-                        season: next.season_number,
-                        episode: next.episode_number
-                    };
-                } catch {
-                    return null;
-                }
-            });
+            const tvRows = [];
+            try {
+                const tvData = await this.getJson(`discover/tv?sort_by=popularity.desc&air_date.gte=${minIso}&air_date.lte=${maxIso}`);
+                const candidates = (tvData.results || []).slice(0, 40);
+                const resolved = await this.mapWithConcurrency(candidates, 8, async s => {
+                    try {
+                        const detail = await this.getJson('tv/' + s.id);
+                        const next = detail.next_episode_to_air;
+                        if (!next || !next.air_date) return null;
+                        if (next.air_date < minIso || next.air_date > maxIso) return null;
+                        return {
+                            id: s.id,
+                            type: 'tv',
+                            name: s.name || detail.name || 'Untitled',
+                            poster_path: detail.poster_path || s.poster_path,
+                            air_date: next.air_date,
+                            season: next.season_number,
+                            episode: next.episode_number
+                        };
+                    } catch {
+                        return null;
+                    }
+                });
+                tvRows.push(...resolved.filter(Boolean));
+            } catch { /* TV is the core row, but keep going for movies */ }
             // Theatrical releases this week — the row was TV-only before.
             const movieRows = [];
             try {

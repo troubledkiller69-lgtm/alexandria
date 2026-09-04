@@ -261,10 +261,6 @@ export const search = {
         }
     },
 
-    async surpriseMe() {
-        this.openRouletteModal();
-    },
-
     openRouletteModal() {
         let modal = document.getElementById('roulette-modal');
         if (!modal) {
@@ -578,6 +574,9 @@ export const search = {
                                 <button class="ep-toggle-btn" type="button" aria-expanded="false" onclick="event.stopPropagation(); event.preventDefault(); Alexandria.toggleEpPanel('${safeItemId}', this)">EPISODES ▾</button>
                             ` : ''}
                         </div>
+                        ${isHistoryRow && Number(item.progress) >= 5 ? `
+                            <div class="resume-strip" aria-label="In progress"><span class="resume-strip-label">RESUME ${this.formatTime(item.progress)}</span></div>
+                        ` : ''}
                     </div>
                     <div class="card-info">
                         <h3><a class="card-title-link" href="${target}">${safeTitle}</a></h3>

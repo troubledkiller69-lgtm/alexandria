@@ -47,6 +47,17 @@ export const auth = {
     // ============ WHAT'S NEW — changelog bell ============
     CHANGELOG: [
         {
+            key: 'v1.11.0',
+            date: 'Sep 3, 2026',
+            title: 'Mirror Watch & Live Archives',
+            items: [
+                'Server picker now checks mirror health — dead mirrors show a DOWN tag and NEXT SERVER skips them first, so you spend less time staring at blank players',
+                'Franchise archives moved into a live database — new universes and fixes roll out without a redeploy',
+                'Continue watching posters show a red RESUME strip with your exact timestamp',
+                'Under the hood: comments and feeds load in one batch query instead of one per person, the home airing row fetches only shows that actually air this week, and TV episodes no longer double-fetch their comments'
+            ]
+        },
+        {
             key: 'v1.10.0',
             date: 'Aug 23, 2026',
             title: 'Anime Mirrors & Share Everything',

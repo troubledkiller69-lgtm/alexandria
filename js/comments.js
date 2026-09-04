@@ -481,10 +481,8 @@ export const comments = {
         if (token !== this._renderToken) return;
 
         const uids = [...new Set((comments || []).map(c => c.userId).filter(Boolean))];
-        const profiles = await Promise.all(uids.map(uid => this.fetchProfile(uid).catch(() => null)));
+        const profileById = await this.fetchProfilesBulk(uids);
         if (token !== this._renderToken) return;
-        const profileById = {};
-        uids.forEach((uid, i) => { if (profiles[i]) profileById[uid] = profiles[i]; });
 
         const me = this.state.authUser?.id;
         const myProfile = me ? await this.fetchProfile(me).catch(() => null) : null;
@@ -693,8 +691,7 @@ export const comments = {
                 ...rows.map(r => r.user_id).filter(Boolean),
                 ...(comments || []).map(c => c.userId).filter(Boolean)
             ])];
-            const profiles = await Promise.all(uids.map(uid => this.fetchProfile(uid).catch(() => null)));
-            uids.forEach((uid, i) => { if (profiles[i]) profileById[uid] = profiles[i]; });
+            Object.assign(profileById, await this.fetchProfilesBulk(uids));
         }
         if (token !== this._renderToken) return;
 
@@ -927,6 +924,4 @@ export const comments = {
             console.warn('Alexandria: Auto-comment cleanup failed', e);
         }
     },
-
-    // User Auth & Unique Username Engine
 };

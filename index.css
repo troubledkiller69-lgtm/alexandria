@@ -471,6 +471,32 @@ h1, h2, h3, h4 {
     border: 1px solid rgba(255,255,255,0.2);
 }
 
+/* In-progress marker on history cards: red hairline + resume time, no fake
+   percentage (the embeds don't report duration reliably). */
+.resume-strip {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: 22px;
+    background: linear-gradient(to top, rgba(138, 3, 3, 0.85) 0%, rgba(138, 3, 3, 0.25) 70%, transparent 100%);
+    border-top: 1px solid rgba(255, 255, 255, 0.18);
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    padding-bottom: 3px;
+    z-index: 12;
+    pointer-events: none;
+}
+
+.resume-strip-label {
+    font-size: 0.6rem;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    color: #ffffff;
+    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.8);
+}
+
 .btn-primary {
     background: #8a0303;
     color: #ffffff;

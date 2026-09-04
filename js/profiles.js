@@ -18,6 +18,35 @@ export const profiles = {
         }
     },
 
+    async fetchProfilesBulk(uids) {
+        const byId = {};
+        const unique = [...new Set((uids || []).filter(Boolean))];
+        if (!unique.length || !this.supabase) return byId;
+        this._profileCache = this._profileCache || {};
+        const missing = [];
+        for (const uid of unique) {
+            if (this._profileCache[uid]) byId[uid] = this._profileCache[uid];
+            else missing.push(uid);
+        }
+        try {
+            for (let i = 0; i < missing.length; i += 100) {
+                const chunk = missing.slice(i, i + 100);
+                const { data, error } = await this.supabase
+                    .from('profiles')
+                    .select('id, username, username_lower, nickname, bio, fav_genres, avatar_id, created_at')
+                    .in('id', chunk);
+                if (error) console.warn("Supabase profile batch fetch:", error);
+                for (const row of data || []) {
+                    this._profileCache[row.id] = row;
+                    byId[row.id] = row;
+                }
+            }
+        } catch {
+            /* fall through with whatever resolved */
+        }
+        return byId;
+    },
+
     logActivity(kind, opts = {}) {
         if (!this.supabase || !this.state.authUser) return;
         const { contentId, contentType, title, posterPath, meta } = opts;

@@ -29,6 +29,8 @@ create table if not exists public.comments (
   created_at timestamptz not null default now()
 );
 
+create index if not exists comments_comment_key_idx on public.comments (comment_key, created_at desc);
+
 create table if not exists public.survival_cache (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references auth.users(id) on delete cascade,
@@ -70,6 +72,8 @@ create table if not exists public.follows (
   primary key (follower_id, followee_id),
   constraint follows_no_self_follow check (follower_id <> followee_id)
 );
+
+create index if not exists follows_followee_id_idx on public.follows (followee_id);
 
 create table if not exists public.activity (
   id uuid primary key default gen_random_uuid(),
@@ -278,3 +282,21 @@ create policy "comment_reactions insert own" on public.comment_reactions for ins
 create policy "comment_reactions delete own" on public.comment_reactions for delete using (auth.uid() = user_id);
 
 alter publication supabase_realtime add table public.comment_reactions;
+
+-- Franchise definitions (migration `franchises_table`) — client-editable
+-- archive data; the bundled js/franchise-data.js is the offline fallback.
+create table if not exists public.franchises (
+  id text primary key,
+  name text not null,
+  subtitle text,
+  genre text,
+  accent text not null default '#8a0303',
+  collection_id integer,
+  movie_ids jsonb,
+  tv_ids jsonb,
+  sort_order integer not null default 0
+);
+
+alter table public.franchises enable row level security;
+
+create policy "franchises public read" on public.franchises for select using (true);

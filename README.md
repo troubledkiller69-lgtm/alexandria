@@ -4,13 +4,13 @@ A streaming archive with opinions. Movies, TV, anime, and whole franchises in on
 
 ## What's under the hood
 
-TMDB feeds the catalog through three Vercel functions, so the API key never leaves the server. Supabase handles accounts, watchlists, comments, ratings, and realtime — row-level security on every table, column-level grants so email never shows up in client reads. The player is an iframe embed with a six-mirror server picker and a dual-protocol `postMessage` bridge (EmbedMaster plus PlayerJS) guarded by a 12-host origin allowlist. Routing is a hand-rolled hash router. `#tv/12345/s/2/e/3` parses straight into a render dispatcher.
+TMDB feeds the catalog through Vercel functions, so the API key never leaves the server. A health probe (`/api/probe`) reachability-checks every mirror and tags dead ones in the server picker. Supabase handles accounts, watchlists, comments, ratings, and realtime — row-level security on every table, column-level grants so email never shows up in client reads. The player is an iframe embed with a mirror picker and a dual-protocol `postMessage` bridge (EmbedMaster plus PlayerJS) guarded by a 12-host origin allowlist. Routing is a hand-rolled hash router. `#tv/12345/s/2/e/3` parses straight into a render dispatcher.
 
 ## What it does
 
 - Home loads trending, a continue-watching row deduped against your cloud history, your watchlist, and whatever airs this week.
 - Details pages pull credits, trailers, similar titles, and IMDb scores in one pass. Similar titles get reranked by genre overlap and release-year proximity — not just keyword matches.
-- 33 curated franchise archives. MCU, Star Wars, Transformers, and friends. Each one has its own accent color. Search them, filter them by genre, sort them.
+- 33 curated franchise archives. MCU, Star Wars, Transformers, and friends. Each one has its own accent color. Definitions live in the Supabase `franchises` table (editable without a deploy), with bundled fallback data. Search them, filter them by genre, sort them.
 - Roulette. Spin a random title, filtered by type if you're picky.
 - Comments per title and per episode. Spoiler tags blur until you tap. Realtime insert channel, so new comments land without a refresh.
 - Star ratings plus written reviews. 1–5 scale, one per user per title.

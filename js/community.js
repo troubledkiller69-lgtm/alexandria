@@ -59,7 +59,7 @@ export const community = {
                 container.innerHTML = '<div class="feed-empty">No watches logged this week yet. Be the first!</div>';
                 return;
             }
-            await Promise.all(ranked.map(r => this.fetchProfile(r.uid)));
+            await this.fetchProfilesBulk(ranked.map(r => r.uid));
             if (token !== this._renderToken) return;
 
             const max = ranked[0].score;
@@ -134,7 +134,7 @@ export const community = {
             }
 
             const distinctUsers = Array.from(new Set(rows.map(r => r.user_id).filter(Boolean)));
-            await Promise.all(distinctUsers.map(uid => this.fetchProfile(uid)));
+            await this.fetchProfilesBulk(distinctUsers);
 
             if (document.getElementById('feed-list') !== container) return;
             if (this.state.communityTab !== tab) return;

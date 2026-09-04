@@ -178,12 +178,8 @@ export default async function handler(req, res) {
     const movie = tv ? null : await getTmdb(`movie/${tmdbId}`, tmdbKey);
     const meta = tv || movie;
     if (!meta) return json(res, 404, { error: 'Unknown TMDB id.' });
-    if (!tv && !movie?.overview) { /* fallthrough handled below */ }
 
     const type = tv ? 'tv' : 'movie';
-    if (type !== 'tv') {
-      // Anime movies exist but are rare in this catalog; still attempt.
-    }
     const year = Number((meta.first_air_date || meta.release_date || '').slice(0, 4)) || null;
     const title = meta.name || meta.title || '';
     if (!title) return json(res, 404, { error: 'TMDB record has no title.' });

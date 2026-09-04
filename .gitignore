@@ -10,3 +10,6 @@ node_modules/
 # desktop-only local tooling
 AGENTS.md
 opencode.json
+
+# unrelated local project — keep out of the repo
+PixelGunCheatInternal/

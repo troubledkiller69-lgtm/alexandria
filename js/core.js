@@ -105,6 +105,7 @@ export const core = {
     _renderToken: 0,
     _apiCache: new Map(),
     _CACHE_TTL_MS: 10 * 60 * 1000,
+    _CACHE_MAX: 120,
     _EMBED_ORIGIN: 'https://embedmaster.link',
     _FAILOVER_MS: 15000,
     _FAILOVER_GRACE_MS: 12000,
@@ -187,10 +188,6 @@ export const core = {
         })[character]);
     },
 
-    // #region agent log
-    _dbg() { /* production: telemetry disabled */ },
-    // #endregion
-
     isTrustedEmbedOrigin(origin) {
         try {
             const host = new URL(origin).hostname;
@@ -227,34 +224,47 @@ export const core = {
         try {
             data = await response.json();
         } catch {
-            // #region agent log
-            this._dbg('E', 'script.js:getJson', 'unreadable proxy response', {
-                endpoint,
-                status: response.status,
-                contentType: response.headers.get('content-type')
-            });
-            // #endregion
             throw new Error('The archive returned an unreadable response.');
-        }
-        if (!response.ok) {
-            // #region agent log
-            this._dbg('E', 'script.js:getJson', 'proxy error', {
-                endpoint,
-                status: response.status,
-                error: data?.error || null
-            });
-            // #endregion
         }
         if (!response.ok || data?.success === false || data?.error) {
             throw new Error(data?.status_message || data?.error || `Archive request failed (${response.status}).`);
         }
-        if (useCache) this._apiCache.set(endpoint, { data, at: now });
+        if (useCache) {
+            if (this._apiCache.size >= this._CACHE_MAX) {
+                const firstKey = this._apiCache.keys().next().value;
+                this._apiCache.delete(firstKey);
+            }
+            this._apiCache.set(endpoint, { data, at: now });
+        }
         return data;
     },
 
     ratingsHtml(tmdbScore) {
         if (!tmdbScore) return '<span class="rating-score rating-score--muted">NR</span>';
         return `<span class="rating-score" title="TMDB rating"><span class="rating-score-label">TMDB</span> <span class="rating-score-value">${tmdbScore}</span></span>`;
+    },
+
+    // Best-effort mirror reachability check. Results are cached 5 minutes in
+    // localStorage so the probe never delays boot or playback.
+    async fetchServerHealth() {
+        try {
+            const cached = this.readStorageJson(localStorage, 'alexandria_server_health', null);
+            if (cached?.checkedAt && Date.now() - cached.checkedAt < 5 * 60 * 1000) {
+                this.applyServerHealth(cached);
+                return;
+            }
+            const res = await fetch('/api/probe');
+            if (!res.ok) return;
+            const payload = await res.json();
+            this.applyServerHealth(payload);
+            try { localStorage.setItem('alexandria_server_health', JSON.stringify(payload)); } catch { /* quota */ }
+        } catch { /* the probe is a signal, never a blocker */ }
+    },
+
+    applyServerHealth(payload) {
+        const map = {};
+        for (const m of payload?.mirrors || []) map[m.name] = !!m.ok;
+        this.state.serverHealth = map;
     },
 
     async mapWithConcurrency(items, limit, mapper) {
@@ -423,9 +433,6 @@ export const core = {
         if ('serviceWorker' in navigator && location.protocol === 'https:') {
             navigator.serviceWorker.register('/sw.js').catch(() => {});
         }
-        // #region agent log
-        this._dbg('E', 'script.js:init', 'app boot', { href: typeof location !== 'undefined' ? location.href : null });
-        // #endregion
         this.main = document.getElementById('content');
         
         // Loading screen is cosmetic only — it cycles status text but never

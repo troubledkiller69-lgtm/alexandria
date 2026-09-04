@@ -1,5 +1,6 @@
 export const player = {
     async renderPlayer() {
+        const token = this._renderToken;
         const { id, type, season, episode, isAnime } = this.state.activeContent;
         const animeMode = type === 'tv' && Boolean(isAnime);
         // Anime-only mirrors make no sense outside anime playback.
@@ -64,7 +65,7 @@ export const player = {
         this.armFailoverWatch(server);
         this.scheduleEmbedTheme(document.getElementById('video-iframe'));
         if (needsResolve) this.hydrateAnimeEmbed();
-        this.renderComments();
+        this.fetchServerHealth().then(() => this.paintServerHealth());
 
         try {
             const data = await this.getJson(type + '/' + id);
@@ -102,11 +103,26 @@ export const player = {
             }
         }
 
+        // Single comments mount: per-episode keys for TV, title keys for
+        // movies. Runs after metadata so the composer has the real title.
+        this.renderComments();
     },
 
     setServerStatus(message) {
         const el = document.getElementById('server-status');
         if (el) el.textContent = message;
+    },
+
+    // Tag mirrors the probe marked down in the server dropdown. Names only —
+    // the user's selection and the option indexes never move.
+    paintServerHealth() {
+        const sel = document.getElementById('server-selector');
+        if (!sel) return;
+        const health = this.state.serverHealth || {};
+        this.servers.forEach((s, i) => {
+            const opt = sel.options[i];
+            if (opt) opt.textContent = health[s.name] === false ? `${s.name} · DOWN` : s.name;
+        });
     },
 
     // Called once TMDB metadata confirms anime playback: reveal the anime
@@ -117,6 +133,7 @@ export const player = {
             sel.innerHTML = this.servers.map((s, i) =>
                 `<option value="${i}" ${i === this.state.activeServer ? 'selected' : ''}>${s.name}</option>`
             ).join('');
+            this.paintServerHealth();
         }
         if (!document.getElementById('audio-pill')) {
             const nextBtn = document.querySelector('.server-controls .server-next-btn');
@@ -185,20 +202,31 @@ export const player = {
         const isAnimeMode = this.state.view === 'player'
             && this.state.activeContent?.type === 'tv'
             && Boolean(this.state.activeContent?.isAnime);
-        let next = (this.state.activeServer + 1) % total;
-        let hops = 0;
-        while (hops < total) {
-            const candidate = this.servers[next];
+        const health = this.state.serverHealth || {};
+        const isDead = server => health[server?.name] === false;
+        const pickable = (candidate) => {
             const visible = !candidate.animeOnly || isAnimeMode;
             const allowed = visible && (!preferApiOnly || candidate.supportsApi);
-            if (allowed && !this._triedServers.has(next)) break;
-            next = (next + 1) % total;
-            hops += 1;
+            return allowed && !this._triedServers.has(this.servers.indexOf(candidate));
+        };
+
+        // Pass 1: prefer untried, healthy mirrors. Pass 2: any untried mirror,
+        // probe be damned — a stale "down" mark shouldn't strand the user.
+        let next = -1;
+        for (let pass = 0; pass < 2 && next === -1; pass += 1) {
+            let idx = (this.state.activeServer + 1) % total;
+            let hops = 0;
+            while (hops < total) {
+                const candidate = this.servers[idx];
+                if (pickable(candidate) && (pass === 1 || !isDead(candidate))) { next = idx; break; }
+                idx = (idx + 1) % total;
+                hops += 1;
+            }
         }
 
-        const nextServer = this.servers[next];
-        const nextAllowed = (!nextServer.animeOnly || isAnimeMode) && (!preferApiOnly || nextServer.supportsApi);
-        if (!nextAllowed || this._triedServers.has(next) || hops >= total) {
+        const nextServer = next === -1 ? null : this.servers[next];
+        const nextAllowed = next !== -1 && (!nextServer.animeOnly || isAnimeMode) && (!preferApiOnly || nextServer.supportsApi);
+        if (!nextAllowed || next === -1) {
             this.clearFailoverWatch();
             if (preferApiOnly) {
                 this.setServerStatus('EmbedMaster mirrors timed out. Pick a server manually.');
@@ -238,7 +266,6 @@ export const player = {
             const url = server.getAnime(externalId, Number(episode) || 1, dub);
             if (this.state.view !== 'player') return;
             const live = document.getElementById('video-iframe');
-            if (live && live !== frame) { /* frame replaced mid-flight */ }
             if (live) {
                 live.src = url;
                 this.scheduleEmbedTheme(live);
@@ -347,16 +374,6 @@ export const player = {
         this.scheduleEmbedTheme(frame);
         this.armPartyEmbedWatch();
         this.updatePartyRoleUI();
-        // #region agent log
-        this._dbg('E', 'script.js:onPartyServerSwitched', 'server switch', {
-            serverName: server?.name,
-            embedSrc: frame?.src || '',
-            referrerPolicy: frame?.referrerPolicy || frame?.getAttribute?.('referrerpolicy') || null,
-            activeServer: this.state.activeServer,
-            contentId: this.state.activeContent?.id,
-            contentType: this.state.activeContent?.type
-        });
-        // #endregion
         // Broadcast new serverIndex immediately so guests rebuild the same embed URL.
         if (this.isHost && this.partyChannel) {
             this.broadcastPartyContent();
@@ -383,14 +400,6 @@ export const player = {
             const name = this.servers[this.state.activeServer]?.name || 'Server';
             this._suppressHostBroadcastUntil = 0;
             this._partyFrameReloading = false;
-            // #region agent log
-            const frame = document.getElementById('embedmaster_iframe');
-            this._dbg('E', 'script.js:armPartyEmbedWatch', 'embed load timeout', {
-                serverName: name,
-                embedSrc: frame?.src || '',
-                referrerPolicy: frame?.referrerPolicy || frame?.getAttribute?.('referrerpolicy') || null
-            });
-            // #endregion
             this.showToast(`${name} didn’t load. Switch server — sync stays connected.`);
             this.appendChatMessage('System', `${name} timed out. Pick another mirror to recover.`);
         }, 12000);
@@ -400,13 +409,6 @@ export const player = {
         if (this._partyEmbedHealthy) return;
         this._partyEmbedHealthy = true;
         this.clearPartyEmbedWatch();
-        // #region agent log
-        const frame = document.getElementById('embedmaster_iframe');
-        this._dbg('E', 'script.js:markPartyEmbedHealthy', 'embed healthy/ready', {
-            embedSrc: frame?.src || '',
-            referrerPolicy: frame?.referrerPolicy || frame?.getAttribute?.('referrerpolicy') || null
-        });
-        // #endregion
     },
 
     clearHostPartyResyncTimers() {
@@ -744,9 +746,6 @@ export const player = {
                         onclick="event.stopPropagation(); event.preventDefault(); Alexandria.markEpisodeWatched(${id}, ${season}, ${ep.episode_number}, !this.classList.contains('active'))">✓</button>
                 </div>`;
             }).join('');
-            if (this.state.view === 'player') {
-                this.renderComments();
-            }
         } catch (error) {
             console.error("Alexandria: Failed to load episodes", error);
             const container = document.getElementById('sidebar-episodes');

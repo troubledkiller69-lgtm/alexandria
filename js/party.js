@@ -488,9 +488,6 @@ export const party = {
         // Critical: never let 0:00 poll replies wipe a real mid-movie clock.
         const known = Number(this._partyLastTime) || 0;
         if (n < 1 && known >= 1 && !opts.force) {
-            // #region agent log
-            this._dbg('B', 'script.js:notePartyTime', 'reject near-zero wipe', { n, known, force: !!opts.force });
-            // #endregion
             return false;
         }
 
@@ -500,9 +497,6 @@ export const party = {
                 ? (Date.now() - this._partyLastTimeAt) / 1000
                 : 0;
             if (n > known + elapsed + 12) {
-                // #region agent log
-                this._dbg('B', 'script.js:notePartyTime', 'reject absurd jump', { n, known, elapsed, force: !!opts.force });
-                // #endregion
                 return false;
             }
         }
@@ -577,23 +571,6 @@ export const party = {
         const label = this.formatTime(Math.floor(Math.max(0, t || 0)));
         if (hostEl) hostEl.textContent = label;
         if (guestEl) guestEl.textContent = label;
-        // #region agent log
-        const now = Date.now();
-        if (!this._dbgLastClockLog || now - this._dbgLastClockLog > 2000) {
-            this._dbgLastClockLog = now;
-            const pending = this._pendingPartySync;
-            this._dbg('A', 'script.js:tickPartyClock', 'clock tick', {
-                displaySec: Math.floor(t || 0),
-                label,
-                lastTime: this._partyLastTime,
-                lastTimeAtAgeMs: this._partyLastTimeAt ? now - this._partyLastTimeAt : null,
-                pendingClock: pending?.clock,
-                pendingTime: pending?.time,
-                pendingAction: pending?.action,
-                lead: this._PARTY_SYNC_LEAD_SEC
-            });
-        }
-        // #endregion
     },
 
     harvestEmbedTimes(data, depth = 0, out = [], keyHint = '') {
@@ -670,21 +647,6 @@ export const party = {
 
         const samples = this.harvestEmbedTimes(data);
         const best = this.pickBestEmbedTime(samples);
-        // #region agent log
-        const _nowIngest = Date.now();
-        if (samples.length && (!this._dbgLastIngestLog || _nowIngest - this._dbgLastIngestLog > 2500)) {
-            this._dbgLastIngestLog = _nowIngest;
-            this._dbg('A', 'script.js:ingestEmbedTimePayload', 'embed time harvest', {
-                sampleCount: samples.length,
-                samples: samples.slice(0, 8),
-                best,
-                prev: this._partyLastTime,
-                api: data?.api,
-                event: data?.event,
-                source: data?.source
-            });
-        }
-        // #endregion
         if (best != null && best >= 1) {
             const prev = Number(this._partyLastTime) || 0;
             this.notePartyTime(best);
@@ -964,17 +926,11 @@ export const party = {
         const force = !!opts.force;
         const noSeek = !!opts.noSeek;
         const now = Date.now();
-        const rawBeforeLead = t;
 
         // Play/sync: aim guests slightly ahead so the ~1s lag feels matched.
         if (!noSeek && (action === 'play' || (action === 'sync' && !opts.paused))) {
             t += this._PARTY_SYNC_LEAD_SEC;
         }
-        // #region agent log
-        this._dbg('D', 'script.js:sendPlayerSync', 'host broadcast', {
-            action, rawBeforeLead, seekTime: t, force, noSeek, leadApplied: t !== rawBeforeLead
-        });
-        // #endregion
 
         // Debounce duplicate host broadcasts (player echoes + presence noise).
         if (!force && this._lastSentPartySync) {
