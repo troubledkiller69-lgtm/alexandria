@@ -43,7 +43,7 @@ export const home = {
                             <span class="trending-badge">#1 TRENDING TODAY</span>
                             <h1>${this.escapeHtml(featured.title)}</h1>
                             <p>${this.escapeHtml(featured.overview || 'No overview is available yet.')}</p>
-                            <button class="btn-primary" onclick="Alexandria.playContent(${Number(featured.id)}, 'movie')">WATCH NOW</button>
+                            <button class="btn-primary btn-play" onclick="Alexandria.playContent(${Number(featured.id)}, 'movie')">WATCH NOW</button>
                         </div>
                         ${lastOk ? `<div class="resume-widget" role="link" tabindex="0" data-resume-hash="${this.escapeHtml(resumeHash)}" onclick="window.location.hash = this.dataset.resumeHash">
                             <div class="resume-content"><span class="resume-label">CONTINUE WATCHING</span><h4>${this.escapeHtml(last.title || 'Untitled')}</h4><p>${last.progress > 5 ? `Resume at ${this.formatTime(last.progress)}` : 'Resume playback'}</p></div>

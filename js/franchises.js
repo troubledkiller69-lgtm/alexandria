@@ -112,51 +112,29 @@ export const franchises = {
             else if (sort === 'count') list.sort((a, b) => b.items.length - a.items.length);
             return list;
         };
-        // Stable per-franchise index so panel/deck ids stay unique across genre groups.
+        // Stable per-franchise index so the deck host can resolve cards.
+        this._visibleFranchises = visible;
         const indexOf = new Map(visible.map((f, i) => [f, i]));
-        const tileHtml = (f) => {
+        const cardHtml = (f) => {
             const i = indexOf.get(f);
             if (!f.items.length) return '';
             const poster = this.imageUrl(f.items[0].poster_path, 'w342');
             const safeName = this.escapeHtml(f.name);
             return `
-                    <article class="franchise-tile">
-                        <div class="franchise-tile-cover">
-                            <button class="franchise-tile-toggle" type="button" aria-expanded="false" aria-controls="franchise-panel-${i}" onclick="Alexandria.toggleFranchise(this)">
-                                ${poster ? `<img class="franchise-tile-poster" src="${poster}" alt="${safeName}" loading="lazy" decoding="async">` : `<div class="franchise-tile-placeholder" aria-hidden="true"><span>A</span></div>`}
-                                <span class="franchise-tile-scrim" aria-hidden="true"></span>
-                                <span class="franchise-tile-count">${f.items.length}</span>
-                                ${f.genre ? `<span class="franchise-tile-genre">${this.escapeHtml(f.genre)}</span>` : ''}
-                                <span class="franchise-tile-name">${safeName}</span>
-                            </button>
-                            <button class="franchise-tile-arrow" type="button" aria-expanded="false" aria-label="Expand ${safeName}" onclick="Alexandria.toggleFranchise(this)">
-                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>
-                            </button>
-                        </div>
-                        <div class="franchise-tile-panel" id="franchise-panel-${i}">
-                            <div class="franchise-panel-header">
-                                <span class="franchise-panel-bar" style="background:${f.accent}" aria-hidden="true"></span>
-                                <span class="franchise-panel-name">${safeName}</span>
-                                <span class="franchise-panel-quote">&ldquo;${this.escapeHtml(f.subtitle)}&rdquo;</span>
-                                <button class="franchise-panel-close" type="button" aria-label="Collapse ${safeName}" onclick="Alexandria.toggleFranchise(this)">
-                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
-                                </button>
-                            </div>
-                            <div class="franchise-deck-wrap">
-                                <button class="carousel-arrow left" type="button" aria-label="Scroll ${safeName} titles left" onclick="Alexandria.scrollCarousel(this, -800)">&#10094;</button>
-                                <div class="franchise-deck">
-                                    <div class="franchise-deck-scroller">
-                                        <div class="franchise-deck-first" id="franchise-first-${i}"></div>
-                                        <div class="franchise-deck-rest" id="franchise-rest-${i}"></div>
-                                    </div>
-                                </div>
-                                <button class="carousel-arrow right" type="button" aria-label="Scroll ${safeName} titles right" onclick="Alexandria.scrollCarousel(this, 800)">&#10095;</button>
-                            </div>
-                        </div>
-                    </article>`;
+                <button class="franchise-card" type="button" data-franchise-index="${i}" onclick="Alexandria.openFranchiseDeck(this.dataset.franchiseIndex)">
+                    <span class="franchise-card-poster">
+                        ${poster ? `<img src="${poster}" alt="${safeName}" loading="lazy" decoding="async">` : '<span class="franchise-tile-placeholder" aria-hidden="true"><span>A</span></span>'}
+                        <span class="franchise-card-scrim" aria-hidden="true"></span>
+                        <span class="franchise-tile-count">${f.items.length}</span>
+                        <span class="franchise-card-name">${safeName}</span>
+                    </span>
+                    <span class="franchise-card-bar" style="background:${this.escapeHtml(f.accent || '#8a0303')}" aria-hidden="true"></span>
+                    <span class="franchise-card-sub">${this.escapeHtml(f.subtitle || '')}</span>
+                </button>`;
         };
-        // Browsing everything: group tiles under genre headings so the archive
-        // reads like a table of contents; a genre filter shows one flat grid.
+
+        // Browsing everything: one horizontal row per genre; a genre filter
+        // shows a single flat row.
         const groups = [];
         if (genre === 'All') {
             genres.slice(1).forEach(g => {
@@ -173,11 +151,25 @@ export const franchises = {
             groups.push([null, sortTiles(visible)]);
         }
 
+        const universes = results.filter(f => f.items.length);
+        const mosaic = universes.slice(0, 6);
+        const titleCount = universes.reduce((s, f) => s + f.items.length, 0);
+
         this.main.innerHTML = `
                 <section class="filtered-view franchise-section">
-                    <div class="franchise-page-header">
-                        <h2>FRANCHISE ARCHIVES</h2>
-                        <p style="color:var(--text-muted);font-family:var(--font-display);letter-spacing:2px">CINEMATIC UNIVERSES & LEGENDARY SAGAS</p>
+                    <div class="franchise-hero">
+                        <div class="franchise-hero-mosaic" aria-hidden="true">
+                            ${mosaic.map(f => {
+                                const p = this.imageUrl(f.items[0].poster_path, 'w342');
+                                return p ? `<img src="${p}" alt="" loading="lazy" decoding="async">` : '';
+                            }).join('')}
+                        </div>
+                        <div class="franchise-hero-overlay" aria-hidden="true"></div>
+                        <div class="franchise-hero-content">
+                            <p class="eyebrow">CINEMATIC UNIVERSES & LEGENDARY SAGAS</p>
+                            <h1>FRANCHISE ARCHIVES</h1>
+                            <p class="franchise-hero-sub">${universes.length} universes · ${titleCount} titles on file</p>
+                        </div>
                     </div>
                     <div class="franchise-toolbar">
                         <div class="franchise-chips" role="group" aria-label="Filter franchises by genre">
@@ -193,21 +185,54 @@ export const franchises = {
                             </select>
                         </label>
                     </div>
+                    <div id="franchise-deck-host" class="franchise-deck-host" hidden></div>
                     ${visible.length === 0 ? '<div class="profile-empty">No franchises match that search.</div>' : groups.map(([g, list]) => `
                     ${g ? `<h3 class="franchise-group-heading">${this.escapeHtml(g)}<span>${list.length} ${list.length === 1 ? 'UNIVERSE' : 'UNIVERSES'}</span></h3>` : ''}
-                    <div class="franchise-grid">
-                    ${list.map(tileHtml).join('')}
+                    <div class="carousel-container">
+                        <button class="carousel-arrow left" type="button" aria-label="Scroll ${g ? this.escapeHtml(g) : 'franchises'} left" onclick="Alexandria.scrollCarousel(this, -800)">&#10094;</button>
+                        <div class="carousel-wrapper"><div class="carousel-grid franchise-row">${list.map(cardHtml).join('')}</div></div>
+                        <button class="carousel-arrow right" type="button" aria-label="Scroll ${g ? this.escapeHtml(g) : 'franchises'} right" onclick="Alexandria.scrollCarousel(this, 800)">&#10095;</button>
                     </div>`).join('')}
                 </section>`;
+    },
 
-        visible.forEach((f, i) => {
-            if (f.items.length > 0) {
-                this.renderResults([f.items[0]], `franchise-first-${i}`);
-                if (f.items.length > 1) {
-                    this.renderResults(f.items.slice(1), `franchise-rest-${i}`);
-                }
-            }
+    openFranchiseDeck(indexStr) {
+        const idx = Number(indexStr);
+        const f = this._visibleFranchises?.[idx];
+        const host = document.getElementById('franchise-deck-host');
+        if (!f || !host) return;
+        host.removeAttribute('hidden');
+        host.innerHTML = `
+            <div class="franchise-panel-header">
+                <span class="franchise-panel-bar" style="background:${this.escapeHtml(f.accent || '#8a0303')}" aria-hidden="true"></span>
+                <span class="franchise-panel-name">${this.escapeHtml(f.name)}</span>
+                <span class="franchise-panel-quote">&ldquo;${this.escapeHtml(f.subtitle)}&rdquo;</span>
+                <button class="franchise-panel-close" type="button" aria-label="Close ${this.escapeHtml(f.name)}" onclick="Alexandria.closeFranchiseDeck()">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                </button>
+            </div>
+            <div class="franchise-deck-wrap">
+                <button class="carousel-arrow left" type="button" aria-label="Scroll ${this.escapeHtml(f.name)} titles left" onclick="Alexandria.scrollCarousel(this, -800)">&#10094;</button>
+                <div class="franchise-deck">
+                    <div class="franchise-deck-scroller">
+                        <div class="franchise-deck-first" id="deck-first"></div>
+                        <div class="franchise-deck-rest" id="deck-rest"></div>
+                    </div>
+                </div>
+                <button class="carousel-arrow right" type="button" aria-label="Scroll ${this.escapeHtml(f.name)} titles right" onclick="Alexandria.scrollCarousel(this, 800)">&#10095;</button>
+            </div>`;
+        host.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        document.querySelectorAll('.franchise-card').forEach(c => {
+            c.classList.toggle('active', Number(c.dataset.franchiseIndex) === idx);
         });
+        this.renderResults([f.items[0]], 'deck-first');
+        if (f.items.length > 1) this.renderResults(f.items.slice(1), 'deck-rest');
+    },
+
+    closeFranchiseDeck() {
+        const host = document.getElementById('franchise-deck-host');
+        if (host) host.setAttribute('hidden', '');
+        document.querySelectorAll('.franchise-card.active').forEach(c => c.classList.remove('active'));
     },
 
     setFranchiseSearch(value) {
@@ -225,36 +250,5 @@ export const franchises = {
         this.state.franchiseSort = value;
         if (this.state.franchiseResults) this.renderFranchiseGrid(this.state.franchiseResults);
     },
-
-    toggleFranchise(btn) {
-        const tile = btn.closest('.franchise-tile');
-        if (!tile) return;
-        // Clicking the already-open tile collapses it.
-        if (tile.classList.contains('open')) {
-            this.setFranchiseOpen(tile, false);
-            return;
-        }
-        // Enforce a cap so the grid never gets visually cluttered: close the
-        // oldest-open tiles to make room before expanding the new one.
-        const openTiles = Array.from(tile.closest('.franchise-section').querySelectorAll('.franchise-tile.open'));
-        const MAX_OPEN = 2;
-        while (openTiles.length >= MAX_OPEN) {
-            this.setFranchiseOpen(openTiles.shift(), false);
-        }
-        this.setFranchiseOpen(tile, true);
-    },
-    setFranchiseOpen(tile, open) {
-        tile.classList.toggle('open', open);
-        // Pull the expanded tile to the top row; cleared when it collapses.
-        tile.style.order = open ? '-1' : '';
-        tile.querySelectorAll('[aria-expanded]').forEach(el => el.setAttribute('aria-expanded', String(open)));
-        const rest = tile.querySelector('.franchise-deck-rest');
-        if (rest) {
-            // Measure the natural width of the hidden cards so the slide-out is
-            // smooth and exact for any franchise size.
-            rest.style.width = open ? `${rest.scrollWidth}px` : '0px';
-        }
-    },
-
 
 };

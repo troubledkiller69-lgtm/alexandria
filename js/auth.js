@@ -297,7 +297,7 @@ export const auth = {
                     </div>
                     <button type="button" class="btn-primary" style="width: 100%; margin-top: 1rem;" onclick="Alexandria.toggleAuthModal(false); window.location.hash = '${profileHash}'">VIEW PROFILE</button>
                     <button type="button" class="btn-secondary" style="width: 100%; margin-top: 0.5rem;" onclick="Alexandria.editProfileModal(true)">EDIT PROFILE</button>
-                    <button type="button" class="btn-secondary" style="width: 100%; margin-top: 0.5rem;" onclick="Alexandria.handleSignOut()">LOG OUT</button>
+                    <button type="button" class="btn-danger" style="width: 100%; margin-top: 0.5rem;" onclick="Alexandria.handleSignOut()">LOG OUT</button>
                 </div>
             `;
             return;

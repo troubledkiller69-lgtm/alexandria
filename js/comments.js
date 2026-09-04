@@ -738,7 +738,7 @@ export const comments = {
                         <span class="spoiler-toggle-text">Spoiler</span>
                     </label>
                     <button type="button" class="btn-primary" onclick="Alexandria.submitRating('${type}', ${id})">${ownRow ? 'UPDATE REVIEW' : 'SUBMIT'}</button>
-                    ${ownRow ? `<button type="button" class="btn-secondary" onclick="Alexandria.deleteRating('${ownRow.id}')">DELETE MY REVIEW</button>` : ''}
+                    ${ownRow ? `<button type="button" class="btn-danger" onclick="Alexandria.deleteRating('${ownRow.id}')">DELETE MY REVIEW</button>` : ''}
                 </div>
             </div>
         ` : `

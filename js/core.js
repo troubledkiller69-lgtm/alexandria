@@ -359,7 +359,7 @@ export const core = {
                 <p>${safeMessage}</p>
                 <div class="error-actions">
                     <button class="btn-primary" type="button" data-retry-view="${this.escapeHtml(retryView)}">TRY AGAIN</button>
-                    <a class="btn-secondary" href="#home">RETURN HOME</a>
+                    <a class="btn-arrow" href="#home">RETURN HOME</a>
                 </div>
             </section>`;
     },
