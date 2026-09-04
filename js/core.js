@@ -475,9 +475,55 @@ export const core = {
     bindListTransferControls() {
         document.getElementById('export-lists-btn')?.addEventListener('click', () => this.exportLists());
         const fileInput = document.getElementById('import-lists-file');
-        document.getElementById('import-lists-btn')?.addEventListener('click', () => fileInput?.click());
+        document.getElementById('import-lists-btn')?.addEventListener('click', () => this.openImportExplainer());
         fileInput?.addEventListener('change', (event) => this.importLists(event));
         document.getElementById('import-anilist-btn')?.addEventListener('click', () => this.importAniListFlow());
+    },
+
+    openImportExplainer() {
+        let modal = document.getElementById('import-explainer-modal');
+        if (!modal) {
+            modal = document.createElement('div');
+            modal.id = 'import-explainer-modal';
+            modal.className = 'profile-modal-overlay';
+            modal.innerHTML = `
+                <div class="profile-modal-card">
+                    <button class="auth-close-btn" type="button" aria-label="Close" onclick="Alexandria.closeImportExplainer()">✕</button>
+                    <h3 class="profile-modal-title">IMPORT LISTS</h3>
+                    <p class="import-explainer-intro">Pick a file and the archive will sort it out. Nothing is overwritten without being merged first.</p>
+                    <div class="import-explainer-row">
+                        <span class="import-explainer-bar" aria-hidden="true"></span>
+                        <div class="import-explainer-body">
+                            <p class="import-explainer-label">ALEXANDRIA JSON</p>
+                            <p class="import-explainer-text">A full restore from an EXPORT LISTS file. Watchlist and history come back exactly as they left — titles, statuses, watched episode marks, resume points.</p>
+                        </div>
+                    </div>
+                    <div class="import-explainer-row">
+                        <span class="import-explainer-bar" aria-hidden="true"></span>
+                        <div class="import-explainer-body">
+                            <p class="import-explainer-label">LETTERBOXD CSV</p>
+                            <p class="import-explainer-text">watched.csv or watchlist.csv. Each row is matched against TMDB by name and year. Letterboxd star ratings convert to the 1-5 scale, review text comes along, and titles that cannot be matched are listed for you at the end.</p>
+                        </div>
+                    </div>
+                    <p class="import-explainer-note">ANI LIST IMPORTS RUN THROUGH THE ANILIST BUTTON BELOW THIS ONE.</p>
+                    <div class="profile-modal-actions">
+                        <button type="button" class="btn-secondary" onclick="Alexandria.closeImportExplainer()">CANCEL</button>
+                        <button type="button" class="btn-primary" onclick="Alexandria.pickImportFile()">CHOOSE FILE</button>
+                    </div>
+                </div>`;
+            modal.addEventListener('click', e => { if (e.target === modal) this.closeImportExplainer(); });
+            document.body.appendChild(modal);
+        }
+        modal.removeAttribute('hidden');
+    },
+
+    closeImportExplainer() {
+        document.getElementById('import-explainer-modal')?.setAttribute('hidden', '');
+    },
+
+    pickImportFile() {
+        this.closeImportExplainer();
+        document.getElementById('import-lists-file')?.click();
     },
 
     exportLists() {
@@ -1036,37 +1082,14 @@ export const core = {
 
             if (!config.supabaseUrl || !config.supabaseAnonKey) {
                 console.info("Alexandria Protocol: Watch Party cloud is not configured; using local mode.");
-                this.updateSyncIndicator('GUEST');
                 return;
             }
 
             if (!window.supabase?.createClient) throw new Error('Realtime client failed to load.');
             this.supabase = window.supabase.createClient(config.supabaseUrl, config.supabaseAnonKey);
-            this.updateSyncIndicator('GUEST');
             await this.bindAuthListeners();
         } catch (e) {
             console.error("Alexandria Protocol: Handshake Failure -", e);
-            this.updateSyncIndicator('OFFLINE');
-        }
-    },
-
-    updateSyncIndicator(status) {
-        const dot = document.querySelector('.status-dot');
-        const text = document.querySelector('.status-text');
-        if (!dot || !text) return;
-
-        if (status === 'OFFLINE') {
-            dot.style.background = '#ef4444';
-            dot.style.boxShadow = '0 0 10px #ef4444';
-            text.textContent = 'PARTY OFFLINE';
-        } else if (status === 'GUEST') {
-            dot.style.background = this.supabase ? '#10b981' : '#f59e0b';
-            dot.style.boxShadow = this.supabase ? '0 0 10px #10b981' : '0 0 10px #f59e0b';
-            text.textContent = this.supabase ? 'LOCAL + PARTY READY' : 'LOCAL MODE';
-        } else {
-            dot.style.background = '#f59e0b';
-            dot.style.boxShadow = '0 0 10px #f59e0b';
-            text.textContent = 'ESTABLISHING...';
         }
     },
 
