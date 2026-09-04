@@ -1058,6 +1058,28 @@ export const core = {
         try { localStorage.setItem('alexandria_audio_pref', pref); } catch { /* ignore */ }
     },
 
+    getPref(key, fallback = null) {
+        try {
+            const raw = localStorage.getItem('alexandria_pref_' + key);
+            if (raw === null) return fallback;
+            if (raw === 'true') return true;
+            if (raw === 'false') return false;
+            const n = Number(raw);
+            return Number.isFinite(n) && raw !== '' ? n : raw;
+        } catch {
+            return fallback;
+        }
+    },
+
+    setPref(key, value) {
+        try {
+            localStorage.setItem('alexandria_pref_' + key, String(value));
+            return true;
+        } catch {
+            return false;
+        }
+    },
+
     async resolveAnime(tmdbId) {
         this._animeResolveCache = this._animeResolveCache || {};
         const key = String(tmdbId);

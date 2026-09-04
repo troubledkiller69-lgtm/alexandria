@@ -14,6 +14,7 @@ import { comments } from './comments.js';
 import { auth } from './auth.js';
 import { party } from './party.js';
 import { sharedlists } from './sharedlists.js';
+import { settings } from './settings.js';
 import { ui } from './ui.js';
 
 const Alexandria = Object.assign(
@@ -34,6 +35,7 @@ const Alexandria = Object.assign(
     auth,
     party,
     sharedlists,
+    settings,
     ui
 );
 

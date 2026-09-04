@@ -1,6 +1,7 @@
 export const player = {
     async renderPlayer() {
         const token = this._renderToken;
+        this.clearUpNext();
         const { id, type, season, episode, isAnime } = this.state.activeContent;
         const animeMode = type === 'tv' && Boolean(isAnime);
         // Anime-only mirrors make no sense outside anime playback.
@@ -540,6 +541,7 @@ export const player = {
         if (!frame?.contentWindow) return;
 
         this.postToEmbed(frame, 'seek', time);
+        this._lastPlayhead = time;
         this._resumeSeekDone = true;
         this._resumeIgnoreUntil = Date.now() + 2500;
         this._pendingResumeTime = 0;
@@ -558,8 +560,25 @@ export const player = {
         existing.progress = t;
         existing.season = season;
         existing.episode = episode;
+        this._lastPlayhead = t;
         this._lastProgressWrite = Date.now();
         this.writeLocalList('alexandria_history', this.state.history);
+    },
+
+    kbSeek(delta) {
+        const server = this.servers[this.state.activeServer];
+        if (!server?.supportsApi) {
+            this.showToast('Keyboard seek only works on Alexandria / EmbedMaster mirrors.');
+            return;
+        }
+        const frame = document.getElementById('video-iframe');
+        if (!frame?.contentWindow) return;
+        const base = Number.isFinite(this._lastPlayhead) ? this._lastPlayhead : 0;
+        const t = Math.max(0, base + delta);
+        this.postToEmbed(frame, 'seek', t);
+        this._lastPlayhead = t;
+        this._resumeIgnoreUntil = Date.now() + 1500;
+        this.showToast(delta > 0 ? '+10s' : '-10s');
     },
 
     async advanceEpisode() {
@@ -568,9 +587,20 @@ export const player = {
         const eps = this._currentSeasonEpisodes || [];
         const numbers = eps.map(e => e.episode_number).filter(n => Number.isFinite(n));
         const maxEp = numbers.length ? Math.max(...numbers) : episode;
+        const autoAdvance = this.getPref('autoadvance') !== false;
 
         if (episode < maxEp) {
-            window.location.hash = `#tv/${id}/s/${season || 1}/e/${episode + 1}`;
+            if (!autoAdvance) {
+                this.showToast('Episode complete.');
+                return;
+            }
+            const next = eps.find(e => e.episode_number === episode + 1);
+            this.scheduleUpNext({
+                targetHash: `#tv/${id}/s/${season || 1}/e/${episode + 1}`,
+                label: next?.name
+                    ? `S${season || 1} E${episode + 1} — ${next.name}`
+                    : `Episode ${episode + 1}`
+            });
             return;
         }
 
@@ -579,14 +609,68 @@ export const player = {
             const seasons = (show.seasons || []).filter(s => s.season_number > 0);
             const nextSeason = seasons.find(s => s.season_number === (season || 1) + 1);
             if (nextSeason) {
-                this.showToast(`Season ${season} complete. Loading season ${nextSeason.season_number}…`);
-                window.location.hash = `#tv/${id}/s/${nextSeason.season_number}/e/1`;
+                if (!autoAdvance) {
+                    this.showToast(`Season ${season} complete.`);
+                    return;
+                }
+                this.scheduleUpNext({
+                    targetHash: `#tv/${id}/s/${nextSeason.season_number}/e/1`,
+                    label: `Season ${nextSeason.season_number} Episode 1`
+                });
                 return;
             }
         } catch { /* ignore */ }
 
         this.showToast('End of available episodes.');
         this.persistProgress(0, true);
+    },
+
+    scheduleUpNext({ targetHash, label }) {
+        this.clearUpNext();
+        if (this.state.view !== 'player') return;
+        const container = document.querySelector('.player-frame-container');
+        if (!container) return;
+        const overlay = document.createElement('div');
+        overlay.className = 'upnext-overlay';
+        overlay.dataset.target = targetHash;
+        overlay.innerHTML = `
+            <div class="upnext-card">
+                <p class="upnext-eyebrow">UP NEXT</p>
+                <p class="upnext-title">${this.escapeHtml(label)}</p>
+                <p class="upnext-count">PLAYING IN <span id="upnext-countdown">5</span>…</p>
+                <div class="upnext-actions">
+                    <button type="button" class="btn-secondary" onclick="Alexandria.cancelUpNext()">CANCEL</button>
+                    <button type="button" class="btn-primary" onclick="Alexandria.playNextNow()">PLAY NOW</button>
+                </div>
+            </div>`;
+        container.appendChild(overlay);
+        this._upNextRemaining = 5;
+        const countEl = overlay.querySelector('#upnext-countdown');
+        this._upNextTimer = setInterval(() => {
+            this._upNextRemaining -= 1;
+            if (countEl) countEl.textContent = String(Math.max(0, this._upNextRemaining));
+            if (this._upNextRemaining <= 0) this.playNextNow();
+        }, 1000);
+    },
+
+    clearUpNext() {
+        if (this._upNextTimer) {
+            clearInterval(this._upNextTimer);
+            this._upNextTimer = null;
+        }
+        document.querySelectorAll('.upnext-overlay').forEach(el => el.remove());
+    },
+
+    playNextNow() {
+        const overlay = document.querySelector('.upnext-overlay');
+        const target = overlay?.dataset.target;
+        this.clearUpNext();
+        if (target) window.location.hash = target;
+    },
+
+    cancelUpNext() {
+        this.clearUpNext();
+        this.showToast('Staying on this episode.');
     },
 
     bindSoloPlayerEvents() {
@@ -623,6 +707,8 @@ export const player = {
                 // never starts. Unlock on the first playhead event; tryResumeSeek
                 // still honors _pendingResumeTime for real resumes.
                 if (!this._resumeSeekDone) this.tryResumeSeek();
+                if (data.event === 'play') this._kbPaused = false;
+                if (data.event === 'pause') this._kbPaused = true;
                 const t = data.info?.time;
                 if (typeof t === 'number' && this._resumeSeekDone) {
                     this.persistProgress(t, data.event === 'pause' || data.event === 'seek');
@@ -634,6 +720,35 @@ export const player = {
             }
         };
         window.addEventListener('message', this._soloEmbedListener);
+
+        if (!this._playerKeyHandler) {
+            this._playerKeyHandler = (e) => {
+                if (this.state.view !== 'player') return;
+                const tag = String(e.target?.tagName || '').toLowerCase();
+                if (tag === 'input' || tag === 'textarea' || tag === 'select' || e.target?.isContentEditable) return;
+                if (e.key === ' ' || e.code === 'Space') {
+                    e.preventDefault();
+                    const server = this.servers[this.state.activeServer];
+                    if (!server?.supportsApi) return;
+                    const frame = document.getElementById('video-iframe');
+                    if (!frame?.contentWindow) return;
+                    this._kbPaused = !this._kbPaused;
+                    this.postToEmbed(frame, this._kbPaused ? 'pause' : 'play');
+                } else if (e.key === 'ArrowRight') {
+                    e.preventDefault();
+                    this.kbSeek(10);
+                } else if (e.key === 'ArrowLeft') {
+                    e.preventDefault();
+                    this.kbSeek(-10);
+                } else if (e.key === 'f' || e.key === 'F') {
+                    const container = document.querySelector('.player-frame-container');
+                    if (!container) return;
+                    if (document.fullscreenElement) document.exitFullscreen();
+                    else container.requestFullscreen?.();
+                }
+            };
+            document.addEventListener('keydown', this._playerKeyHandler);
+        }
     },
 
     populateSeasonSelector(data, activeSeason) {

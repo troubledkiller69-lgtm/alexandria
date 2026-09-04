@@ -28,6 +28,7 @@ export const views = {
         else if (this.state.view === 'community') return this.renderCommunity();
         else if (this.state.view === 'party') return this.renderParty();
         else if (this.state.view === 'list') return this.renderList();
+        else if (this.state.view === 'settings') return this.renderSettings();
 
         else {
             this.state.view = 'home';

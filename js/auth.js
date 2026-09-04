@@ -296,6 +296,7 @@ export const auth = {
                         <p>${this.escapeHtml(u.email || 'Verified Account')}</p>
                     </div>
                     <button type="button" class="btn-primary" style="width: 100%; margin-top: 1rem;" onclick="Alexandria.toggleAuthModal(false); window.location.hash = '${profileHash}'">VIEW PROFILE</button>
+                    <button type="button" class="btn-secondary" style="width: 100%; margin-top: 0.5rem;" onclick="Alexandria.toggleAuthModal(false); window.location.hash = '#settings'">SETTINGS</button>
                     <button type="button" class="btn-secondary" style="width: 100%; margin-top: 0.5rem;" onclick="Alexandria.editProfileModal(true)">EDIT PROFILE</button>
                     <button type="button" class="btn-danger" style="width: 100%; margin-top: 0.5rem;" onclick="Alexandria.handleSignOut()">LOG OUT</button>
                 </div>
@@ -338,6 +339,7 @@ export const auth = {
                     <button type="submit" class="btn-primary" style="width: 100%; margin-top: 0.5rem;">CREATE ACCOUNT</button>
                 </form>
             `}
+            <button type="button" class="btn-arrow" style="align-self: center; margin-top: 0.5rem;" onclick="Alexandria.toggleAuthModal(false); window.location.hash = '#settings'">SETTINGS</button>
         `;
     },
 

@@ -6966,3 +6966,229 @@ h1, h2, h3, h4 {
 .franchise-card.active .franchise-card-poster {
     box-shadow: 0 10px 22px rgba(0, 0, 0, 0.45), 0 0 0 2px #8a0303, 0 0 18px rgba(138, 3, 3, 0.5);
 }
+
+/* Franchise completion progress — thin red track under each card. */
+.franchise-progress-track {
+    display: block;
+    height: 3px;
+    width: 100%;
+    border-radius: 2px;
+    background: rgba(255, 255, 255, 0.1);
+    overflow: hidden;
+}
+.franchise-progress-fill {
+    display: block;
+    height: 100%;
+    background: linear-gradient(90deg, #8a0303, #d4af37);
+    border-radius: 2px;
+    transition: width 0.4s ease;
+}
+.franchise-card-progress-text {
+    font-size: 0.62rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    color: var(--text-muted);
+}
+
+/* ---- Up-next interstitial ---- */
+.upnext-overlay {
+    position: absolute;
+    inset: 0;
+    z-index: 30;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(3, 3, 3, 0.82);
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+    animation: fadeIn 200ms ease;
+}
+.upnext-card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.6rem;
+    padding: 2.25rem 3rem;
+    background: rgba(15, 16, 20, 0.92);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-left: 3px solid #8a0303;
+    border-radius: 8px;
+    box-shadow: 0 24px 60px rgba(0, 0, 0, 0.65), 0 0 32px rgba(138, 3, 3, 0.3);
+    text-align: center;
+    max-width: min(480px, 86%);
+}
+.upnext-eyebrow {
+    font-family: var(--font-display);
+    font-size: 0.7rem;
+    font-weight: 800;
+    letter-spacing: 0.16em;
+    color: var(--accent-gold);
+    margin: 0;
+}
+.upnext-title {
+    font-family: var(--font-display);
+    font-size: 1.25rem;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    color: #ffffff;
+    margin: 0;
+}
+.upnext-count {
+    font-size: 0.78rem;
+    letter-spacing: 0.1em;
+    color: var(--text-secondary);
+    margin: 0 0 0.5rem;
+}
+.upnext-count span {
+    color: #ffffff;
+    font-weight: 800;
+    font-size: 1rem;
+}
+.upnext-actions {
+    display: flex;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+    justify-content: center;
+}
+
+/* ---- Settings page ---- */
+.settings-view {
+    max-width: 860px;
+    margin: 0 auto;
+    padding: 3rem 2rem 5rem;
+}
+.settings-header {
+    margin-bottom: 2.25rem;
+}
+.settings-header h1 {
+    font-size: clamp(2rem, 4vw, 3rem);
+    font-weight: 300;
+    letter-spacing: -0.03em;
+    text-transform: uppercase;
+    margin: 0.2rem 0 0.4rem;
+}
+.settings-sub {
+    color: var(--text-secondary);
+    font-size: 0.85rem;
+}
+.settings-section {
+    margin-bottom: 2rem;
+}
+.settings-section-title {
+    font-size: 0.72rem;
+    font-weight: 800;
+    letter-spacing: 0.16em;
+    color: var(--text-muted);
+    padding-bottom: 0.6rem;
+    margin-bottom: 0.9rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+.settings-section-title::before {
+    content: '|';
+    color: #ef4444;
+    margin-right: 0.4rem;
+}
+.settings-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1.25rem;
+    padding: 1rem 0.35rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+.settings-row:last-child {
+    border-bottom: none;
+}
+.settings-row-text {
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+    min-width: 0;
+}
+.settings-row-label {
+    font-size: 0.8rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    color: var(--text-primary);
+}
+.settings-row-note {
+    font-size: 0.75rem;
+    line-height: 1.5;
+    color: var(--text-muted);
+}
+.settings-row-actions {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+}
+.settings-control {
+    flex: none;
+    width: 220px;
+    max-width: 40vw;
+}
+.settings-segmented {
+    display: inline-flex;
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    border-left: 3px solid rgba(255, 255, 255, 0.2);
+    border-radius: 4px;
+    overflow: hidden;
+    background: rgba(255, 255, 255, 0.04);
+}
+.setting-opt {
+    appearance: none;
+    border: none;
+    background: transparent;
+    color: var(--text-secondary);
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    padding: 0.45rem 1rem;
+    cursor: pointer;
+    transition: background 0.15s ease, color 0.15s ease;
+}
+.setting-opt:hover {
+    color: var(--text-primary);
+}
+.setting-opt.active {
+    background: rgba(138, 3, 3, 0.85);
+    color: #ffffff;
+}
+.setting-toggle {
+    appearance: none;
+    background: none;
+    border: none;
+    padding: 0;
+    cursor: pointer;
+    flex: none;
+}
+.setting-toggle-track {
+    display: block;
+    width: 44px;
+    height: 24px;
+    border-radius: 3px;
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    position: relative;
+    transition: background 0.2s ease, border-color 0.2s ease;
+}
+.setting-toggle-knob {
+    position: absolute;
+    top: 3px;
+    left: 3px;
+    width: 16px;
+    height: 16px;
+    border-radius: 2px;
+    background: #94a3b8;
+    transition: transform 0.2s cubic-bezier(0.2, 0.8, 0.2, 1), background 0.2s ease;
+}
+.setting-toggle.on .setting-toggle-track {
+    background: rgba(138, 3, 3, 0.55);
+    border-color: rgba(138, 3, 3, 0.7);
+}
+.setting-toggle.on .setting-toggle-knob {
+    transform: translateX(20px);
+    background: #ffffff;
+}
+.setting-toggle:hover .setting-toggle-track {
+    border-color: rgba(255, 255, 255, 0.3);
+}

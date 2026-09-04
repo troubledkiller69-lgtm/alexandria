@@ -120,6 +120,8 @@ export const franchises = {
             if (!f.items.length) return '';
             const poster = this.imageUrl(f.items[0].poster_path, 'w342');
             const safeName = this.escapeHtml(f.name);
+            const watched = this.franchiseWatchedCount(f);
+            const pct = Math.min(100, Math.round(watched / f.items.length * 100));
             return `
                 <button class="franchise-card" type="button" data-franchise-index="${i}" onclick="Alexandria.openFranchiseDeck(this.dataset.franchiseIndex)">
                     <span class="franchise-card-poster">
@@ -128,8 +130,8 @@ export const franchises = {
                         <span class="franchise-tile-count">${f.items.length}</span>
                         <span class="franchise-card-name">${safeName}</span>
                     </span>
-                    <span class="franchise-card-bar" style="background:${this.escapeHtml(f.accent || '#8a0303')}" aria-hidden="true"></span>
-                    <span class="franchise-card-sub">${this.escapeHtml(f.subtitle || '')}</span>
+                    <span class="franchise-progress-track" aria-hidden="true"><span class="franchise-progress-fill" style="width:${pct}%"></span></span>
+                    <span class="franchise-card-progress-text">${watched ? `${watched}/${f.items.length} WATCHED` : 'UNWATCHED'}</span>
                 </button>`;
         };
 
@@ -187,13 +189,33 @@ export const franchises = {
                     </div>
                     <div id="franchise-deck-host" class="franchise-deck-host" hidden></div>
                     ${visible.length === 0 ? '<div class="profile-empty">No franchises match that search.</div>' : groups.map(([g, list]) => `
-                    ${g ? `<h3 class="franchise-group-heading">${this.escapeHtml(g)}<span>${list.length} ${list.length === 1 ? 'UNIVERSE' : 'UNIVERSES'}</span></h3>` : ''}
+                    ${g ? `<h3 class="franchise-group-heading">${this.escapeHtml(g)}</h3>` : ''}
                     <div class="carousel-container">
                         <button class="carousel-arrow left" type="button" aria-label="Scroll ${g ? this.escapeHtml(g) : 'franchises'} left" onclick="Alexandria.scrollCarousel(this, -800)">&#10094;</button>
                         <div class="carousel-wrapper"><div class="carousel-grid franchise-row">${list.map(cardHtml).join('')}</div></div>
                         <button class="carousel-arrow right" type="button" aria-label="Scroll ${g ? this.escapeHtml(g) : 'franchises'} right" onclick="Alexandria.scrollCarousel(this, 800)">&#10095;</button>
                     </div>`).join('')}
                 </section>`;
+    },
+
+    franchiseWatchedCount(f) {
+        let watched = 0;
+        for (const item of f.items || []) {
+            const idStr = String(item.id);
+            const type = item.media_type === 'tv' ? 'tv' : 'movie';
+            if (type === 'movie') {
+                if ((this.state.watchlist || []).some(w => String(w.id) === idStr && w.type === 'movie' && w.status === 'watched')) {
+                    watched += 1;
+                }
+            } else {
+                const eps = Object.keys(this.state.watchedEpisodes || {}).filter(k => k.startsWith(idStr + '_s'));
+                if (eps.length) watched += 1;
+                else if ((this.state.watchlist || []).some(w => String(w.id) === idStr && w.type === 'tv' && w.status === 'watched')) {
+                    watched += 1;
+                }
+            }
+        }
+        return watched;
     },
 
     openFranchiseDeck(indexStr) {

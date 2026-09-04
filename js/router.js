@@ -80,7 +80,7 @@ export const router = {
             this.openRouletteModal();
             return;
         } else {
-            const allowedViews = new Set(['home', 'movies', 'tv', 'anime', 'franchises', 'search', 'history', 'watchlist', 'community']);
+            const allowedViews = new Set(['home', 'movies', 'tv', 'anime', 'franchises', 'search', 'history', 'watchlist', 'community', 'settings']);
             this.setView(allowedViews.has(path) ? path : 'home');
         }
     },
@@ -222,6 +222,7 @@ export const router = {
 
         // Trailer previews on poster hover (desktop only, hover-intent)
         this.main.addEventListener('mouseover', (e) => {
+            if (this.getPref('trailer_hover') === false) return;
             const w = e.target.closest('.poster-wrapper[data-trailer]');
             if (!w) return;
             if (!window.matchMedia('(hover: hover)').matches) return;
@@ -347,6 +348,7 @@ export const router = {
             this.writeLocalList('alexandria_history', this.state.history);
         }
         if (view !== 'player') this.clearFailoverWatch();
+        if (view !== 'player') this.clearUpNext?.();
         this.state.view = view;
         this._renderToken += 1;
         if (this._autoNextTimer) { clearInterval(this._autoNextTimer); this._autoNextTimer = null; }

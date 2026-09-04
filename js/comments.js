@@ -616,6 +616,9 @@ export const comments = {
 
     // Cipher — spoiler tags. text is expected to be already escaped.
     spoilerHtml(text) {
+        if (this.getPref('spoiler_blur') === false) {
+            return `<span class="spoiler-block revealed" aria-label="Spoiler revealed"><span class="spoiler-chip">SPOILER</span>${text}</span>`;
+        }
         return `<span class="spoiler-block" tabindex="0" role="button" aria-label="Spoiler — click to reveal" title="Spoiler — click to reveal" onclick="Alexandria.revealSpoiler(this)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();Alexandria.revealSpoiler(this)}"><span class="spoiler-chip">SPOILER</span><span class="spoiler-blur">${text}</span></span>`;
     },
 
