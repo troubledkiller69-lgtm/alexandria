@@ -51,7 +51,7 @@ export const auth = {
             date: 'Sep 3, 2026',
             title: 'Mirror Watch & Live Archives',
             items: [
-                'Server picker now checks mirror health — dead mirrors show a DOWN tag and NEXT SERVER skips them first, so you spend less time staring at blank players',
+                'Server picker now prefers mirrors that answered a health check, so you spend less time staring at blank players',
                 'Franchise archives moved into a live database — new universes and fixes roll out without a redeploy',
                 'Continue watching posters show a red RESUME strip with your exact timestamp',
                 'Under the hood: comments and feeds load in one batch query instead of one per person, the home airing row fetches only shows that actually air this week, and TV episodes no longer double-fetch their comments'

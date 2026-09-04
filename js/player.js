@@ -65,7 +65,7 @@ export const player = {
         this.armFailoverWatch(server);
         this.scheduleEmbedTheme(document.getElementById('video-iframe'));
         if (needsResolve) this.hydrateAnimeEmbed();
-        this.fetchServerHealth().then(() => this.paintServerHealth());
+        this.fetchServerHealth();
 
         try {
             const data = await this.getJson(type + '/' + id);
@@ -113,18 +113,6 @@ export const player = {
         if (el) el.textContent = message;
     },
 
-    // Tag mirrors the probe marked down in the server dropdown. Names only —
-    // the user's selection and the option indexes never move.
-    paintServerHealth() {
-        const sel = document.getElementById('server-selector');
-        if (!sel) return;
-        const health = this.state.serverHealth || {};
-        this.servers.forEach((s, i) => {
-            const opt = sel.options[i];
-            if (opt) opt.textContent = health[s.name] === false ? `${s.name} · DOWN` : s.name;
-        });
-    },
-
     // Called once TMDB metadata confirms anime playback: reveal the anime
     // mirrors in the server dropdown and mount the DUB/SUB pill.
     refreshAnimeControls() {
@@ -133,7 +121,6 @@ export const player = {
             sel.innerHTML = this.servers.map((s, i) =>
                 `<option value="${i}" ${i === this.state.activeServer ? 'selected' : ''}>${s.name}</option>`
             ).join('');
-            this.paintServerHealth();
         }
         if (!document.getElementById('audio-pill')) {
             const nextBtn = document.querySelector('.server-controls .server-next-btn');
