@@ -5,6 +5,7 @@ const SHELL = [
     '/index.html',
     '/index.css',
     '/js/app.js',
+    '/js/vendor/supabase-js.js',
     '/logo.png',
     '/manifest.json'
 ];
