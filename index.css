@@ -7093,86 +7093,237 @@ h1, h2, h3, h4 {
 
 /* ---- Settings page ---- */
 .settings-view {
-    max-width: 860px;
+    max-width: 760px;
     margin: 0 auto;
-    padding: 3rem 2rem 5rem;
+    padding: 2rem 1.5rem 5rem;
+}
+.set-back {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    background: none;
+    border: none;
+    color: var(--text-secondary);
+    font-size: 0.82rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    cursor: pointer;
+    padding: 0.4rem 0;
+    margin-bottom: 1rem;
+}
+.set-back:hover {
+    color: var(--text-primary);
 }
 .settings-header {
-    margin-bottom: 2.25rem;
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
 }
 .settings-header h1 {
-    font-size: clamp(2rem, 4vw, 3rem);
+    font-size: clamp(2rem, 4vw, 2.9rem);
     font-weight: 300;
     letter-spacing: -0.03em;
-    text-transform: uppercase;
     margin: 0.2rem 0 0.4rem;
 }
 .settings-sub {
     color: var(--text-secondary);
     font-size: 0.85rem;
+    margin: 0;
 }
-.settings-section {
-    margin-bottom: 2rem;
+.set-local-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    flex: none;
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--accent-gold);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    background: rgba(255, 255, 255, 0.03);
+    padding: 0.45rem 0.8rem;
+    border-radius: 999px;
 }
-.settings-section-title {
-    font-size: 0.72rem;
-    font-weight: 800;
-    letter-spacing: 0.16em;
-    color: var(--text-muted);
-    padding-bottom: 0.6rem;
-    margin-bottom: 0.9rem;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+.set-pulse {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: #4ade80;
+    box-shadow: 0 0 8px #4ade80;
+    animation: set-pulse 2.4s ease-in-out infinite;
 }
-.settings-section-title::before {
-    content: '|';
-    color: #ef4444;
-    margin-right: 0.4rem;
+@keyframes set-pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.35; }
 }
-.settings-row {
+.set-tabs {
+    display: flex;
+    gap: 0.4rem;
+    padding: 0.35rem;
+    margin-bottom: 1.25rem;
+    border: 1px solid rgba(255, 255, 255, 0.09);
+    border-radius: 14px;
+    background: rgba(0, 0, 0, 0.35);
+    backdrop-filter: blur(12px);
+    position: sticky;
+    top: 70px;
+    z-index: 20;
+    overflow-x: auto;
+}
+.set-tab {
+    flex: 1;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.45rem;
+    border: none;
+    background: transparent;
+    color: var(--text-secondary);
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    padding: 0.6rem 0.5rem;
+    border-radius: 10px;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background 0.18s ease, color 0.18s ease;
+}
+.set-tab:hover {
+    color: var(--text-primary);
+    background: rgba(255, 255, 255, 0.05);
+}
+.set-tab.active {
+    background: rgba(138, 3, 3, 0.85);
+    color: #ffffff;
+}
+.set-panel {
+    display: none;
+}
+.set-panel.active {
+    display: block;
+    animation: set-panel-in 0.25s ease;
+}
+@keyframes set-panel-in {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: none; }
+}
+.set-card {
     display: flex;
     align-items: center;
-    justify-content: space-between;
-    gap: 1.25rem;
-    padding: 1rem 0.35rem;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    gap: 1rem;
+    padding: 1.05rem 1.2rem;
+    margin-bottom: 0.7rem;
+    border: 1px solid rgba(255, 255, 255, 0.09);
+    border-radius: 14px;
+    background: rgba(255, 255, 255, 0.028);
+    transition: border-color 0.18s ease, background 0.18s ease;
 }
-.settings-row:last-child {
-    border-bottom: none;
+.set-card:hover {
+    border-color: rgba(255, 255, 255, 0.16);
+    background: rgba(255, 255, 255, 0.045);
 }
-.settings-row-text {
+.set-card-icon {
+    flex: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 42px;
+    height: 42px;
+    border-radius: 12px;
+    color: var(--accent-gold);
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+}
+.set-card-text {
     display: flex;
     flex-direction: column;
     gap: 0.2rem;
     min-width: 0;
+    flex: 1;
 }
-.settings-row-label {
-    font-size: 0.8rem;
-    font-weight: 700;
-    letter-spacing: 0.08em;
+.set-card-title {
+    font-size: 0.92rem;
+    font-weight: 650;
     color: var(--text-primary);
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
 }
-.settings-row-note {
-    font-size: 0.75rem;
+.set-card-note {
+    font-size: 0.78rem;
     line-height: 1.5;
     color: var(--text-muted);
 }
-.settings-row-actions {
-    display: flex;
-    gap: 0.5rem;
-    flex-wrap: wrap;
-}
-.settings-control {
+.set-card > :last-child {
+    margin-left: auto;
     flex: none;
-    width: 220px;
-    max-width: 40vw;
+}
+.set-health {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+}
+.set-health-ok { background: #4ade80; box-shadow: 0 0 6px #4ade80; }
+.set-health-down { background: #ef4444; box-shadow: 0 0 6px #ef4444; }
+.set-health-unknown { background: rgba(255, 255, 255, 0.25); }
+.set-meter-val {
+    color: var(--accent-gold);
+    font-weight: 700;
+}
+.set-meter-bar {
+    display: block;
+    height: 5px;
+    margin-top: 0.55rem;
+    border-radius: 3px;
+    background: rgba(255, 255, 255, 0.09);
+    overflow: hidden;
+}
+.set-meter-bar > span {
+    display: block;
+    height: 100%;
+    border-radius: 3px;
+    background: linear-gradient(90deg, var(--accent-gold), #ef4444);
+}
+.set-danger {
+    margin-top: 1.25rem;
+    padding: 1rem;
+    border: 1px solid rgba(239, 68, 68, 0.28);
+    border-radius: 16px;
+    background: rgba(239, 68, 68, 0.05);
+}
+.set-danger-title {
+    margin: 0 0 0.7rem 0.2rem;
+    font-size: 0.7rem;
+    font-weight: 800;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: #ef4444;
+}
+.set-danger .set-card {
+    background: rgba(0, 0, 0, 0.3);
+    margin-bottom: 0.6rem;
+}
+.set-danger .set-card:last-child {
+    margin-bottom: 0;
+}
+.set-footnote {
+    margin: 1.75rem 0 0;
+    text-align: center;
+    font-size: 0.76rem;
+    line-height: 1.6;
+    color: var(--text-muted);
 }
 .settings-segmented {
     display: inline-flex;
-    border: 1px solid rgba(255, 255, 255, 0.14);
-    border-left: 3px solid rgba(255, 255, 255, 0.2);
-    border-radius: 4px;
-    overflow: hidden;
-    background: rgba(255, 255, 255, 0.04);
+    padding: 3px;
+    gap: 3px;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 999px;
+    background: rgba(0, 0, 0, 0.35);
 }
 .setting-opt {
     appearance: none;
@@ -7182,7 +7333,8 @@ h1, h2, h3, h4 {
     font-size: 0.72rem;
     font-weight: 700;
     letter-spacing: 0.08em;
-    padding: 0.45rem 1rem;
+    padding: 0.45rem 1.1rem;
+    border-radius: 999px;
     cursor: pointer;
     transition: background 0.15s ease, color 0.15s ease;
 }
@@ -7203,9 +7355,9 @@ h1, h2, h3, h4 {
 }
 .setting-toggle-track {
     display: block;
-    width: 44px;
-    height: 24px;
-    border-radius: 3px;
+    width: 46px;
+    height: 26px;
+    border-radius: 999px;
     background: rgba(255, 255, 255, 0.1);
     border: 1px solid rgba(255, 255, 255, 0.14);
     position: relative;
@@ -7213,17 +7365,17 @@ h1, h2, h3, h4 {
 }
 .setting-toggle-knob {
     position: absolute;
-    top: 3px;
-    left: 3px;
-    width: 16px;
-    height: 16px;
-    border-radius: 2px;
+    top: 2px;
+    left: 2px;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
     background: #94a3b8;
     transition: transform 0.2s cubic-bezier(0.2, 0.8, 0.2, 1), background 0.2s ease;
 }
 .setting-toggle.on .setting-toggle-track {
-    background: rgba(138, 3, 3, 0.55);
-    border-color: rgba(138, 3, 3, 0.7);
+    background: rgba(138, 3, 3, 0.6);
+    border-color: rgba(239, 68, 68, 0.65);
 }
 .setting-toggle.on .setting-toggle-knob {
     transform: translateX(20px);
@@ -7231,4 +7383,25 @@ h1, h2, h3, h4 {
 }
 .setting-toggle:hover .setting-toggle-track {
     border-color: rgba(255, 255, 255, 0.3);
+}
+@media (max-width: 560px) {
+    .set-card {
+        flex-wrap: wrap;
+    }
+    .set-card > :last-child {
+        margin-left: 0;
+        width: 100%;
+    }
+    .set-card .compact-select {
+        width: 100%;
+        max-width: none;
+    }
+    .set-card-icon {
+        width: 36px;
+        height: 36px;
+    }
+    .settings-header {
+        align-items: flex-start;
+        flex-direction: column;
+    }
 }
