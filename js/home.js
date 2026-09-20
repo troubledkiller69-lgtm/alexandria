@@ -1,5 +1,62 @@
 export const home = {
+    heroSlideHtml(m, i) {
+        const id = Number(m.id);
+        const year = (m.release_date || '').slice(0, 4);
+        const rating = typeof m.vote_average === 'number' && m.vote_average > 0 ? m.vote_average.toFixed(1) : null;
+        const runtime = m.runtime ? `${Math.floor(m.runtime / 60)}h ${m.runtime % 60}m` : '';
+        const genres = (m.genre_ids || [])
+            .map(gid => (this.GENRES.find(g => g.id === gid) || {}).name)
+            .filter(Boolean).slice(0, 3);
+        const metaBits = [year, rating ? `★ ${rating}` : '', runtime].filter(Boolean);
+        return `
+            <span class="trending-badge">#${i + 1} TRENDING TODAY</span>
+            <h1>${this.escapeHtml(m.title || 'Untitled')}</h1>
+            ${metaBits.length ? `<div class="hero-meta">${metaBits.map(b => `<span>${this.escapeHtml(b)}</span>`).join('<span class="hero-meta-dot">·</span>')}</div>` : ''}
+            ${genres.length ? `<div class="hero-genres">${genres.map(g => `<span>${this.escapeHtml(g)}</span>`).join('')}</div>` : ''}
+            <p>${this.escapeHtml(m.overview || 'No overview is available yet.')}</p>
+            <div class="hero-actions">
+                <button class="btn-primary btn-play" onclick="Alexandria.playContent(${id}, 'movie')">WATCH NOW</button>
+                <button class="btn-secondary" onclick="window.location.hash = '#details/movie/${id}'">MORE INFO</button>
+            </div>`;
+    },
+
+    heroGo(i) {
+        const slides = this._heroSlides;
+        if (!slides || !slides.length) return;
+        const next = ((i % slides.length) + slides.length) % slides.length;
+        const hero = document.getElementById('hero-featured');
+        const content = document.getElementById('hero-content');
+        if (!hero || !content || !hero.isConnected) return;
+        this._heroIndex = next;
+        content.classList.add('hero-fading');
+        clearTimeout(this._heroFadeT);
+        this._heroFadeT = setTimeout(() => {
+            const m = (this._heroSlides || [])[this._heroIndex];
+            const live = document.getElementById('hero-content');
+            if (!m || !live || !live.isConnected) return;
+            hero.style.setProperty('--hero-image', `url('${this.imageUrl(m.backdrop_path, 'w1280')}')`);
+            live.innerHTML = this.heroSlideHtml(m, this._heroIndex);
+            document.querySelectorAll('#hero-dots button').forEach((d, di) => d.classList.toggle('active', di === this._heroIndex));
+            const after = this._heroSlides[(this._heroIndex + 1) % this._heroSlides.length];
+            if (after) { const img = new Image(); img.src = this.imageUrl(after.backdrop_path, 'w1280'); }
+            live.classList.remove('hero-fading');
+        }, 320);
+        this.heroAutoplay();
+    },
+
+    heroAutoplay() {
+        clearInterval(this._heroTimer);
+        this._heroTimer = setInterval(() => {
+            if (this.state.view !== 'home' || !document.getElementById('hero-featured')) {
+                clearInterval(this._heroTimer);
+                return;
+            }
+            this.heroGo(this._heroIndex + 1);
+        }, 8000);
+    },
+
     async renderHome() {
+        clearInterval(this._heroTimer);
         const token = this._renderToken;
         this.main.innerHTML = '<div class="placeholder-msg"><span class="pulse-dot"></span> LOADING SECTORS...</div>';
         
@@ -22,18 +79,25 @@ export const home = {
 
             if (token !== this._renderToken) return;
 
-            const featured = mData.results?.[0];
+            const heroPool = (mData.results || []).filter(m => m && m.id && m.backdrop_path).slice(0, 5);
+            if (!heroPool.length) throw new Error("No featured content found.");
 
-            if (!featured) throw new Error("No featured content found.");
+            // Runtime isn't in trending payloads — one cached detail call each.
+            const heroRuntimes = await Promise.all(
+                heroPool.map(m => this.getJson('movie/' + m.id).then(d => d?.runtime || null).catch(() => null))
+            );
+            if (token !== this._renderToken) return;
+            this._heroSlides = heroPool.map((m, i) => ({ ...m, runtime: heroRuntimes[i] || null }));
+            this._heroIndex = 0;
 
             this.main.innerHTML = `
                 <section class="home-view">
-                    <div class="hero-featured" style="--hero-image: url('${this.imageUrl(featured.backdrop_path, 'original')}')">
-                        <div class="featured-content">
-                            <span class="trending-badge">#1 TRENDING TODAY</span>
-                            <h1>${this.escapeHtml(featured.title)}</h1>
-                            <p>${this.escapeHtml(featured.overview || 'No overview is available yet.')}</p>
-                            <button class="btn-primary btn-play" onclick="Alexandria.playContent(${Number(featured.id)}, 'movie')">WATCH NOW</button>
+                    <div class="hero-featured" id="hero-featured" style="--hero-image: url('${this.imageUrl(this._heroSlides[0].backdrop_path, 'w1280')}')">
+                        <div class="featured-content" id="hero-content">
+                            ${this.heroSlideHtml(this._heroSlides[0], 0)}
+                        </div>
+                        <div class="hero-dots" id="hero-dots" role="tablist" aria-label="Featured titles">
+                            ${this._heroSlides.map((s, i) => `<button type="button" role="tab" aria-label="${this.escapeHtml(s.title || 'Featured title ' + (i + 1))}" class="${i === 0 ? 'active' : ''}" onclick="Alexandria.heroGo(${i})"></button>`).join('')}
                         </div>
                     </div>
                     <div id="continue-watching-section"></div>
@@ -74,6 +138,7 @@ export const home = {
             this.renderResults(mData.results, 'trending-movies');
             this.renderResults(tData.results, 'trending-tv');
             this.renderAiringThisWeek();
+            this.heroAutoplay();
         } catch (error) {
             console.error("Alexandria Protocol: Home Scout Failed -", error);
             if (token === this._renderToken) this.renderError('The archive is out of range', error.message, 'home');

@@ -409,7 +409,7 @@ h1, h2, h3, h4 {
     flex-direction: column;
     justify-content: flex-end;
     padding: 5rem;
-    background-image: linear-gradient(to top, var(--bg-base) 0%, rgba(0,0,0,0.35) 70%), var(--hero-image);
+    background-image: linear-gradient(to right, rgba(0,0,0,0.55) 0%, rgba(0,0,0,0.15) 45%, transparent 65%), linear-gradient(to top, var(--bg-base) 0%, rgba(0,0,0,0.35) 70%), var(--hero-image);
 }
 
 .hero-featured::before {
@@ -422,6 +422,80 @@ h1, h2, h3, h4 {
     position: relative;
     z-index: 2;
     max-width: 700px;
+    transition: opacity 0.32s ease, transform 0.32s ease;
+}
+
+.featured-content.hero-fading {
+    opacity: 0;
+    transform: translateY(14px);
+}
+
+.hero-meta {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    margin-bottom: 0.9rem;
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: #fff;
+}
+
+.hero-meta-dot {
+    color: var(--text-secondary);
+    font-weight: 400;
+}
+
+.hero-genres {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-bottom: 1.1rem;
+}
+
+.hero-genres span {
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    padding: 0.3rem 0.7rem;
+    border: 1px solid rgba(255,255,255,0.25);
+    border-radius: 999px;
+    background: rgba(0,0,0,0.35);
+    backdrop-filter: blur(8px);
+}
+
+.hero-actions {
+    display: flex;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+}
+
+.hero-dots {
+    position: absolute;
+    right: 5rem;
+    bottom: 2.5rem;
+    z-index: 3;
+    display: flex;
+    gap: 0.5rem;
+}
+
+.hero-dots button {
+    width: 2rem;
+    height: 4px;
+    border: none;
+    border-radius: 2px;
+    padding: 0;
+    cursor: pointer;
+    background: rgba(255,255,255,0.3);
+    transition: background 0.3s ease;
+}
+
+.hero-dots button.active {
+    background: #fff;
+}
+
+.hero-dots button:hover {
+    background: rgba(255,255,255,0.7);
 }
 
 .trending-badge {
@@ -2872,22 +2946,7 @@ h1, h2, h3, h4 {
     align-items: center;
 }
 
-.resume-widget {
-    position: absolute;
-    right: 5rem;
-    bottom: 5rem;
-    z-index: 3;
-    width: min(320px, calc(100% - 3rem));
-    padding: 1.1rem 1.25rem;
-    border: 1px solid rgba(255,255,255,0.14);
-    border-radius: 12px;
-    background: rgba(7,8,10,0.78);
-    backdrop-filter: blur(16px);
-    cursor: pointer;
-}
 .resume-label { color: var(--accent-gold); font-size: 0.68rem; letter-spacing: 0.14em; }
-.resume-widget h4 { margin: 0.15rem 0; font-size: 1.15rem; }
-.resume-widget p { margin: 0; font-size: 0.78rem; color: var(--text-secondary); }
 
 .safe-zone-stamp {
     width: 52px;
@@ -3012,7 +3071,7 @@ h1, h2, h3, h4 {
     .hero-featured { min-height: 650px; height: calc(100vh - 62px); height: calc(100dvh - 62px); padding: 3rem 2rem; }
     .featured-content { max-width: 600px; }
     .featured-content h1, .featured-content h2 { font-size: clamp(2.75rem, 10vw, 4.5rem); }
-    .resume-widget { right: 2rem; bottom: 2rem; }
+.hero-dots { right: 2rem; bottom: 2rem; }
     .view-section, .modern-search .results-grid { padding-left: 2rem; padding-right: 2rem; }
     .search-header-sticky, .view-header { padding-left: 2rem; padding-right: 2rem; }
     .search-discover { padding-left: 0; padding-right: 0; }
@@ -3049,7 +3108,7 @@ h1, h2, h3, h4 {
     .cyber-sidebar { width: min(86vw, 320px); height: 100vh; height: 100dvh; }
     .hero-featured { min-height: 610px; padding: 2rem 1.25rem 9.5rem; background-position: 58% center; }
     .featured-content p { font-size: 0.98rem; margin-bottom: 1.5rem; -webkit-line-clamp: 4; line-clamp: 4; }
-    .resume-widget { left: 1.25rem; right: 1.25rem; bottom: 1.5rem; width: auto; }
+    .hero-dots { left: 1.25rem; right: auto; bottom: 1.5rem; }
     .view-section, .modern-search .results-grid { padding-left: 1.25rem; padding-right: 1.25rem; }
     .view-section { padding-top: 1.5rem; }
     .search-header-sticky, .view-header { top: 59px; padding: 1.25rem; }
