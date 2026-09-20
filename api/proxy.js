@@ -62,12 +62,16 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: 'Unsupported TMDB endpoint.' });
     }
 
-    const response = await fetchTmdb(target, apiKey);
-    // Cap runaway pagination / quota burn.
-    const page = Number(target.searchParams.get('page'));
-    if (Number.isFinite(page) && (page < 1 || page > 500)) {
-      return res.status(400).json({ error: 'Unsupported TMDB endpoint.' });
+    // Cap runaway pagination / quota burn. Only when client sends page.
+    const pageRaw = target.searchParams.get('page');
+    if (pageRaw !== null) {
+      const page = Number(pageRaw);
+      if (!Number.isInteger(page) || page < 1 || page > 500) {
+        return res.status(400).json({ error: 'Unsupported TMDB endpoint.' });
+      }
     }
+
+    const response = await fetchTmdb(target, apiKey);
     const data = await response.json().catch(() => ({ error: 'TMDB returned an unreadable response.' }));
     res.setHeader(
       'Cache-Control',
