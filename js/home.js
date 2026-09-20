@@ -23,16 +23,6 @@ export const home = {
             if (token !== this._renderToken) return;
 
             const featured = mData.results?.[0];
-            const last = this.state.history?.[0];
-            const lastId = Number.parseInt(last?.id, 10);
-            const lastOk = last && Number.isInteger(lastId) && lastId > 0 && (last.type === 'movie' || last.type === 'tv');
-            const lastSeason = Math.max(1, Number.parseInt(last?.season, 10) || 1);
-            const lastEpisode = Math.max(1, Number.parseInt(last?.episode, 10) || 1);
-            const resumeHash = lastOk
-                ? (last.type === 'tv'
-                    ? `#tv/${lastId}/s/${lastSeason}/e/${lastEpisode}`
-                    : `#movie/${lastId}`)
-                : '';
 
             if (!featured) throw new Error("No featured content found.");
 
@@ -45,9 +35,6 @@ export const home = {
                             <p>${this.escapeHtml(featured.overview || 'No overview is available yet.')}</p>
                             <button class="btn-primary btn-play" onclick="Alexandria.playContent(${Number(featured.id)}, 'movie')">WATCH NOW</button>
                         </div>
-                        ${lastOk ? `<div class="resume-widget" role="link" tabindex="0" data-resume-hash="${this.escapeHtml(resumeHash)}" onclick="window.location.hash = this.dataset.resumeHash">
-                            <div class="resume-content"><span class="resume-label">CONTINUE WATCHING</span><h4>${this.escapeHtml(last.title || 'Untitled')}</h4><p>${last.progress > 5 ? `Resume at ${this.formatTime(last.progress)}` : 'Resume playback'}</p></div>
-                        </div>` : ''}
                     </div>
                     <div id="continue-watching-section"></div>
                     <div id="because-you-watched-section"></div>
