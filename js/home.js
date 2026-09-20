@@ -4,15 +4,11 @@ export const home = {
         const year = (m.release_date || '').slice(0, 4);
         const rating = typeof m.vote_average === 'number' && m.vote_average > 0 ? m.vote_average.toFixed(1) : null;
         const runtime = m.runtime ? `${Math.floor(m.runtime / 60)}h ${m.runtime % 60}m` : '';
-        const genres = (m.genre_ids || [])
-            .map(gid => (this.GENRES.find(g => g.id === gid) || {}).name)
-            .filter(Boolean).slice(0, 3);
         const metaBits = [year, rating ? `★ ${rating}` : '', runtime].filter(Boolean);
         return `
             <span class="trending-badge">#${i + 1} TRENDING TODAY</span>
             <h1>${this.escapeHtml(m.title || 'Untitled')}</h1>
             ${metaBits.length ? `<div class="hero-meta">${metaBits.map(b => `<span>${this.escapeHtml(b)}</span>`).join('<span class="hero-meta-dot">·</span>')}</div>` : ''}
-            ${genres.length ? `<div class="hero-genres">${genres.map(g => `<span>${this.escapeHtml(g)}</span>`).join('')}</div>` : ''}
             <p>${this.escapeHtml(m.overview || 'No overview is available yet.')}</p>
             <div class="hero-actions">
                 <button class="btn-primary btn-play" onclick="Alexandria.playContent(${id}, 'movie')">WATCH NOW</button>
