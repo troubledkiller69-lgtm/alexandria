@@ -153,7 +153,7 @@ grant update (username, username_lower, nickname, bio, fav_genres, avatar_id)
   on public.profiles to authenticated;
 create policy "Public read profiles" on public.profiles for select
   using (true);
-create policy "Users can manage profile" on public.profiles for all using (auth.uid() = id);
+create policy "Users can manage profile" on public.profiles for all using (auth.uid() = id) with check (auth.uid() = id);
 
 -- comments
 create policy "Public read comments" on public.comments for select using (true);

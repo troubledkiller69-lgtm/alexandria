@@ -158,7 +158,11 @@ export const comments = {
 
     async deleteComment(commentKey, commentId) {
         if (!commentKey || !commentId) return;
-        const isLegacyLocal = String(commentId).startsWith('c_');
+        const ck = String(commentKey);
+        const cid = String(commentId);
+        const isLegacyLocal = cid.startsWith('c_');
+        if (!isLegacyLocal && !this.isSafeCommentId(cid)) return;
+        if (!/^[A-Za-z0-9_]{1,80}$/.test(ck)) return;
         if (isLegacyLocal || !this.supabase || !this.state.authUser) {
             try {
                 const allComments = this.readStorageJson(localStorage, 'alexandria_comments', {}) || {};
@@ -213,6 +217,32 @@ export const comments = {
         }
     },
 
+    bindCommentActions(root = document) {
+        if (!root || root._alexandriaCommentsBound) return;
+        root._alexandriaCommentsBound = true;
+        root.addEventListener('click', (e) => {
+            const btn = e.target?.closest?.('[data-action]');
+            if (!btn) return;
+            const action = btn.dataset.action;
+            const cid = String(btn.dataset.id || '');
+            if (['react-ghost', 'react-fire', 'reply', 'delete-comment'].includes(action)) {
+                if (!this.isSafeCommentId(cid)) return;
+            }
+            if (action === 'react-ghost') this.toggleReaction(cid, 'ghost');
+            else if (action === 'react-fire') this.toggleReaction(cid, 'fire');
+            else if (action === 'reply') this.prepareReply(cid, btn.dataset.author || 'comment');
+            else if (action === 'delete-comment') {
+                const k = String(btn.dataset.key || '');
+                if (!/^[A-Za-z0-9_]{1,80}$/.test(k)) return;
+                this.deleteComment(k, cid);
+            } else if (action === 'submit-rating') {
+                this.submitRating(btn.dataset.type, btn.dataset.id);
+            } else if (action === 'delete-rating') {
+                this.deleteRating(cid);
+            }
+        });
+    },
+
     async toggleReaction(commentId, emoji) {
         if (!this.supabase || !this.state.authUser) {
             this.showToast('Sign in to react to comments.');
@@ -220,6 +250,8 @@ export const comments = {
             return;
         }
         if (!commentId || String(commentId).startsWith('c_')) return;
+        if (!this.isSafeCommentId(String(commentId))) return;
+        if (emoji !== 'ghost' && emoji !== 'fire') return;
         const me = this.state.authUser.id;
         const key = this.getCommentKey(this.state.activeContent);
         try {
@@ -252,7 +284,8 @@ export const comments = {
             return;
         }
         if (!commentId || String(commentId).startsWith('c_')) return;
-        this.state._replyTo = { id: commentId, author: authorName || 'comment' };
+        if (!this.isSafeCommentId(String(commentId))) return;
+        this.state._replyTo = { id: String(commentId), author: String(authorName || 'comment').slice(0, 64) };
         this.updateComposerReplyUI();
         const input = document.getElementById('comment-input');
         if (input) input.focus();
@@ -284,6 +317,24 @@ export const comments = {
         }
     },
 
+    isSafeCommentId(v) {
+        return typeof v === 'string' && /^[A-Za-z0-9_-]{1,64}$/.test(v);
+    },
+
+    safeCommentId(v) {
+        const s = String(v ?? '');
+        return this.isSafeCommentId(s) ? s : '';
+    },
+
+    isSafeCommentKey(v) {
+        return typeof v === 'string' && /^[A-Za-z0-9_]{1,64}$/.test(v);
+    },
+
+    safeCommentKey(v) {
+        const s = String(v ?? '');
+        return this.isSafeCommentKey(s) ? s : '';
+    },
+
     reactionRowHtml(c, reactionsMap, authorName) {
         const me = this.state.authUser?.id;
         const isCloud = !String(c.id).startsWith('c_');
@@ -292,12 +343,13 @@ export const comments = {
         const ghosts = rx.filter(r => r.emoji === 'ghost').length;
         const fires = rx.filter(r => r.emoji === 'fire').length;
         const mine = rx.find(r => r.user_id === me);
-        const safeId = this.escapeHtml(c.id);
+        const safeId = this.safeCommentId(c.id);
+        if (!safeId) return '';
         return `
-            <div class="comment-reactions-row">
-                <button type="button" class="react-btn ${mine?.emoji === 'ghost' ? 'active' : ''}" aria-pressed="${mine?.emoji === 'ghost'}" title="Haunting" onclick="Alexandria.toggleReaction('${safeId}', 'ghost')">👻 <span class="react-count">${ghosts || ''}</span></button>
-                <button type="button" class="react-btn ${mine?.emoji === 'fire' ? 'active' : ''}" aria-pressed="${mine?.emoji === 'fire'}" title="Heat" onclick="Alexandria.toggleReaction('${safeId}', 'fire')">🔥 <span class="react-count">${fires || ''}</span></button>
-                ${this.state.authUser ? `<button type="button" class="comment-reply-btn" onclick="Alexandria.prepareReply('${safeId}', '${this.escapeHtml(authorName)}')">REPLY</button>` : ''}
+            <div class="comment-reactions-row" data-comment-row="${safeId}">
+                <button type="button" class="react-btn ${mine?.emoji === 'ghost' ? 'active' : ''}" aria-pressed="${mine?.emoji === 'ghost'}" title="Haunting" data-action="react-ghost" data-id="${safeId}">👻 <span class="react-count">${Number(ghosts) || ''}</span></button>
+                <button type="button" class="react-btn ${mine?.emoji === 'fire' ? 'active' : ''}" aria-pressed="${mine?.emoji === 'fire'}" title="Heat" data-action="react-fire" data-id="${safeId}">🔥 <span class="react-count">${Number(fires) || ''}</span></button>
+                ${this.state.authUser ? `<button type="button" class="comment-reply-btn" data-action="reply" data-id="${safeId}" data-author="${this.escapeHtml(authorName)}">REPLY</button>` : ''}
             </div>`;
     },
 
@@ -305,7 +357,8 @@ export const comments = {
         const profile = c.userId ? profileById[c.userId] : null;
         const authorName = profile ? (profile.nickname || profile.username || c.author || 'Member') : (c.author || 'Member');
         const initial = (c.author || 'G').charAt(0).toUpperCase();
-        const safeId = this.escapeHtml(c.id);
+        const safeId = this.safeCommentId(c.id);
+        if (!safeId) return '';
         const avatar = c.userId && profile
             ? `<a class="comment-avatar-link" href="#profile/${this.escapeHtml(c.userId)}" aria-label="${this.escapeHtml(authorName)}">${this.avatarHtml(profile, 38)}</a>`
             : `<div class="comment-avatar" aria-hidden="true">${initial}</div>`;
@@ -320,7 +373,7 @@ export const comments = {
                         ${authorNode}
                         <span class="comment-time">${this.escapeHtml(this.timeago(c.createdAt))}</span>
                         ${c.isMine ? `
-                            <button type="button" class="comment-delete-btn" aria-label="Delete comment" title="Delete comment" data-key="${safeKey}" data-id="${safeId}" onclick="Alexandria.deleteComment('${safeKey}', '${safeId}')">✕</button>
+                            <button type="button" class="comment-delete-btn" aria-label="Delete comment" title="Delete comment" data-action="delete-comment" data-key="${safeKey}" data-id="${safeId}">✕</button>
                         ` : ''}
                     </div>
                     <p class="comment-text">${c.spoiler ? this.spoilerHtml(this.escapeHtml(c.text)) : this.escapeHtml(c.text)}</p>
@@ -494,7 +547,7 @@ export const comments = {
             || sessionStorage.getItem('alexandria_nickname')
             || 'Member';
         const scopeBadge = content.type === 'tv'
-            ? `S${content.season || 1}:E${content.episode || 1}`
+            ? `S${Number(content.season) || 1}:E${Number(content.episode) || 1}`
             : 'MOVIE';
 
         const safeKey = this.escapeHtml(key);
@@ -557,6 +610,7 @@ export const comments = {
         `;
         if (draft) this.restoreCommentDraft(draft);
         this.updateComposerReplyUI();
+        this.bindCommentActions(container);
     },
 
     setupCommentsRealtime(key) {
@@ -740,8 +794,8 @@ export const comments = {
                         <input type="checkbox" id="review-spoiler" ${ownRow?.spoiler ? 'checked' : ''}>
                         <span class="spoiler-toggle-text">Spoiler</span>
                     </label>
-                    <button type="button" class="btn-primary" onclick="Alexandria.submitRating('${type}', ${id})">${ownRow ? 'UPDATE REVIEW' : 'SUBMIT'}</button>
-                    ${ownRow ? `<button type="button" class="btn-danger" onclick="Alexandria.deleteRating('${ownRow.id}')">DELETE MY REVIEW</button>` : ''}
+                    <button type="button" class="btn-primary" data-action="submit-rating" data-type="${/^(movie|tv)$/.test(String(type)) ? type : 'movie'}" data-id="${Number(id) || 0}">${ownRow ? 'UPDATE REVIEW' : 'SUBMIT'}</button>
+                    ${ownRow && this.isSafeCommentId(String(ownRow.id)) ? `<button type="button" class="btn-danger" data-action="delete-rating" data-id="${ownRow.id}">DELETE MY REVIEW</button>` : ''}
                 </div>
             </div>
         ` : `
@@ -768,9 +822,9 @@ export const comments = {
                         </div>
                         ${r.review ? `<p class="review-text">${r.spoiler ? this.spoilerHtml(this.escapeHtml(r.review)) : this.escapeHtml(r.review)}</p>` : ''}
                     </div>
-                    ${isMine ? `
+                    ${isMine && this.isSafeCommentId(String(r.id)) ? `
                         <div class="review-actions">
-                            <button type="button" class="btn-text-link" onclick="Alexandria.deleteRating('${r.id}')">DELETE</button>
+                            <button type="button" class="btn-text-link" data-action="delete-rating" data-id="${r.id}">DELETE</button>
                         </div>
                     ` : ''}
                 </div>
@@ -815,6 +869,7 @@ export const comments = {
             </div>
         `;
         if (reviewDraft) this.restoreCommentDraft(reviewDraft, 'review-input');
+        this.bindCommentActions(container);
     },
 
     setRatingDraft(n, scrollToComposer = false) {
@@ -832,6 +887,9 @@ export const comments = {
     },
 
     async submitRating(type, id) {
+        if (!/^(movie|tv)$/.test(String(type))) return;
+        const nid = Number(id);
+        if (!Number.isInteger(nid) || nid < 1) return;
         const rating = this.state._ratingDraft;
         if (!rating || rating < 1) {
             this.showToast('Pick a star rating first');
@@ -891,6 +949,7 @@ export const comments = {
 
     async deleteRating(rowId) {
         if (!this.supabase || !this.state.authUser) return;
+        if (!this.isSafeCommentId(String(rowId))) return;
         try {
             const { error } = await this.supabase.from('ratings').delete().eq('id', rowId);
             if (error) {

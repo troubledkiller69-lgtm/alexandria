@@ -6,16 +6,24 @@ function esc(s) {
         .replace(/&/g, '&amp;')
         .replace(/</g, '&lt;')
         .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;');
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
+function safePoster(path) {
+    if (typeof path !== 'string') return null;
+    if (!/^\/[A-Za-z0-9/._-]+\.(jpg|jpeg|png|webp)$/i.test(path)) return null;
+    if (path.includes('..')) return null;
+    return `https://image.tmdb.org/t/p/w500${path}`;
 }
 
 function supabaseEnv() {
+    // Anon key only. Never use service-role here: cards are public OG HTML
+    // and would bypass RLS + get edge-cached.
     const url = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL;
     const key =
         process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
-        process.env.SUPABASE_ANON_KEY ||
-        process.env.SUPABASE_SERVICE_ROLE_KEY ||
-        process.env.SUPABASE_SERVICE_KEY;
+        process.env.SUPABASE_ANON_KEY;
     return url && key ? { url: url.replace(/\/$/, ''), key } : null;
 }
 
@@ -36,8 +44,8 @@ async function sbGet(cfg, path) {
     }
 }
 
-function page(res, status, { title, desc, image, shareUrl, dest }) {
-    res.setHeader('Cache-Control', 's-maxage=86400, stale-while-revalidate=604800');
+function page(res, status, { title, desc, image, shareUrl, dest, cache }) {
+    res.setHeader('Cache-Control', cache || 's-maxage=86400, stale-while-revalidate=604800');
     res.setHeader('Content-Type', 'text/html; charset=utf-8');
     return res.status(status).send(`<!DOCTYPE html>
 <html lang="en">
@@ -84,13 +92,14 @@ async function titleCard(req, res, type, id) {
     const year = data && (data.release_date || data.first_air_date || '').slice(0, 4);
     const title = baseTitle ? `${baseTitle}${year ? ` (${year})` : ''}` : (type === 'movie' ? 'Movie on Alexandria' : 'Show on Alexandria');
     const desc = (data && (data.overview || data.tagline)) || 'Watch movies, TV, and anime in the Alexandria archive.';
-    const poster = data && data.poster_path ? `https://image.tmdb.org/t/p/w500${data.poster_path}` : FALLBACK_IMAGE;
+    const poster = safePoster(data && data.poster_path) || FALLBACK_IMAGE;
     return page(res, 200, {
         title,
         desc,
         image: poster,
         shareUrl: `${SITE}/share/${type}/${id}`,
-        dest: `${SITE}/#details/${type}/${id}`
+        dest: `${SITE}/#details/${type}/${id}`,
+        cache: 's-maxage=86400, stale-while-revalidate=604800'
     });
 }
 
@@ -108,7 +117,8 @@ async function profileCard(req, res, uid) {
         desc: 'Watch movies, TV, and anime in the Alexandria archive.',
         image: FALLBACK_IMAGE,
         shareUrl: `${SITE}/share/profile/${uid}`,
-        dest: `${SITE}/#profile/${uid}`
+        dest: `${SITE}/#profile/${uid}`,
+        cache: 'no-store'
     });
 
     const name = profile.nickname || profile.username || 'Member';
@@ -121,7 +131,8 @@ async function profileCard(req, res, uid) {
         desc: profile.bio || `${name}'s watchlists, reviews, and watch stats on Alexandria.`,
         image: knownLocalAvatar ? `${SITE}${presetImg}` : FALLBACK_IMAGE,
         shareUrl: `${SITE}/share/profile/${uid}`,
-        dest: `${SITE}/#profile/${uid}`
+        dest: `${SITE}/#profile/${uid}`,
+        cache: 's-maxage=3600, stale-while-revalidate=86400'
     });
 }
 
@@ -141,7 +152,8 @@ async function listCard(req, res, listId) {
         desc: 'Watch movies, TV, and anime in the Alexandria archive.',
         image: FALLBACK_IMAGE,
         shareUrl: `${SITE}/share/list/${listId}`,
-        dest: `${SITE}/#list/${listId}`
+        dest: `${SITE}/#list/${listId}`,
+        cache: 'no-store'
     });
 
     const countCfg = cfg;
@@ -161,19 +173,24 @@ async function listCard(req, res, listId) {
         } catch { /* cosmetic only */ }
     }
 
-    const poster = firstItem?.poster_path
-        ? `https://image.tmdb.org/t/p/w500${firstItem.poster_path}`
-        : FALLBACK_IMAGE;
+    const poster = safePoster(firstItem?.poster_path) || FALLBACK_IMAGE;
     return page(res, 200, {
         title: `${list.title || 'Movie Night list'}${count}`,
         desc: list.description || 'A shared Movie Night list on Alexandria — anyone can add titles.',
         image: poster,
         shareUrl: `${SITE}/share/list/${listId}`,
-        dest: `${SITE}/#list/${listId}`
+        dest: `${SITE}/#list/${listId}`,
+        cache: 's-maxage=3600, stale-while-revalidate=86400'
     });
 }
 
 export default async function handler(req, res) {
+    if (req.method !== 'GET') {
+        res.setHeader('Allow', 'GET');
+        return res.status(405).send('Method not allowed');
+    }
+    const { rateLimit } = await import('./_ratelimit.js');
+    if (!rateLimit(req, res, { windowMs: 60000, max: 60 })) return;
     const type = String(req.query.type || '');
     const id = String(req.query.id || '');
 

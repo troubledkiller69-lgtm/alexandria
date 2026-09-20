@@ -3,9 +3,20 @@ const CACHE = 'alexandria-shell-v1';
 const SHELL = [
     '/',
     '/index.html',
+    '/index.css',
+    '/js/app.js',
     '/logo.png',
     '/manifest.json'
 ];
+
+const POSTER_CACHE_MAX = 60;
+
+async function trimPosterCache(cache) {
+    const keys = await cache.keys();
+    if (keys.length <= POSTER_CACHE_MAX) return;
+    const excess = keys.slice(0, keys.length - POSTER_CACHE_MAX);
+    await Promise.all(excess.map(k => cache.delete(k)));
+}
 
 self.addEventListener('install', event => {
     event.waitUntil(
@@ -35,7 +46,9 @@ self.addEventListener('fetch', event => {
                 const cached = await cache.match(request);
                 const network = fetch(request)
                     .then(response => {
-                        if (response && (response.ok || response.type === 'opaque')) cache.put(request, response.clone());
+                        if (response && (response.ok || response.type === 'opaque')) {
+                            cache.put(request, response.clone()).then(() => trimPosterCache(cache));
+                        }
                         return response;
                     })
                     .catch(() => cached);
@@ -50,8 +63,10 @@ self.addEventListener('fetch', event => {
         event.respondWith(
             fetch(request)
                 .then(response => {
-                    const copy = response.clone();
-                    caches.open(CACHE).then(cache => cache.put('/index.html', copy));
+                    if (response && response.ok) {
+                        const copy = response.clone();
+                        caches.open(CACHE).then(cache => cache.put('/index.html', copy));
+                    }
                     return response;
                 })
                 .catch(() => caches.match('/index.html'))

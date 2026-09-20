@@ -9,7 +9,16 @@ node_modules/
 
 # desktop-only local tooling
 AGENTS.md
+CLAUDE.md
+STRUCTURE.md
 opencode.json
 
 # unrelated local project — keep out of the repo
 PixelGunCheatInternal/
+
+# local agent/tooling dirs
+.agents/
+.claude/
+.cursor/
+.mcp.json
+skills-lock.json

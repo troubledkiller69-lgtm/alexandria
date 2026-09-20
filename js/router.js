@@ -15,8 +15,8 @@ export const router = {
             if (!Number.isInteger(id) || id < 1) { this.setView('home'); return; }
             const sIndex = parts.indexOf('s');
             const eIndex = parts.indexOf('e');
-            const season = Math.max(1, sIndex !== -1 ? parseInt(parts[sIndex+1], 10) || 1 : 1);
-            const episode = Math.max(1, eIndex !== -1 ? parseInt(parts[eIndex+1], 10) || 1 : 1);
+            const season = Math.max(1, sIndex !== -1 ? Number.parseInt(parts[sIndex+1], 10) || 1 : 1);
+            const episode = Math.max(1, eIndex !== -1 ? Number.parseInt(parts[eIndex+1], 10) || 1 : 1);
             this.state.activeContent = { id, type: 'tv', isAnime: false, season, episode };
             this.setView('player');
         } else if (path.startsWith('party/')) {
@@ -24,18 +24,18 @@ export const router = {
             const roomId = parts[1];
             const type = parts[2];
             const id = Number.parseInt(parts[3], 10);
-            if (!roomId || (type !== 'movie' && type !== 'tv') || !Number.isInteger(id) || id < 1) {
+            if (!roomId || !/^[A-Za-z0-9-]{6,64}$/.test(roomId) || (type !== 'movie' && type !== 'tv') || !Number.isInteger(id) || id < 1) {
                 this.setView('home');
                 return;
             }
-            
+
             let season = 1;
             let episode = 1;
             if (type === 'tv') {
                 const sIndex = parts.indexOf('s');
                 const eIndex = parts.indexOf('e');
-                season = Math.max(1, sIndex !== -1 ? parseInt(parts[sIndex+1], 10) || 1 : 1);
-                episode = Math.max(1, eIndex !== -1 ? parseInt(parts[eIndex+1], 10) || 1 : 1);
+                season = Math.max(1, sIndex !== -1 ? Number.parseInt(parts[sIndex+1], 10) || 1 : 1);
+                episode = Math.max(1, eIndex !== -1 ? Number.parseInt(parts[eIndex+1], 10) || 1 : 1);
             }
             this.state.activeContent = { id, type, isAnime: false, season, episode };
             this.state.partyRoomId = roomId;
@@ -66,14 +66,19 @@ export const router = {
             } catch {
                 uid = path.split('/').slice(1).join('/').trim();
             }
-            if (!uid) { this.setView('home'); return; }
+            if (!uid || uid.length > 64) { this.setView('home'); return; }
             this.state.activeProfileId = uid;
             this.state.profileTab = 'activity';
             this.state.profileData = null;
             this.setView('profile');
         } else if (path.startsWith('list/')) {
-            const listId = path.split('/').slice(1).join('/').trim();
-            if (!listId) { this.setView('home'); return; }
+            let listId = '';
+            try {
+                listId = decodeURIComponent(path.split('/').slice(1).join('/')).trim();
+            } catch {
+                listId = path.split('/').slice(1).join('/').trim();
+            }
+            if (!listId || !/^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/.test(listId)) { this.setView('home'); return; }
             this.state.activeListId = listId;
             this.setView('list');
         } else if (path === 'roulette') {
@@ -208,8 +213,8 @@ export const router = {
                         if (personId) window.location.hash = `#person/${personId}`;
                         return;
                     }
-                    const season = parseInt(card.dataset.season, 10);
-                    const episode = parseInt(card.dataset.episode, 10);
+                    const season = Number.parseInt(card.dataset.season, 10);
+                    const episode = Number.parseInt(card.dataset.episode, 10);
 
                     if (season && episode) {
                         window.location.hash = `#tv/${card.dataset.id}/s/${season}/e/${episode}`;
@@ -336,6 +341,10 @@ export const router = {
         if (this.commentsChannel && this.supabase) {
             this.supabase.removeChannel(this.commentsChannel);
             this.commentsChannel = null;
+        }
+        if (this.reactionsChannel && this.supabase) {
+            this.supabase.removeChannel(this.reactionsChannel);
+            this.reactionsChannel = null;
         }
         this._commentsChannelKey = null;
         if (this.listChannel && this.supabase) {

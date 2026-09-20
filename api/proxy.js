@@ -35,6 +35,8 @@ export default async function handler(req, res) {
     res.setHeader('Allow', 'GET');
     return res.status(405).json({ error: 'Method not allowed' });
   }
+  const { rateLimit } = await import('./_ratelimit.js');
+  if (!rateLimit(req, res, { windowMs: 60000, max: 60 })) return;
 
   const { endpoint } = req.query;
   const apiKey = process.env.TMDB_API_KEY;
@@ -61,6 +63,11 @@ export default async function handler(req, res) {
     }
 
     const response = await fetchTmdb(target, apiKey);
+    // Cap runaway pagination / quota burn.
+    const page = Number(target.searchParams.get('page'));
+    if (Number.isFinite(page) && (page < 1 || page > 500)) {
+      return res.status(400).json({ error: 'Unsupported TMDB endpoint.' });
+    }
     const data = await response.json().catch(() => ({ error: 'TMDB returned an unreadable response.' }));
     res.setHeader(
       'Cache-Control',

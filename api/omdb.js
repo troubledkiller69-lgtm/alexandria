@@ -3,6 +3,8 @@ export default async function handler(req, res) {
     res.setHeader('Allow', 'GET');
     return res.status(405).json({ error: 'Method not allowed' });
   }
+  const { rateLimit } = await import('./_ratelimit.js');
+  if (!rateLimit(req, res, { windowMs: 60000, max: 60 })) return;
 
   const apiKey = process.env.OMDB_API_KEY;
   if (!apiKey) {
@@ -23,13 +25,13 @@ export default async function handler(req, res) {
 
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 8000);
-    const response = await fetch(target, {
-      signal: controller.signal,
-      headers: { Accept: 'application/json' }
-    });
-    clearTimeout(timeoutId);
+    try {
+      const response = await fetch(target, {
+        signal: controller.signal,
+        headers: { Accept: 'application/json' }
+      });
 
-    const data = await response.json().catch(() => ({ Response: 'False', Error: 'Unreadable OMDb response.' }));
+      const data = await response.json().catch(() => ({ Response: 'False', Error: 'Unreadable OMDb response.' }));
     res.setHeader(
       'Cache-Control',
       data.Response === 'True' ? 's-maxage=86400, stale-while-revalidate=604800' : 'no-store'
@@ -41,5 +43,7 @@ export default async function handler(req, res) {
     return res.status(timedOut ? 504 : 502).json({
       error: timedOut ? 'OMDb request timed out.' : 'Failed to fetch data from OMDb.'
     });
+  } finally {
+    clearTimeout(timeoutId);
   }
 }

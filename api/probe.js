@@ -47,6 +47,8 @@ export default async function handler(req, res) {
     res.setHeader('Allow', 'GET');
     return res.status(405).json({ error: 'Method not allowed' });
   }
+  const { rateLimit } = await import('./_ratelimit.js');
+  if (!rateLimit(req, res, { windowMs: 60000, max: 10 })) return;
 
   const results = await Promise.all(MIRRORS.map(probeOne));
   const checkedAt = Date.now();

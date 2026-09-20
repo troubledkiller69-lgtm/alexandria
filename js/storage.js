@@ -105,10 +105,9 @@ export const storage = {
             this.writeLocalList('alexandria_watchlist', this.state.watchlist);
             this.writeLocalList('alexandria_history', this.state.history);
             this.writeLocalList('alexandria_watched_episodes', this.state.watchedEpisodes);
-        } catch {
-            this.state.watchlist = [];
-            this.state.history = [];
-            this.state.watchedEpisodes = {};
+        } catch (e) {
+            // Never wipe in-memory state on a sync error — keep what we have.
+            console.warn("Alexandria: Sync failed, keeping in-memory lists", e);
         }
     },
 

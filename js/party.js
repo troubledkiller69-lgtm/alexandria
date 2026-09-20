@@ -49,7 +49,7 @@ export const party = {
                     </header>
 
                     <div class="party-screen">
-                        <iframe id="embedmaster_iframe" title="Watch Party" src="${embedUrl}" ${this.playerIframeFlags()}></iframe>
+                        <iframe id="embedmaster_iframe" title="Watch Party" src="${this.escapeHtml(embedUrl || 'about:blank')}" ${this.playerIframeFlags()}></iframe>
                         <div id="party-spectate-veil" class="party-hint" style="display: ${this.isHost ? 'none' : 'block'};">
                             Hit <strong>Play Now</strong> in the player, then Sync if needed
                         </div>
@@ -144,12 +144,15 @@ export const party = {
             if (!container) return;
             this._currentSeasonEpisodes = data.episodes || [];
             const canPick = this.isHost;
-            container.innerHTML = this._currentSeasonEpisodes.map(ep => `
-                <div class="episode-item ${activeEpisode == ep.episode_number ? 'active' : ''}" role="button" tabindex="0"
-                     ${canPick ? `onclick="Alexandria.partySelectEpisode(${ep.episode_number})"` : 'style="cursor:default;opacity:0.7"'}>
-                    <span class="ep-num">EP ${ep.episode_number}</span>
+            container.innerHTML = this._currentSeasonEpisodes.map(ep => {
+                const nep = Number(ep.episode_number) || 0;
+                return `
+                <div class="episode-item ${Number(activeEpisode) === nep ? 'active' : ''}" role="button" tabindex="0"
+                     ${canPick ? `onclick="Alexandria.partySelectEpisode(${nep})"` : 'style="cursor:default;opacity:0.7"'}>
+                    <span class="ep-num">EP ${nep}</span>
                     <span class="ep-name">${this.escapeHtml(ep.name || 'Untitled')}</span>
-                </div>`).join('');
+                </div>`;
+            }).join('');
         } catch (e) {
             const container = document.getElementById('party-episodes');
             if (container) container.innerHTML = '<div class="placeholder-msg">Episodes unavailable.</div>';
@@ -671,19 +674,21 @@ export const party = {
     requestPlayerTime(frame) {
         if (!frame?.contentWindow) return;
         const win = frame.contentWindow;
+        const target = this.embedPostOrigin(frame);
         // Standard PlayerJS getter — needs the `context` field or a strict
         // player ignores it. `time`/`getTime`/bare `{api:...}` all returned nothing.
-        win.postMessage({ context: 'player.js', version: '0.0.10', method: 'getCurrentTime', listener: 'alexandria_time' }, '*');
-        win.postMessage({ api: 'getCurrentTime' }, '*');
-        win.postMessage({ method: 'getCurrentTime' }, '*');
+        win.postMessage({ context: 'player.js', version: '0.0.10', method: 'getCurrentTime', listener: 'alexandria_time' }, target);
+        win.postMessage({ api: 'getCurrentTime' }, target);
+        win.postMessage({ method: 'getCurrentTime' }, target);
     },
 
     requestPlayerPaused(frame) {
         if (!frame?.contentWindow) return;
         const win = frame.contentWindow;
-        win.postMessage({ context: 'player.js', version: '0.0.10', method: 'getPaused', listener: 'alexandria_paused' }, '*');
-        win.postMessage({ api: 'getPaused' }, '*');
-        win.postMessage({ method: 'getPaused' }, '*');
+        const target = this.embedPostOrigin(frame);
+        win.postMessage({ context: 'player.js', version: '0.0.10', method: 'getPaused', listener: 'alexandria_paused' }, target);
+        win.postMessage({ api: 'getPaused' }, target);
+        win.postMessage({ method: 'getPaused' }, target);
     },
 
     // PlayerJS only fires events after the parent subscribes (except play/pause,
@@ -692,10 +697,11 @@ export const party = {
     subscribeToPlayerEvents(frame) {
         if (!frame?.contentWindow) return;
         const win = frame.contentWindow;
+        const target = this.embedPostOrigin(frame);
         const events = ['timeupdate', 'progress', 'play', 'pause', 'seek', 'ended'];
         for (const name of events) {
-            win.postMessage({ context: 'player.js', version: '0.0.10', method: 'addEventListener', value: name }, '*');
-            win.postMessage({ api: 'addEventListener', set: name }, '*');
+            win.postMessage({ context: 'player.js', version: '0.0.10', method: 'addEventListener', value: name }, target);
+            win.postMessage({ api: 'addEventListener', set: name }, target);
         }
     },
 
@@ -708,10 +714,7 @@ export const party = {
                 // Only accept messages from our own embed frame — payload shape
                 // alone is spoofable by any other window on the page.
                 if (frame?.contentWindow && event.source !== frame.contentWindow) return;
-                const originOk = this.isTrustedEmbedOrigin(event.origin);
-                const em = event.data?.source === 'embedmaster_player';
-                const pjs = event.data?.answer !== undefined;
-                if (!originOk && !em && !pjs) return;
+                if (!this.isTrustedEmbedOrigin(event.origin)) return;
                 const got = this.ingestEmbedTimePayload(event.data);
                 if (typeof got === 'number' && got > best) best = got;
             };
@@ -746,10 +749,11 @@ export const party = {
     themeEmbedPlayer(frame) {
         if (!frame?.contentWindow) return;
         const win = frame.contentWindow;
+        const target = this.embedPostOrigin(frame);
         const red = '#8a0303';
         for (const key of ['color1', 'color2', 'color3']) {
-            win.postMessage({ api: key, set: red }, '*');
-            win.postMessage({ source: 'embedmaster_player_command', command: key, value: red }, '*');
+            win.postMessage({ api: key, set: red }, target);
+            win.postMessage({ source: 'embedmaster_player_command', command: key, value: red }, target);
         }
     },
 
@@ -766,22 +770,34 @@ export const party = {
         frame.addEventListener('load', paint, { once: true });
     },
 
-    postToEmbed(frame, command, value) {
+    embedPostOrigin(frame) {
+        try {
+            const src = String(frame?.src || frame?.getAttribute?.('src') || '');
+            if (!src || src === 'about:blank') return '*';
+            const origin = new URL(src, window.location.href).origin;
+            return this.isTrustedEmbedOrigin(origin) ? origin : '*';
+        } catch {
+            return '*';
+        }
+    },
+
+    postToEmbed(frame, command, value, origin) {
         if (!frame?.contentWindow) return;
         if (command === 'time' && value === undefined) {
             this.requestPlayerTime(frame);
             return;
         }
         const win = frame.contentWindow;
+        const target = origin || this.embedPostOrigin(frame);
 
         const em = { source: 'embedmaster_player_command', command };
         if (value !== undefined) em.value = value;
-        win.postMessage(em, '*');
+        win.postMessage(em, target);
 
         // PlayerJS iframe API uses api + set (not value).
         const pjs = { api: command };
         if (value !== undefined) pjs.set = value;
-        win.postMessage(pjs, '*');
+        win.postMessage(pjs, target);
     },
 
     applyRemotePlayerAction(action, time, opts = {}) {
@@ -966,6 +982,7 @@ export const party = {
     initPartySync(roomId) {
         if (!this.supabase) {
             this.showToast('Supabase is not configured. Watch Party requires cloud sync.');
+            window.location.hash = '#home';
             return;
         }
 
@@ -1147,6 +1164,7 @@ export const party = {
                 }
             })
             .subscribe(async (status) => {
+                if (this.state.view !== 'party') return;
                 if (status === 'SUBSCRIBED') {
                     await this.partyChannel.track({
                         online_at: new Date().toISOString(),

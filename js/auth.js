@@ -269,7 +269,7 @@ export const auth = {
         menu.removeAttribute('hidden');
         // Opening marks the latest release as seen.
         const latest = this.CHANGELOG[0];
-        if (latest) localStorage.setItem('alexandria_changelog_seen', latest.key);
+        if (latest) this.writeStorage(localStorage, 'alexandria_changelog_seen', latest.key);
         this.updateChangelogDot();
     },
 
@@ -406,8 +406,8 @@ export const auth = {
                 if (data?.session && data?.user) {
                     // Email verification disabled or auto-confirmed
                     await this.ensureUserProfile(data.user, username);
-                    sessionStorage.setItem('alexandria_nickname', username);
-                    localStorage.setItem('alexandria_username', username);
+                    this.writeStorage(sessionStorage, 'alexandria_nickname', username);
+                    this.writeStorage(localStorage, 'alexandria_username', username);
                     this.state.authUser = data.user;
                     this.updateAuthUI();
                     this.toggleAuthModal(false);
@@ -424,9 +424,9 @@ export const auth = {
         } else {
             const usedNames = this.readStorageJson(localStorage, 'alexandria_claimed_usernames', []) || [];
             usedNames.push(username.toLowerCase());
-            localStorage.setItem('alexandria_claimed_usernames', JSON.stringify(usedNames));
-            sessionStorage.setItem('alexandria_nickname', username);
-            localStorage.setItem('alexandria_username', username);
+            try { localStorage.setItem('alexandria_claimed_usernames', JSON.stringify(usedNames)); } catch { /* quota */ }
+            this.writeStorage(sessionStorage, 'alexandria_nickname', username);
+            this.writeStorage(localStorage, 'alexandria_username', username);
             this.updateAuthUI();
             this.toggleAuthModal(false);
             this.showToast(`Profile saved! Hello, ${username}.`);
@@ -454,8 +454,8 @@ export const auth = {
                 // profile row (signup returned no session, so the client could not
                 // insert one). Ensure it exists now that we have a session.
                 await this.ensureUserProfile(data.user, username);
-                sessionStorage.setItem('alexandria_nickname', username);
-                localStorage.setItem('alexandria_username', username);
+                this.writeStorage(sessionStorage, 'alexandria_nickname', username);
+                this.writeStorage(localStorage, 'alexandria_username', username);
                 this.state.authUser = data.user;
                 this.updateAuthUI();
                 this.toggleAuthModal(false);
@@ -474,8 +474,16 @@ export const auth = {
             await this.supabase.auth.signOut();
         }
         this.state.authUser = null;
-        sessionStorage.removeItem('alexandria_nickname');
-        localStorage.removeItem('alexandria_username');
+        try { sessionStorage.removeItem('alexandria_nickname'); } catch { /* ignore */ }
+        try { localStorage.removeItem('alexandria_username'); } catch { /* ignore */ }
+        try {
+            for (let i = sessionStorage.length - 1; i >= 0; i--) {
+                const k = sessionStorage.key(i);
+                if (k && (k.startsWith('alexandria_party_creator_') || k === 'alexandria_party_uid')) {
+                    sessionStorage.removeItem(k);
+                }
+            }
+        } catch { /* ignore */ }
         this.updateAuthUI();
         this.toggleAuthModal(false);
         if (this.state.view === 'details' || this.state.view === 'player') {
@@ -541,8 +549,8 @@ export const auth = {
                 this.state.authUser = data.session.user;
                 const username = data.session.user.user_metadata?.username || data.session.user.email?.split('@')[0];
                 if (username) {
-                    sessionStorage.setItem('alexandria_nickname', username);
-                    localStorage.setItem('alexandria_username', username);
+                    this.writeStorage(sessionStorage, 'alexandria_nickname', username);
+                    this.writeStorage(localStorage, 'alexandria_username', username);
                 }
                 this.ensureUserProfile(data.session.user, username);
             } else {
@@ -560,8 +568,8 @@ export const auth = {
                 this.state.authUser = session.user;
                 const username = session.user.user_metadata?.username || session.user.email?.split('@')[0];
                 if (username) {
-                    sessionStorage.setItem('alexandria_nickname', username);
-                    localStorage.setItem('alexandria_username', username);
+                    this.writeStorage(sessionStorage, 'alexandria_nickname', username);
+                    this.writeStorage(localStorage, 'alexandria_username', username);
                 }
                 this.ensureUserProfile(session.user, username);
                 if (event === 'SIGNED_IN') {
@@ -569,8 +577,8 @@ export const auth = {
                 }
             } else {
                 this.state.authUser = null;
-                sessionStorage.removeItem('alexandria_nickname');
-                localStorage.removeItem('alexandria_username');
+                try { sessionStorage.removeItem('alexandria_nickname'); } catch { /* ignore */ }
+                try { localStorage.removeItem('alexandria_username'); } catch { /* ignore */ }
             }
             this.updateAuthUI();
             await this.syncFromCloud();

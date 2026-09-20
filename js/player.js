@@ -27,7 +27,7 @@ export const player = {
                             <label class="server-label" for="server-selector">SERVER <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"></polyline></svg></label>
                             <select id="server-selector" class="server-select-dropdown" onchange="Alexandria.handleServerChange(this.value)">
                                 ${this.servers.map((s, i) => (type === 'tv' || !s.animeOnly)
-                                    ? `<option value="${i}" ${i === this.state.activeServer ? 'selected' : ''}>${s.name}</option>`
+                                    ? `<option value="${Number(i) || 0}" ${i === this.state.activeServer ? 'selected' : ''}>${this.escapeHtml(s.name)}</option>`
                                     : '').join('')}
                             </select>
                             <button type="button" class="btn-secondary server-next-btn" onclick="Alexandria.failoverToNextServer(true)" title="Try the next mirror">NEXT SERVER</button>
@@ -39,7 +39,7 @@ export const player = {
                             <span id="server-status" class="server-status" aria-live="polite">Connecting to ${this.escapeHtml(server.name)}…</span>
                         </div>
                         <div class="player-frame-container">
-                            <iframe id="video-iframe" title="Alexandria video player" src="${embedUrl || 'about:blank'}" width="100%" height="100%" scrolling="no" ${this.playerIframeFlags()}></iframe>
+                            <iframe id="video-iframe" title="Alexandria video player" src="${this.escapeHtml(embedUrl || 'about:blank')}" width="100%" height="100%" scrolling="no" ${this.playerIframeFlags()}></iframe>
                         </div>
                     </div>
                     ${type === 'tv' ? `
@@ -120,7 +120,7 @@ export const player = {
         const sel = document.getElementById('server-selector');
         if (sel) {
             sel.innerHTML = this.servers.map((s, i) =>
-                `<option value="${i}" ${i === this.state.activeServer ? 'selected' : ''}>${s.name}</option>`
+                `<option value="${Number(i) || 0}" ${i === this.state.activeServer ? 'selected' : ''}>${this.escapeHtml(s.name)}</option>`
             ).join('');
         }
         if (!document.getElementById('audio-pill')) {
@@ -761,14 +761,17 @@ export const player = {
         btn.textContent = `SEASON ${active}`;
         btn.setAttribute('aria-expanded', 'false');
         menu.hidden = true;
-        menu.innerHTML = seasons.map(s => `
-            <li role="option" class="season-menu-item${s.season_number == active ? ' is-active' : ''}"
-                data-season="${s.season_number}"
-                aria-selected="${s.season_number == active ? 'true' : 'false'}"
+        menu.innerHTML = seasons.map(s => {
+            const sn = Number(s.season_number) || 0;
+            return `
+            <li role="option" class="season-menu-item${sn == active ? ' is-active' : ''}"
+                data-season="${sn}"
+                aria-selected="${sn == active ? 'true' : 'false'}"
                 tabindex="-1"
-                onclick="Alexandria.handleSeasonChange(${s.season_number})">
-                SEASON ${s.season_number}
-            </li>`).join('');
+                onclick="Alexandria.handleSeasonChange(${sn})">
+                SEASON ${sn}
+            </li>`;
+        }).join('');
 
         const title = document.getElementById('sidebar-title');
         if (title && data.name) title.textContent = data.name.toUpperCase();
@@ -828,24 +831,27 @@ export const player = {
             this._currentSeasonEpisodes = data.episodes || [];
 
             container.innerHTML = this._currentSeasonEpisodes.map(ep => {
-                const watched = !!this.state.watchedEpisodes[`${id}_s${season}e${ep.episode_number}`];
+                const nid = Number(id) || 0;
+                const nseason = Number(season) || 1;
+                const nep = Number(ep.episode_number) || 0;
+                const watched = !!this.state.watchedEpisodes[`${nid}_s${nseason}e${nep}`];
                 const still = ep.still_path ? this.imageUrl(ep.still_path, 'w300') : '';
                 const overview = ep.overview ? this.escapeHtml(ep.overview) : 'No description on file.';
                 return `
-                <div class="episode-item ${this.state.activeContent.episode == ep.episode_number ? 'active' : ''}" role="link" tabindex="0"
-                     aria-label="Episode ${ep.episode_number}: ${this.escapeHtml(ep.name || 'Untitled episode')}"
-                     onclick="window.location.hash = '#tv/${id}/s/${season}/e/${ep.episode_number}'">
+                <div class="episode-item ${Number(this.state.activeContent.episode) === nep ? 'active' : ''}" role="link" tabindex="0"
+                     aria-label="Episode ${nep}: ${this.escapeHtml(ep.name || 'Untitled episode')}"
+                     onclick="window.location.hash = '#tv/${nid}/s/${nseason}/e/${nep}'">
                     <div class="ep-card-media">
-                        ${still ? `<img src="${still}" alt="" loading="lazy" decoding="async">` : '<div class="ep-card-fallback" aria-hidden="true"></div>'}
-                        <span class="ep-num">EP ${ep.episode_number}</span>
+                        ${still ? `<img src="${this.escapeHtml(still)}" alt="" loading="lazy" decoding="async">` : '<div class="ep-card-fallback" aria-hidden="true"></div>'}
+                        <span class="ep-num">EP ${nep}</span>
                         <div class="ep-card-overlay">
                             <span class="ep-name">${this.escapeHtml(ep.name || 'Untitled episode')}</span>
                             <span class="ep-overview">${overview}</span>
                         </div>
                     </div>
-                    <button class="ep-watched-btn ${watched ? 'active' : ''}" type="button" title="Mark episode watched" aria-label="Mark episode ${ep.episode_number} watched" aria-pressed="${watched}"
-                        data-show="${id}" data-season="${season}" data-episode="${ep.episode_number}"
-                        onclick="event.stopPropagation(); event.preventDefault(); Alexandria.markEpisodeWatched(${id}, ${season}, ${ep.episode_number}, !this.classList.contains('active'))">✓</button>
+                    <button class="ep-watched-btn ${watched ? 'active' : ''}" type="button" title="Mark episode watched" aria-label="Mark episode ${nep} watched" aria-pressed="${watched}"
+                        data-show="${nid}" data-season="${nseason}" data-episode="${nep}"
+                        onclick="event.stopPropagation(); event.preventDefault(); Alexandria.markEpisodeWatched(${nid}, ${nseason}, ${nep}, !this.classList.contains('active'))">✓</button>
                 </div>`;
             }).join('');
         } catch (error) {

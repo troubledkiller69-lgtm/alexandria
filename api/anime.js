@@ -1,8 +1,13 @@
 const ANILIST_GRAPHQL = 'https://graphql.anilist.co';
 
-function json(res, status, body) {
+function json(res, status, body, cache = 'no-store') {
   res.setHeader('Content-Type', 'application/json; charset=utf-8');
+  res.setHeader('Cache-Control', cache);
   res.status(status).json(body);
+}
+
+function errJson(res, status, message) {
+  return json(res, status, { error: message }, 'no-store');
 }
 
 async function fetchJson(url, opts = {}, timeoutMs = 8000) {
@@ -35,7 +40,8 @@ async function anilistQuery(query, variables) {
     body: JSON.stringify({ query, variables })
   }, 9000);
   if (!ok || !data?.data) {
-    throw Object.assign(new Error(`AniList request failed (${status})`), { status: 502 });
+    const timedOut = status === 0;
+    throw Object.assign(new Error(timedOut ? 'AniList request timed out.' : 'AniList lookup failed.'), { status: timedOut ? 504 : 502 });
   }
   return data.data;
 }
@@ -116,20 +122,31 @@ function supabaseConfig() {
   return url && key ? { url: url.replace(/\/$/, ''), key } : null;
 }
 
-async function mapRead(cfg, column, value) {
-  const target = `${cfg.url}/rest/v1/anime_map?${column}=eq.${encodeURIComponent(value)}&select=*`;
-  const res = await fetch(target, {
-    headers: {
-      apikey: cfg.key,
-      Authorization: `Bearer ${cfg.key}`
-    }
-  });
-  if (!res.ok) return null;
-  const rows = await res.json().catch(() => []);
-  return Array.isArray(rows) && rows[0] ? rows[0] : null;
+async function mapRead(cfg, column, value, timeoutMs = 6000) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const target = `${cfg.url}/rest/v1/anime_map?${column}=eq.${encodeURIComponent(value)}&select=*`;
+    const res = await fetch(target, {
+      headers: {
+        apikey: cfg.key,
+        Authorization: `Bearer ${cfg.key}`
+      },
+      signal: controller.signal
+    });
+    if (!res.ok) return null;
+    const rows = await res.json().catch(() => []);
+    return Array.isArray(rows) && rows[0] ? rows[0] : null;
+  } catch {
+    return null;
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
-async function mapUpsert(cfg, row) {
+async function mapUpsert(cfg, row, timeoutMs = 6000) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
     await fetch(`${cfg.url}/rest/v1/anime_map`, {
       method: 'POST',
@@ -139,22 +156,26 @@ async function mapUpsert(cfg, row) {
         'Content-Type': 'application/json',
         Prefer: 'resolution=merge-duplicates'
       },
-      body: JSON.stringify(row)
+      body: JSON.stringify(row),
+      signal: controller.signal
     });
   } catch { /* cache write failures must not fail the request */ }
+  finally { clearTimeout(timer); }
 }
 
 export default async function handler(req, res) {
   if (req.method !== 'GET') {
     res.setHeader('Allow', 'GET');
-    return json(res, 405, { error: 'Method not allowed' });
+    return errJson(res, 405, 'Method not allowed');
   }
+  const { rateLimit } = await import('./_ratelimit.js');
+  if (!rateLimit(req, res, { windowMs: 60000, max: 30 })) return;
 
   const tmdbIdRaw = req.query.tmdb;
   const anilistIdRaw = req.query.anilist;
   const tmdbKey = process.env.TMDB_API_KEY;
 
-  if (!tmdbKey) return json(res, 503, { error: 'TMDB is not configured on this deployment.' });
+  if (!tmdbKey) return errJson(res, 503, 'TMDB is not configured on this deployment.');
 
   // ---------- Forward: TMDB id → AniList id ----------
   if (tmdbIdRaw && !Array.isArray(tmdbIdRaw) && /^\d{1,7}$/.test(tmdbIdRaw)) {
@@ -163,26 +184,25 @@ export default async function handler(req, res) {
     if (cfg) {
       const cached = await mapRead(cfg, 'tmdb_id', tmdbId);
       if (cached?.anilist_id) {
-        res.setHeader('Cache-Control', 's-maxage=21600, stale-while-revalidate=86400');
         return json(res, 200, {
           tmdbId,
           anilistId: cached.anilist_id,
           malId: cached.mal_id ?? null,
           title: cached.title ?? null,
           dubAvailable: typeof cached.dub_available === 'boolean' ? cached.dub_available : null
-        });
+        }, 's-maxage=21600, stale-while-revalidate=86400');
       }
     }
 
     const tv = await getTmdb(`tv/${tmdbId}`, tmdbKey);
     const movie = tv ? null : await getTmdb(`movie/${tmdbId}`, tmdbKey);
     const meta = tv || movie;
-    if (!meta) return json(res, 404, { error: 'Unknown TMDB id.' });
+    if (!meta) return errJson(res, 404, 'Unknown TMDB id.');
 
     const type = tv ? 'tv' : 'movie';
     const year = Number((meta.first_air_date || meta.release_date || '').slice(0, 4)) || null;
     const title = meta.name || meta.title || '';
-    if (!title) return json(res, 404, { error: 'TMDB record has no title.' });
+    if (!title) return errJson(res, 404, 'TMDB record has no title.');
 
     try {
       const candidates = await searchAniList(title, year);
@@ -193,8 +213,7 @@ export default async function handler(req, res) {
         isMovie: type === 'movie'
       });
       if (!match) {
-        res.setHeader('Cache-Control', 'no-store');
-        return json(res, 404, { error: 'No confident AniList match for this title.' });
+        return errJson(res, 404, 'No confident AniList match for this title.');
       }
       const dubAvailable = await probeDub(match.id);
       if (cfg) {
@@ -214,9 +233,9 @@ export default async function handler(req, res) {
         malId: match.idMal ?? null,
         title,
         dubAvailable
-      });
+      }, 's-maxage=21600, stale-while-revalidate=86400');
     } catch (e) {
-      return json(res, e.status || 502, { error: e.message || 'AniList lookup failed.' });
+      return errJson(res, e.status || 502, e.message || 'AniList lookup failed.');
     }
   }
 
@@ -227,13 +246,12 @@ export default async function handler(req, res) {
     if (cfg) {
       const cached = await mapRead(cfg, 'anilist_id', anilistId);
       if (cached?.tmdb_id) {
-        res.setHeader('Cache-Control', 's-maxage=21600, stale-while-revalidate=86400');
         return json(res, 200, {
           anilistId,
           tmdbId: cached.tmdb_id,
           malId: cached.mal_id ?? null,
           title: cached.title ?? null
-        });
+        }, 's-maxage=21600, stale-while-revalidate=86400');
       }
     }
 
@@ -244,9 +262,9 @@ export default async function handler(req, res) {
         }`;
       const data = await anilistQuery(gql, { id: anilistId });
       const media = data?.Media;
-      if (!media) return json(res, 404, { error: 'Unknown AniList id.' });
+      if (!media) return errJson(res, 404, 'Unknown AniList id.');
       const title = media.title?.english || media.title?.romaji || '';
-      if (!title) return json(res, 404, { error: 'AniList record has no usable title.' });
+      if (!title) return errJson(res, 404, 'AniList record has no usable title.');
       const year = media.startDate?.year || null;
       const isMovie = media.format === 'MOVIE';
 
@@ -264,8 +282,7 @@ export default async function handler(req, res) {
         rows[0] ||
         null;
       if (!hit) {
-        res.setHeader('Cache-Control', 'no-store');
-        return json(res, 404, { error: `No TMDB match for "${title}".` });
+        return errJson(res, 404, `No TMDB match for "${title}".`);
       }
 
       if (cfg) {
@@ -285,11 +302,11 @@ export default async function handler(req, res) {
         tmdbType: isMovie ? 'movie' : 'tv',
         malId: media.idMal ?? null,
         title: hit.name || hit.title || title
-      });
+      }, 's-maxage=21600, stale-while-revalidate=86400');
     } catch (e) {
-      return json(res, e.status || 502, { error: e.message || 'AniList lookup failed.' });
+      return errJson(res, e.status || 502, e.message || 'AniList lookup failed.');
     }
   }
 
-  return json(res, 400, { error: 'Provide ?tmdb={id} or ?anilist={id}.' });
+  return errJson(res, 400, 'Provide ?tmdb={id} or ?anilist={id}.');
 }
