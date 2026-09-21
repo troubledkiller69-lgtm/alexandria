@@ -108,7 +108,7 @@ export const details = {
                                     </button>
                                     <button class="btn-secondary" type="button" data-share-title="${this.escapeHtml(title)}" onclick="Alexandria.shareCurrent(this.dataset.shareTitle)" style="margin-left: 10px;">SHARE</button>
                                     <button class="btn-secondary" type="button" style="margin-left: 10px;" onclick="Alexandria.addToListModal(${Number(id)}, '${type}')">ADD TO LIST</button>
-                                    <button class="icon-btn log-btn ${inWatchlist ? 'active' : ''}" type="button" aria-label="${inWatchlist ? 'Remove from' : 'Add to'} watchlist" aria-pressed="${inWatchlist}" data-id="${Number(id)}" data-type="${type}" data-title="${this.escapeHtml(title)}" data-poster="${this.escapeHtml(data.poster_path || '')}">
+                                    <button class="icon-btn log-btn ${inWatchlist ? 'active' : ''}" type="button" aria-label="${inWatchlist ? 'Remove from' : 'Add to'} watchlist" aria-pressed="${inWatchlist}" data-id="${Number(id)}" data-type="${type}" data-title="${this.escapeHtml(title)}" data-poster="${this.escapeHtml(data.poster_path || '')}" data-year="${this.escapeHtml(year || '')}" data-score="${Number(tmdbScore) || 0}">
                                         ${inWatchlist ? '✓' : '+'}
                                     </button>
                                     ${inWatchlist ? `

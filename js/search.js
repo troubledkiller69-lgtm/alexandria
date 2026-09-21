@@ -469,7 +469,7 @@ export const search = {
             const ratingText = Number(pick.vote_average || 0).toFixed(1);
             const poster = this.imageUrl(pick.poster_path, 'w342');
             const overview = (pick.overview || '').slice(0, 240);
-            const watchItem = { id: pick.id, type: type, title: title, poster_path: pick.poster_path || '' };
+            const watchItem = { id: pick.id, type: type, title: title, poster_path: pick.poster_path || '', year: year, score: Number(pick.vote_average) || 0 };
             resultEl.innerHTML = `
                 <div class="roulette-result">
                     <img class="roulette-result-poster" src="${this.escapeHtml(poster)}" alt="${this.escapeHtml(title)} poster" loading="lazy">
@@ -555,6 +555,52 @@ export const search = {
         }
     },
 
+    // Your-rating star widget (Letterboxd-style, halves via click position).
+    // Container carries data-stars-for="id|type" so rateTitle() can refresh
+    // every visible copy in place without a full page re-render.
+    starsInner(rating) {
+        const r = Number(rating) || 0;
+        let out = '';
+        for (let i = 1; i <= 5; i++) {
+            const fill = Math.min(1, Math.max(0, r - (i - 1)));
+            out += `<button class="wl-star" type="button" data-star="${i}" aria-label="Rate ${i} of 5" title="Rate ${i} of 5" onclick="event.stopPropagation(); event.preventDefault(); Alexandria.rateTitle(event, this)"><span style="--fill:${fill}">★</span></button>`;
+        }
+        return out;
+    },
+
+    starsHtml(id, type, rating) {
+        const safeId = this.escapeHtml(String(id));
+        const safeType = this.escapeHtml(String(type));
+        return `<div class="wl-stars" role="group" aria-label="Your rating" data-stars-for="${safeId}|${safeType}" data-wl-id="${safeId}" data-wl-type="${safeType}">${this.starsInner(rating)}</div>`;
+    },
+
+    rateTitle(event, btn) {
+        const id = btn?.closest('.wl-stars')?.dataset.wlId || btn?.dataset?.wlId;
+        const type = btn?.closest('.wl-stars')?.dataset.wlType || btn?.dataset?.wlType;
+        const star = Number(btn?.dataset?.star) || 0;
+        if (!id || !type || !star) return;
+        const item = (this.state.watchlist || []).find(i => String(i.id) === String(id) && i.type === type);
+        if (!item) return;
+        let val = star;
+        try {
+            const rect = btn.getBoundingClientRect();
+            const x = (event.clientX ?? rect.left + rect.width) - rect.left;
+            if (x < rect.width / 2) val = star - 0.5;
+        } catch { /* full star */ }
+        // Clicking the current value clears the rating.
+        item.userRating = (Number(item.userRating) || 0) === val ? 0 : val;
+        this.writeLocalList('alexandria_watchlist', this.state.watchlist);
+        if ((this.state.watchlistSort || 'recent') === 'rating') {
+            this.renderWatchlistPage();
+            return;
+        }
+        document.querySelectorAll(`[data-stars-for="${CSS.escape(String(id))}|${CSS.escape(String(type))}"]`).forEach(el => {
+            el.innerHTML = this.starsInner(item.userRating);
+        });
+        this.refreshWatchlistStats();
+        this.showToast(item.userRating ? `Rated ${item.userRating}/5.` : 'Rating cleared.');
+    },
+
     renderResults(results, containerId, isHistoryRow = false, opts = null) {
         const container = document.getElementById(containerId);
         if (!container || !results) return;
@@ -577,6 +623,8 @@ export const search = {
             const inWatchlist = (this.state.watchlist || []).some(i => String(i.id) === itemIdStr && i.type === type);
             const isAnime = item.isAnime || (item.origin_country && item.origin_country.includes('JP') && item.genre_ids && item.genre_ids.includes(16));
             const wlStatus = wlMode ? (item.status || 'want') : '';
+            const itemYear = (item.year || item.release_date || item.first_air_date || '').toString().slice(0, 4);
+            const itemScore = Number(item.score ?? item.vote_average ?? 0) || 0;
             const watchedCount = wlMode && type === 'tv'
                 ? Object.keys(this.state.watchedEpisodes || {}).filter(k => k.startsWith(itemIdStr + '_s')).length
                 : 0;
@@ -617,7 +665,7 @@ export const search = {
                             <a class="card-open" href="${target}" aria-label="View ${safeTitle}">
                                 <svg class="overlay-play" aria-hidden="true" width="40" height="40" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
                             </a>
-                            <button class="log-btn ${inWatchlist ? 'active' : ''}" type="button" aria-label="${inWatchlist ? 'Remove from' : 'Add to'} watchlist" aria-pressed="${inWatchlist}" data-id="${safeItemId}" data-type="${type}" data-title="${safeTitle}" data-poster="${this.escapeHtml(item.poster_path || '')}">
+                            <button class="log-btn ${inWatchlist ? 'active' : ''}" type="button" aria-label="${inWatchlist ? 'Remove from' : 'Add to'} watchlist" aria-pressed="${inWatchlist}" data-id="${safeItemId}" data-type="${type}" data-title="${safeTitle}" data-poster="${this.escapeHtml(item.poster_path || '')}" data-year="${this.escapeHtml(itemYear)}" data-score="${itemScore}">
                                 ${inWatchlist ? '✓' : '+'}
                             </button>
                             ${wlMode ? `
@@ -634,6 +682,13 @@ export const search = {
                     </div>
                     <div class="card-info">
                         <h3><a class="card-title-link" href="${target}">${safeTitle}</a></h3>
+                        ${wlMode ? `
+                            ${(itemYear || itemScore) ? `<div class="wl-card-meta">${itemYear ? `<span>${this.escapeHtml(itemYear)}</span>` : ''}${itemYear && itemScore ? '<span aria-hidden="true">·</span>' : ''}${itemScore ? `<span class="wl-tmdb-score" title="TMDB score">★ ${itemScore.toFixed(1)}</span>` : ''}</div>` : ''}
+                            <div class="wl-card-rate">
+                                ${this.starsHtml(itemIdStr, type, item.userRating)}
+                                <button class="wl-log-btn ${item.userReview ? 'has-review' : ''}" type="button" aria-label="${item.userReview ? 'Edit diary entry' : 'Log to diary'}" title="${item.userReview ? 'Edit diary entry' : 'Log to diary'}" onclick="event.stopPropagation(); event.preventDefault(); Alexandria.openLogModal('${safeItemId}', '${type}')">✎</button>
+                            </div>
+                        ` : ''}
                     </div>
                     <div class="ep-panel" data-panel-show="${safeItemId}" hidden></div>
                 </article>`;

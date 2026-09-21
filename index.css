@@ -1911,6 +1911,363 @@ h1, h2, h3, h4 {
     gap: 0.5rem;
 }
 
+/* Watchlist library stats (header widget) */
+.wl-stats {
+    display: flex;
+    gap: 1.5rem;
+}
+.wl-stat {
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+}
+.wl-stat b {
+    font-size: 1.25rem;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    color: var(--text-primary);
+}
+.wl-stat span {
+    font-size: 0.62rem;
+    font-weight: 800;
+    letter-spacing: 0.14em;
+    color: var(--text-muted);
+}
+
+/* Your-rating stars — fill driven by --fill (0, 0.5, 1) per star */
+.wl-stars {
+    display: inline-flex;
+    gap: 2px;
+}
+.wl-star {
+    appearance: none;
+    border: none;
+    background: none;
+    padding: 1px;
+    cursor: pointer;
+    line-height: 1;
+}
+.wl-star span {
+    font-size: 1.05rem;
+    color: rgba(255, 255, 255, 0.22);
+    background: linear-gradient(90deg, var(--accent-gold) calc(var(--fill, 0) * 100%), rgba(255, 255, 255, 0.22) 0);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    transition: transform 0.12s ease;
+}
+.wl-star:hover span {
+    transform: scale(1.2);
+}
+
+/* Watchlist grid card extras */
+.wl-card-meta {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-size: 0.72rem;
+    color: var(--text-muted);
+    margin-top: 0.15rem;
+}
+.wl-tmdb-score {
+    color: var(--accent-gold);
+    font-weight: 700;
+}
+.wl-card-rate {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.4rem;
+    margin-top: 0.35rem;
+}
+.wl-log-btn {
+    appearance: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    background: rgba(0, 0, 0, 0.45);
+    color: var(--text-secondary);
+    font-size: 0.8rem;
+    cursor: pointer;
+    transition: border-color 0.15s ease, color 0.15s ease;
+}
+.wl-log-btn:hover {
+    border-color: var(--accent-gold);
+    color: var(--accent-gold);
+}
+.wl-log-btn.has-review {
+    border-color: rgba(212, 175, 55, 0.6);
+    color: var(--accent-gold);
+}
+
+/* Watchlist list view — dense diary rows */
+.wl-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+}
+.wl-row {
+    display: flex;
+    gap: 1rem;
+    align-items: center;
+    padding: 0.7rem 1rem;
+    border: 1px solid rgba(255, 255, 255, 0.09);
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.028);
+    transition: border-color 0.18s ease, background 0.18s ease;
+}
+.wl-row:hover {
+    border-color: rgba(255, 255, 255, 0.18);
+    background: rgba(255, 255, 255, 0.05);
+}
+.wl-row-thumb {
+    flex: none;
+    width: 46px;
+    height: 69px;
+    border-radius: 6px;
+    overflow: hidden;
+    background: rgba(255, 255, 255, 0.06);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.wl-row-thumb img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+.wl-row-thumb-fallback {
+    font-size: 1.2rem;
+    font-weight: 800;
+    color: var(--text-muted);
+}
+.wl-row-main {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+.wl-row-title {
+    display: flex;
+    align-items: baseline;
+    gap: 0.5rem;
+    min-width: 0;
+}
+.wl-row-title a {
+    font-size: 0.95rem;
+    font-weight: 650;
+    color: var(--text-primary);
+    text-decoration: none;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.wl-row-title a:hover {
+    color: var(--accent-gold);
+}
+.wl-row-year {
+    font-size: 0.75rem;
+    font-weight: 400;
+    color: var(--text-muted);
+    flex: none;
+}
+.wl-row-sub {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-size: 0.7rem;
+    letter-spacing: 0.06em;
+    color: var(--text-muted);
+}
+.wl-row-review {
+    margin: 0.15rem 0 0;
+    font-size: 0.8rem;
+    font-style: italic;
+    line-height: 1.5;
+    color: var(--text-secondary);
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+.wl-row-side {
+    flex: none;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 0.5rem;
+}
+.wl-status-pill {
+    appearance: none;
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    border-radius: 999px;
+    background: rgba(0, 0, 0, 0.4);
+    color: var(--text-secondary);
+    font-size: 0.62rem;
+    font-weight: 800;
+    letter-spacing: 0.1em;
+    padding: 0.3rem 0.7rem;
+    cursor: pointer;
+}
+.wl-status-watching {
+    border-color: rgba(212, 175, 55, 0.55);
+    color: var(--accent-gold);
+}
+.wl-status-watched {
+    border-color: rgba(74, 222, 128, 0.5);
+    color: #4ade80;
+}
+.wl-row-actions {
+    display: flex;
+    gap: 0.4rem;
+}
+.wl-remove-btn {
+    appearance: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    background: rgba(0, 0, 0, 0.45);
+    color: var(--text-secondary);
+    font-size: 1rem;
+    line-height: 1;
+    cursor: pointer;
+}
+.wl-remove-btn:hover {
+    border-color: #ef4444;
+    color: #ef4444;
+}
+
+/* Diary entry modal */
+.diary-modal-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 200;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1rem;
+    background: rgba(0, 0, 0, 0.7);
+    backdrop-filter: blur(6px);
+    animation: set-panel-in 0.2s ease;
+}
+.diary-modal-card {
+    width: min(480px, 100%);
+    max-height: 90vh;
+    overflow-y: auto;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 18px;
+    background: #141416;
+    padding: 1.25rem 1.25rem 1.1rem;
+    box-shadow: 0 24px 80px rgba(0, 0, 0, 0.6);
+}
+.diary-modal-head {
+    display: flex;
+    align-items: center;
+    gap: 0.9rem;
+    margin-bottom: 1.1rem;
+}
+.diary-modal-poster {
+    width: 52px;
+    height: 78px;
+    object-fit: cover;
+    border-radius: 8px;
+    flex: none;
+}
+.diary-modal-titles {
+    flex: 1;
+    min-width: 0;
+}
+.diary-modal-kicker {
+    font-size: 0.62rem;
+    font-weight: 800;
+    letter-spacing: 0.18em;
+    color: var(--accent-gold);
+}
+.diary-modal-titles h3 {
+    margin: 0.2rem 0 0;
+    font-size: 1.05rem;
+    font-weight: 650;
+}
+.diary-modal-close {
+    appearance: none;
+    border: none;
+    background: none;
+    color: var(--text-muted);
+    font-size: 1.5rem;
+    line-height: 1;
+    cursor: pointer;
+    padding: 0.25rem;
+    align-self: flex-start;
+}
+.diary-modal-close:hover {
+    color: var(--text-primary);
+}
+.diary-field {
+    display: flex;
+    flex-direction: column;
+    gap: 0.45rem;
+    margin-bottom: 1rem;
+}
+.diary-label {
+    font-size: 0.65rem;
+    font-weight: 800;
+    letter-spacing: 0.14em;
+    color: var(--text-muted);
+}
+.diary-optional {
+    font-weight: 400;
+    letter-spacing: 0.02em;
+    text-transform: none;
+}
+.diary-modal-card .wl-stars .wl-star span {
+    font-size: 1.7rem;
+}
+.diary-date {
+    width: 100%;
+    color-scheme: dark;
+}
+.diary-review {
+    width: 100%;
+    resize: vertical;
+    min-height: 90px;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 10px;
+    background: rgba(0, 0, 0, 0.35);
+    color: var(--text-primary);
+    font: inherit;
+    font-size: 0.85rem;
+    line-height: 1.55;
+    padding: 0.65rem 0.8rem;
+}
+.diary-review:focus {
+    outline: none;
+    border-color: rgba(212, 175, 55, 0.55);
+}
+.diary-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.6rem;
+    margin-top: 0.25rem;
+}
+@media (max-width: 560px) {
+    .wl-row-side {
+        align-items: flex-start;
+    }
+    .wl-stats {
+        gap: 1rem;
+        flex-wrap: wrap;
+    }
+}
+
 @media (max-width: 900px) {
     .watchlist-toolbar {
         padding: 1.25rem 1rem 0;

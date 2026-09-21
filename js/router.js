@@ -200,7 +200,9 @@ export const router = {
                     id: logBtn.dataset.id,
                     type: logBtn.dataset.type,
                     title: logBtn.dataset.title,
-                    poster_path: logBtn.dataset.poster || ''
+                    poster_path: logBtn.dataset.poster || '',
+                    year: logBtn.dataset.year || '',
+                    score: Number(logBtn.dataset.score) || 0
                 };
                 await this.toggleWatchlist(item);
             } else if (searchTrigger) {

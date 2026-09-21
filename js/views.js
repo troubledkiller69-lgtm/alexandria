@@ -287,6 +287,13 @@ export const views = {
                 arr.sort((a, b) => String(a.title || a.name || '').localeCompare(String(b.title || b.name || '')));
             } else if (sort === 'watched') {
                 arr.sort((a, b) => String(b.watched_at || '').localeCompare(String(a.watched_at || '')));
+            } else if (sort === 'rating') {
+                arr.sort((a, b) => (Number(b.userRating) || 0) - (Number(a.userRating) || 0)
+                    || String(a.title || a.name || '').localeCompare(String(b.title || b.name || '')));
+            } else if (sort === 'year') {
+                arr.sort((a, b) => (Number.parseInt(b.year, 10) || 0) - (Number.parseInt(a.year, 10) || 0));
+            } else if (sort === 'score') {
+                arr.sort((a, b) => (Number(b.score) || 0) - (Number(a.score) || 0));
             }
             return arr;
         };
@@ -297,6 +304,7 @@ export const views = {
             if (filter === 'watched') return (w.status || 'want') === 'watched';
             if (filter === 'movie') return w.type === 'movie';
             if (filter === 'tv') return w.type === 'tv';
+            if (filter === 'rated') return (Number(w.userRating) || 0) > 0;
             return true;
         }));
 
@@ -307,6 +315,16 @@ export const views = {
         const featured = queue[0] || watching[0] || watched[0] || watchlist[0];
         const heroBackdrop = featured?.backdrop_path ? this.imageUrl(featured.backdrop_path, 'original') : (featured?.poster_path ? this.imageUrl(featured.poster_path, 'original') : '');
         const filterActive = filter !== 'all';
+        const listView = (this.state.watchlistView || 'grid') === 'list';
+
+        // Library stats for the header — all local, no fetch.
+        const watchedCount = watched.length;
+        const ratedItems = watchlist.filter(w => (Number(w.userRating) || 0) > 0);
+        const avgRating = ratedItems.length
+            ? (ratedItems.reduce((s, w) => s + (Number(w.userRating) || 0), 0) / ratedItems.length).toFixed(1)
+            : null;
+        const thisYear = new Date().getFullYear();
+        const yearCount = watchlist.filter(w => (w.watched_at || '').slice(0, 4) === String(thisYear)).length;
 
         const pill = (val, label) => `<button class="filter-btn ${filter === val ? 'active' : ''}" type="button" aria-pressed="${filter === val}" onclick="Alexandria.setWatchlistFilter('${val}')">${label}</button>`;
 
@@ -330,10 +348,11 @@ export const views = {
                         </div>
                     </div>
                     <div class="sector-widget">
-                        <div class="sector-widget-content">
-                            <span class="sector-label">MY WATCHLIST</span>
-                            <h4>${watchlist.length} ${watchlist.length === 1 ? 'Title' : 'Titles'} Saved</h4>
-                            <p>Personal bookmarked titles</p>
+                        <div class="sector-widget-content wl-stats">
+                            <div class="wl-stat"><b>${watchlist.length}</b><span>SAVED</span></div>
+                            <div class="wl-stat"><b id="wl-stat-watched">${watchedCount}</b><span>WATCHED</span></div>
+                            <div class="wl-stat"><b id="wl-stat-avg">${avgRating ? `★ ${avgRating}` : '—'}</b><span>AVG RATING</span></div>
+                            <div class="wl-stat"><b id="wl-stat-year">${yearCount}</b><span>LOGGED ${thisYear}</span></div>
                         </div>
                     </div>
                 </div>
@@ -344,14 +363,22 @@ export const views = {
                         ${pill('want', 'TO WATCH')}
                         ${pill('watching', 'WATCHING')}
                         ${pill('watched', 'WATCHED')}
+                        ${pill('rated', 'RATED')}
                         ${pill('movie', 'MOVIES')}
                         ${pill('tv', 'TV')}
                     </div>
                     <div class="watchlist-toolbar-actions">
+                        <div class="settings-segmented" role="group" aria-label="Watchlist layout">
+                            <button class="setting-opt ${!listView ? 'active' : ''}" type="button" aria-pressed="${!listView}" onclick="Alexandria.setWatchlistView('grid')">GRID</button>
+                            <button class="setting-opt ${listView ? 'active' : ''}" type="button" aria-pressed="${listView}" onclick="Alexandria.setWatchlistView('list')">LIST</button>
+                        </div>
                         <select id="watchlist-sort" class="compact-select" aria-label="Sort watchlist" onchange="Alexandria.setWatchlistSort(this.value)">
                             <option value="recent" ${sort === 'recent' ? 'selected' : ''}>RECENTLY ADDED</option>
                             <option value="title" ${sort === 'title' ? 'selected' : ''}>TITLE A-Z</option>
                             <option value="watched" ${sort === 'watched' ? 'selected' : ''}>WATCHED DATE</option>
+                            <option value="rating" ${sort === 'rating' ? 'selected' : ''}>YOUR RATING</option>
+                            <option value="year" ${sort === 'year' ? 'selected' : ''}>NEWEST</option>
+                            <option value="score" ${sort === 'score' ? 'selected' : ''}>TMDB SCORE</option>
                         </select>
                         <button class="compact-btn" type="button" onclick="Alexandria.surpriseMeWatchlist()">SURPRISE ME</button>
                     </div>
@@ -359,23 +386,23 @@ export const views = {
                 ` : ''}
                 ${filterActive ? `
                 <div class="view-section">
-                    <h3>${filter === 'want' ? 'TO WATCH' : filter === 'watching' ? 'WATCHING' : filter === 'watched' ? 'WATCHED' : filter === 'movie' ? 'MOVIES' : 'TV SHOWS'}</h3>
-                    ${filtered.length > 0 ? `<div class="results-grid" id="watchlist-page-grid"></div>` : '<div class="placeholder-msg">Nothing in this sector of the archive yet.</div>'}
+                    <h3>${filter === 'want' ? 'TO WATCH' : filter === 'watching' ? 'WATCHING' : filter === 'watched' ? 'WATCHED' : filter === 'rated' ? 'RATED BY YOU' : filter === 'movie' ? 'MOVIES' : 'TV SHOWS'}</h3>
+                    ${filtered.length > 0 ? (listView ? `<div class="wl-list" id="watchlist-page-grid"></div>` : `<div class="results-grid" id="watchlist-page-grid"></div>`) : '<div class="placeholder-msg">Nothing in this sector of the archive yet.</div>'}
                 </div>
                 ` : `
                 <div class="view-section">
                     <h3>UP NEXT</h3>
-                    ${queue.length > 0 ? `<div class="results-grid" id="wl-grid-queue"></div>` : '<div class="placeholder-msg">Your queue is empty. Add titles to save them for later.</div>'}
+                    ${queue.length > 0 ? (listView ? `<div class="wl-list" id="wl-grid-queue"></div>` : `<div class="results-grid" id="wl-grid-queue"></div>`) : '<div class="placeholder-msg">Your queue is empty. Add titles to save them for later.</div>'}
                 </div>
                 ${watching.length > 0 ? `
                 <div class="view-section">
                     <h3>WATCHING</h3>
-                    <div class="results-grid" id="wl-grid-watching"></div>
+                    ${listView ? `<div class="wl-list" id="wl-grid-watching"></div>` : `<div class="results-grid" id="wl-grid-watching"></div>`}
                 </div>` : ''}
                 ${watched.length > 0 ? `
                 <div class="view-section">
                     <h3>WATCHED</h3>
-                    <div class="results-grid" id="wl-grid-watched"></div>
+                    ${listView ? `<div class="wl-list" id="wl-grid-watched"></div>` : `<div class="results-grid" id="wl-grid-watched"></div>`}
                 </div>` : ''}
                 `}
                 ${watchlist.length === 0 ? `
@@ -386,12 +413,71 @@ export const views = {
         `;
 
         if (filterActive) {
-            if (filtered.length > 0) this.renderResults(filtered, 'watchlist-page-grid', false, { watchlistMode: true });
+            if (filtered.length > 0) {
+                if (listView) this.renderWatchlistList(filtered, 'watchlist-page-grid');
+                else this.renderResults(filtered, 'watchlist-page-grid', false, { watchlistMode: true });
+            }
         } else {
-            if (queue.length > 0) this.renderResults(queue, 'wl-grid-queue', false, { watchlistMode: true });
-            if (watching.length > 0) this.renderResults(watching, 'wl-grid-watching', false, { watchlistMode: true });
-            if (watched.length > 0) this.renderResults(watched, 'wl-grid-watched', false, { watchlistMode: true });
+            const renderSection = (items, gridId) => {
+                if (!items.length) return;
+                if (listView) this.renderWatchlistList(items, gridId);
+                else this.renderResults(items, gridId, false, { watchlistMode: true });
+            };
+            renderSection(queue, 'wl-grid-queue');
+            renderSection(watching, 'wl-grid-watching');
+            renderSection(watched, 'wl-grid-watched');
         }
+    },
+
+    // Dense diary-style rows for list view: thumb, year, TMDB score,
+    // your stars, status pill, review snippet, log + remove actions.
+    renderWatchlistList(items, containerId) {
+        const container = document.getElementById(containerId);
+        if (!container || !items) return;
+        if (!items.length) {
+            container.innerHTML = '<div class="placeholder-msg">NO SUPPLIES OR SURVIVORS FOUND.</div>';
+            return;
+        }
+        container.innerHTML = items.map(item => {
+            const title = item.title || item.name || 'Untitled';
+            const safeTitle = this.escapeHtml(title);
+            const itemIdStr = String(item.id);
+            const safeItemId = this.escapeHtml(itemIdStr);
+            const type = item.type === 'tv' ? 'tv' : 'movie';
+            const poster = item.poster_path ? this.imageUrl(item.poster_path, 'w185') : '';
+            const target = `#details/${type}/${safeItemId}`;
+            const status = item.status || 'want';
+            const statusLabel = status === 'watched' ? 'WATCHED' : status === 'watching' ? 'WATCHING' : 'TO WATCH';
+            const nextStatus = status === 'want' ? 'watching' : status === 'watching' ? 'watched' : 'want';
+            const year = item.year || '';
+            const score = Number(item.score) || 0;
+            const watchedCount = type === 'tv'
+                ? Object.keys(this.state.watchedEpisodes || {}).filter(k => k.startsWith(itemIdStr + '_s')).length
+                : 0;
+            const review = (item.userReview || '').trim();
+            return `
+                <div class="wl-row" data-id="${safeItemId}" data-type="${type}">
+                    <a class="wl-row-thumb" href="${target}" aria-label="View ${safeTitle}">${poster ? `<img src="${poster}" alt="${safeTitle} poster" loading="lazy" decoding="async">` : `<span class="wl-row-thumb-fallback" aria-hidden="true">A</span>`}</a>
+                    <div class="wl-row-main">
+                        <div class="wl-row-title"><a href="${target}">${safeTitle}</a>${year ? `<span class="wl-row-year">${this.escapeHtml(String(year))}</span>` : ''}</div>
+                        <div class="wl-row-sub">${score ? `<span class="wl-tmdb-score" title="TMDB score">★ ${score.toFixed(1)}</span><span aria-hidden="true">·</span>` : ''}<span>${type === 'movie' ? 'FILM' : watchedCount ? `${watchedCount} EPS SEEN` : 'SERIES'}</span>${item.watched_at ? `<span aria-hidden="true">·</span><span>LOGGED ${(item.watched_at || '').slice(0, 10)}</span>` : ''}</div>
+                        ${this.starsHtml(itemIdStr, type, item.userRating)}
+                        ${review ? `<p class="wl-row-review">“${this.escapeHtml(review.length > 220 ? review.slice(0, 220) + '…' : review)}”</p>` : ''}
+                    </div>
+                    <div class="wl-row-side">
+                        <button class="wl-status-pill wl-status-${status}" type="button" title="Advance status" onclick="Alexandria.setWatchStatus('${safeItemId}', '${type}', '${nextStatus}')">${statusLabel}</button>
+                        <div class="wl-row-actions">
+                            <button class="wl-log-btn ${review ? 'has-review' : ''}" type="button" aria-label="Log to diary" title="Log to diary" onclick="Alexandria.openLogModal('${safeItemId}', '${type}')">✎</button>
+                            <button class="wl-remove-btn" type="button" aria-label="Remove from watchlist" title="Remove from watchlist" onclick="Alexandria.toggleWatchlist({ id: '${safeItemId}', type: '${type}' })">×</button>
+                        </div>
+                    </div>
+                </div>`;
+        }).join('');
+    },
+
+    setWatchlistView(val) {
+        this.state.watchlistView = val === 'list' ? 'list' : 'grid';
+        this.renderWatchlistPage();
     },
 
     setWatchlistFilter(val) {
@@ -402,6 +488,120 @@ export const views = {
     setWatchlistSort(val) {
         this.state.watchlistSort = val;
         this.renderWatchlistPage();
+    },
+
+    // Recompute the header stats in place (used after rating without re-render).
+    refreshWatchlistStats() {
+        const watchlist = this.state.watchlist || [];
+        const watched = watchlist.filter(w => (w.status || 'want') === 'watched');
+        const rated = watchlist.filter(w => (Number(w.userRating) || 0) > 0);
+        const avg = rated.length
+            ? (rated.reduce((s, w) => s + (Number(w.userRating) || 0), 0) / rated.length).toFixed(1)
+            : null;
+        const yearCount = watchlist.filter(w => (w.watched_at || '').slice(0, 4) === String(new Date().getFullYear())).length;
+        const set = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
+        set('wl-stat-watched', String(watched.length));
+        set('wl-stat-avg', avg ? `★ ${avg}` : '—');
+        set('wl-stat-year', String(yearCount));
+    },
+
+    // Diary entry modal: watched date + stars + review + status in one shot.
+    openLogModal(id, type) {
+        const item = (this.state.watchlist || []).find(i => String(i.id) === String(id) && i.type === type);
+        if (!item) return;
+        this.closeLogModal();
+        this._diaryStatus = item.status || 'want';
+        const title = item.title || item.name || 'Untitled';
+        const poster = item.poster_path ? this.imageUrl(item.poster_path, 'w185') : '';
+        const dateVal = (item.watched_at || '').slice(0, 10) || new Date().toISOString().slice(0, 10);
+        const statusBtn = (val, label) => `<button class="setting-opt diary-status-btn ${this._diaryStatus === val ? 'active' : ''}" type="button" data-status="${val}" onclick="Alexandria.setDiaryStatus('${val}')">${label}</button>`;
+        const modal = document.createElement('div');
+        modal.id = 'diary-modal';
+        modal.className = 'diary-modal-overlay';
+        modal.innerHTML = `
+            <div class="diary-modal-card" role="dialog" aria-modal="true" aria-label="Log ${this.escapeHtml(title)}">
+                <div class="diary-modal-head">
+                    ${poster ? `<img class="diary-modal-poster" src="${poster}" alt="${this.escapeHtml(title)} poster">` : ''}
+                    <div class="diary-modal-titles">
+                        <span class="diary-modal-kicker">DIARY ENTRY</span>
+                        <h3>${this.escapeHtml(title)}${item.year ? ` <span class="wl-row-year">${this.escapeHtml(String(item.year))}</span>` : ''}</h3>
+                    </div>
+                    <button class="diary-modal-close" type="button" aria-label="Close" onclick="Alexandria.closeLogModal()">×</button>
+                </div>
+                <div class="diary-field">
+                    <span class="diary-label">YOUR RATING</span>
+                    ${this.starsHtml(String(item.id), item.type, item.userRating)}
+                </div>
+                <div class="diary-field">
+                    <label class="diary-label" for="diary-date">WATCHED ON</label>
+                    <input class="diary-date compact-select" id="diary-date" type="date" value="${this.escapeHtml(dateVal)}">
+                </div>
+                <div class="diary-field">
+                    <label class="diary-label" for="diary-review">REVIEW <span class="diary-optional">(optional)</span></label>
+                    <textarea class="diary-review" id="diary-review" rows="4" maxlength="2000" placeholder="What did it do to you?">${this.escapeHtml(item.userReview || '')}</textarea>
+                </div>
+                <div class="diary-field">
+                    <span class="diary-label">SHELF</span>
+                    <div class="settings-segmented" role="group" aria-label="Watch status">
+                        ${statusBtn('want', 'TO WATCH')}
+                        ${statusBtn('watching', 'WATCHING')}
+                        ${statusBtn('watched', 'WATCHED')}
+                    </div>
+                </div>
+                <div class="diary-actions">
+                    <button class="btn-secondary" type="button" onclick="Alexandria.closeLogModal()">CANCEL</button>
+                    <button class="btn-primary" type="button" onclick="Alexandria.saveLogEntry('${this.escapeHtml(String(item.id))}', '${this.escapeHtml(item.type)}')">SAVE ENTRY</button>
+                </div>
+            </div>`;
+        modal.addEventListener('click', e => { if (e.target === modal) this.closeLogModal(); });
+        document.body.appendChild(modal);
+        document.getElementById('diary-review')?.focus({ preventScroll: true });
+    },
+
+    setDiaryStatus(val) {
+        this._diaryStatus = val;
+        document.querySelectorAll('.diary-status-btn').forEach(b => b.classList.toggle('active', b.dataset.status === val));
+    },
+
+    closeLogModal() {
+        document.getElementById('diary-modal')?.remove();
+        this._diaryStatus = null;
+    },
+
+    saveLogEntry(id, type) {
+        const item = (this.state.watchlist || []).find(i => String(i.id) === String(id) && i.type === type);
+        if (!item) return;
+        const dateEl = document.getElementById('diary-date');
+        const reviewEl = document.getElementById('diary-review');
+        const status = this._diaryStatus || item.status || 'want';
+        const dateVal = (dateEl?.value || '').trim();
+        item.userReview = (reviewEl?.value || '').trim().slice(0, 2000);
+        item.status = status;
+        if (status === 'watched') {
+            let stamp = item.watched_at;
+            if (dateVal && /^\d{4}-\d{2}-\d{2}$/.test(dateVal)) {
+                stamp = new Date(dateVal + 'T12:00:00').toISOString();
+            }
+            item.watched_at = stamp || new Date().toISOString();
+        } else {
+            item.watched_at = null;
+        }
+        this.writeLocalList('alexandria_watchlist', this.state.watchlist);
+        // Ratings are local-only; statuses still sync to the cloud cache.
+        if (this.supabase && this.state.authUser && String(id).match(/^\d+$/)) {
+            this.supabase.from('survival_cache').upsert({
+                user_id: this.state.authUser.id,
+                tmdb_id: Number(id),
+                media_type: type,
+                title: item.title,
+                poster_path: item.poster_path,
+                status: status,
+                watched_at: item.watched_at
+            }, { onConflict: 'user_id, tmdb_id, media_type' }).then();
+        }
+        this.closeLogModal();
+        this.renderWatchlistPage();
+        this.showToast('Diary entry saved.');
     },
 
     async toggleEpPanel(id, btnArg) {

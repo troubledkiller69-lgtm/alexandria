@@ -99,6 +99,15 @@ export const storage = {
             this.state.watchlist.forEach(w => {
                 w.status = w.status || 'want';
                 w.watched_at = w.watched_at || null;
+                // Personal layer (Letterboxd-style): backfill defaults so
+                // items saved before ratings/reviews existed still render.
+                // NOTE: ratings + reviews stay local-only — survival_cache
+                // has no columns for them and a migration isn't worth it.
+                const r = Number(w.userRating);
+                w.userRating = Number.isFinite(r) ? Math.min(5, Math.max(0, Math.round(r * 2) / 2)) : 0;
+                w.userReview = typeof w.userReview === 'string' ? w.userReview : '';
+                w.year = w.year || '';
+                w.score = Number.isFinite(Number(w.score)) ? Number(w.score) : 0;
             });
             this.state.history = this.dedupeItems(cleanHistory);
             this.state.watchedEpisodes = localEpisodes;
