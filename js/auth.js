@@ -49,7 +49,23 @@ export const auth = {
     },
 
     // ============ WHAT'S NEW — changelog bell ============
+    // Kept short on purpose: latest release plus the four before it.
+    // Older entries are cut — the bell is a "what changed lately" list,
+    // not an archive.
     CHANGELOG: [
+        {
+            key: 'v1.12.0',
+            date: 'Sep 21, 2026',
+            title: 'Watchlist Diary & Settings Rebuild',
+            items: [
+                'Watchlist goes diary-style: your own 5-star ratings with halves, reviews, and a log modal that stamps date + shelf + review in one save',
+                'List view joins the watchlist — dense rows with your stars, review snippets, and a status pill that advances on click',
+                'Watched-but-unrated titles get a gold "needs a verdict" nudge banner so nothing goes unjudged',
+                'Details pages grow a YOUR TAKE block: rate inline, read your review, jump to the diary',
+                'Settings rebuilt as tabs (Playback / Appearance / Library / System) with a live mirror health dot, storage meter, and a danger zone',
+                'Home hero rotates the top 5 trending titles with autoplay, dots, and preloading'
+            ]
+        },
         {
             key: 'v1.11.0',
             date: 'Sep 3, 2026',
@@ -104,129 +120,6 @@ export const auth = {
                 'Sharing a title now copies an alexandr1a.vercel.app/share/movie/123 link instead of a raw hash URL',
                 'Discord and Telegram unfurls show the poster, title, year, and description — plus Twitter large-image cards',
                 'People clicking a shared link land directly on the title page'
-            ]
-        },
-        {
-            key: 'v1.9.4',
-            date: 'Aug 21, 2026',
-            title: 'Reactions, Replies, and a Leaner Core',
-            items: [
-                'Comment reactions: hit a comment with a ghost or a fire, one per user, counts live-update over realtime',
-                'Reply threading: REPLY under any comment, replies nest under their parent with a gold thread line',
-                'The whole client was split from one 7,700-line file into 17 ES modules — faster loads and way easier maintenance'
-            ]
-        },
-        {
-            key: 'v1.9.3',
-            date: 'Aug 21, 2026',
-            title: 'Community Page Rebuild',
-            items: [
-                'Activity feed rebuilt as a log-style ledger: each entry carries a color rail and a type chip (WATCHING, RATED, COMMENT) in the site accent palette',
-                'Leaderboard ranks 1-3 get gold, silver, and bronze medal circles; first place glows',
-                'Watch counts stacked with a WATCHES label, and the board header shows a 7-DAY TALLY window'
-            ]
-        },
-        {
-            key: 'v1.9.2',
-            date: 'Aug 21, 2026',
-            title: 'Share Cards, IMDb Scores, Housekeeping',
-            items: [
-                'Links now unfurl with proper previews — title, description, and logo cards on Discord and Telegram instead of bare URLs',
-                'IMDb ratings show up on detail pages, pulled from the OMDb proxy when a title has an IMDb ID',
-                'Removed a dead sports branch in the player that could crash if it was ever reached',
-                'Image CDN preconnect so poster loads start earlier'
-            ]
-        },
-        {
-            key: 'v1.9.1',
-            date: 'Aug 21, 2026',
-            title: 'Watch Time: Back to Approx Hours',
-            items: [
-                'HRS WATCHED is approximate again: per watch event, TMDB runtimes (movie runtime / average episode runtime) are credited — the EmbedMaster player doesn\'t report playback events to us, so real per-second tracking can\'t work against it',
-                'TOP WATCHERS THIS WEEK is back — a 7-day board of watching activity, reverted from the daily finish-based one',
-                'Community feed still shows which episode was started, with a direct link to that exact episode',
-                'Show pages show only series-level comments in the community section; per-episode comments stay in the player where they belong',
-                'New Tekken 8 avatar in the profile picker'
-            ]
-        },
-        {
-            key: 'v1.8',
-            date: 'Aug 20, 2026',
-            title: 'Archive Browsing & Profile Talk',
-            items: [
-                'Franchise archives are now grouped by genre with name search, and expanded franchise decks scroll with arrows like the home rows',
-                'Profile reviews tab now shows comments alongside reviews, with season/episode badges on per-episode comments'
-            ]
-        },
-        {
-            key: 'v1.7',
-            date: 'Aug 20, 2026',
-            title: 'Sharper Similar, Tighter Franchises, Fresh Feeds',
-            items: [
-                'Similar titles now merge both TMDB signals and rerank by genre + release year so the picks actually feel related, with a MORE LIKE THIS genre scan when TMDB comes up empty',
-                'Franchises page trimmed to real franchises — single-show stragglers like Lost are gone; filter by genre and sort A→Z, Z→A, or by title count',
-                'New avatar sets from Suits, Lost, Breaking Bad, and Reacher in the profile picker',
-                'Community feed shows only the last 24h — stale comments and list events clear out on their own while watch hours, streaks, and heatmaps stay untouched',
-                'Player hardened: backup servers when Premium dies, embed pop-up and tab-hijack blocking, and Firefox/Safari stream fixes'
-            ]
-        },
-        {
-            key: 'v1.6',
-            date: 'Aug 19, 2026',
-            title: 'Cross-Device Sync & Mobile',
-            items: [
-                'Episode progress now syncs across devices — your "up next" and watched marks follow you everywhere',
-                'TV player fixed on phones',
-                'Cleaner mobile browsing: shorter heroes, less clutter, swipeable filters'
-            ]
-        },
-        {
-            key: 'v1.5',
-            date: 'Aug 18, 2026',
-            title: 'Pulse, Cipher & The Leaderboard',
-            items: [
-                'Profile watch stats: hours watched, episodes, day streaks, and a 16-week activity heatmap',
-                '10 earnable badges — hover any badge to see how you earned it',
-                'Weekly top-5 leaderboard of the most active watchers',
-                'Spoiler tags blur comments and reviews until you tap them',
-                'Walking Dead actor avatars (Rick, Daryl, Michonne, Glenn, Maggie, Carol, Negan)'
-            ]
-        },
-        {
-            key: 'v1.4',
-            title: 'The Community Era',
-            items: [
-                'Profiles with avatars, bios, and follows',
-                'Live activity feed with a following filter',
-                'Ratings, reviews, and upgraded comments with profiles',
-                'Shared movie night lists for planning with friends'
-            ]
-        },
-        {
-            key: 'v1.3',
-            title: 'Player',
-            items: [
-                'Episode grid cards with hover previews in the sidebar',
-                'Fixes for long TV seasons'
-            ]
-        },
-        {
-            key: 'v1.2',
-            title: 'Discovery',
-            items: [
-                'Advanced search filters and a roulette mode that picks for you',
-                'Trailer previews on hover',
-                'Because-You-Watched recommendations',
-                'Releasing This Week row on the homepage'
-            ]
-        },
-        {
-            key: 'v1.1',
-            title: 'Watchlist & Franchises',
-            items: [
-                'Watchlist statuses: TO WATCH, WATCHING, WATCHED',
-                'Per-episode tracking for TV shows',
-                'Expandable franchise collections — 14 new universes added'
             ]
         }
     ],
@@ -342,6 +235,18 @@ export const auth = {
                     </div>
                     <button type="submit" class="btn-primary" style="width: 100%; margin-top: 0.5rem;">CREATE ACCOUNT</button>
                 </form>
+                <details class="auth-perks">
+                    <summary>Why create an account?</summary>
+                    <ul>
+                        <li><b>Take your library anywhere</b> — watchlist, episode progress, and history sync across every device.</li>
+                        <li><b>Watch together</b> — host or join Watch Party rooms with synced playback.</li>
+                        <li><b>Join the conversation</b> — comment, reply, and react with your name on it.</li>
+                        <li><b>Your profile</b> — avatar, stats, streaks, badges, and follows.</li>
+                        <li><b>Movie nights</b> — build shared lists and plan with friends.</li>
+                        <li><b>Bring your taste</b> — import Letterboxd and AniList lists straight into your account.</li>
+                    </ul>
+                    <p class="auth-perks-note">No account needed to watch, save, or rate — that stuff always works in this browser.</p>
+                </details>
             `}
             <button type="button" class="btn-arrow" style="align-self: center; margin-top: 0.5rem;" onclick="Alexandria.toggleAuthModal(false); window.location.hash = '#settings'">SETTINGS</button>
         `;

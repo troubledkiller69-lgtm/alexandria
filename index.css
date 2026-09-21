@@ -4873,6 +4873,72 @@ h1, h2, h3, h4 {
     border-color: rgba(239, 68, 68, 0.6);
 }
 
+/* Account benefits disclosure on the signup tab */
+.auth-perks {
+    margin-top: 1rem;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.025);
+    padding: 0.7rem 0.9rem;
+}
+.auth-perks summary {
+    cursor: pointer;
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    color: var(--accent-gold);
+    list-style: none;
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
+}
+.auth-perks summary::-webkit-details-marker {
+    display: none;
+}
+.auth-perks summary::before {
+    content: '+';
+    font-size: 1rem;
+    line-height: 1;
+    color: var(--accent-gold);
+}
+.auth-perks[open] summary::before {
+    content: '–';
+}
+.auth-perks summary:hover {
+    text-decoration: underline;
+}
+.auth-perks ul {
+    margin: 0.7rem 0 0;
+    padding: 0;
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+.auth-perks li {
+    font-size: 0.8rem;
+    line-height: 1.5;
+    color: var(--text-secondary);
+    padding-left: 1.1rem;
+    position: relative;
+}
+.auth-perks li::before {
+    content: '★';
+    position: absolute;
+    left: 0;
+    color: var(--accent-gold);
+    font-size: 0.7rem;
+}
+.auth-perks li b {
+    color: var(--text-primary);
+}
+.auth-perks-note {
+    margin: 0.7rem 0 0;
+    font-size: 0.72rem;
+    line-height: 1.5;
+    color: var(--text-muted);
+}
+
 .auth-profile-card {
     display: flex;
     flex-direction: column;
