@@ -115,6 +115,7 @@ export const details = {
                                     <button id="watch-status-btn" class="btn-secondary" type="button" style="margin-left: 10px;" onclick="Alexandria.setWatchStatus(${id}, '${type}', '${wlStatus === 'watched' ? 'want' : 'watched'}')">${wlStatus === 'watched' ? 'BACK TO QUEUE' : wlStatus === 'watching' ? 'MARK COMPLETE' : 'MARK WATCHED'}</button>
                                     ` : ''}
                                 </div>
+                                ${this.detailsTakeHtml(id, type, wlEntry)}
                             </div>
                         </div>
                     </div>
@@ -360,6 +361,29 @@ export const details = {
             return { season, episode };
         }
         return null;
+    },
+
+    // Your personal layer on the details page: rate inline, read your
+    // review, jump to the diary. Unsaved titles get a prompt instead —
+    // the + button above is the way in.
+    detailsTakeHtml(id, type, wlEntry) {
+        if (!wlEntry) {
+            return `
+                <div class="details-take">
+                    <span class="details-take-label">YOUR TAKE</span>
+                    <p class="details-take-prompt">Save it to your library to rate it and keep a diary entry.</p>
+                </div>`;
+        }
+        const review = (wlEntry.userReview || '').trim();
+        return `
+            <div class="details-take">
+                <span class="details-take-label">YOUR TAKE</span>
+                <div class="details-take-row">
+                    ${this.starsHtml(String(id), type, wlEntry.userRating)}
+                    <button class="wl-log-btn ${review ? 'has-review' : ''}" type="button" aria-label="Open diary entry" title="Open diary entry" onclick="Alexandria.openLogModal('${this.escapeHtml(String(id))}', '${this.escapeHtml(type)}')">✎</button>
+                </div>
+                ${review ? `<p class="details-take-review">“${this.escapeHtml(review.length > 280 ? review.slice(0, 280) + '…' : review)}”</p>` : `<p class="details-take-prompt">No review yet — tap ✎ to write one.</p>`}
+            </div>`;
     },
 
 };

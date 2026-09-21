@@ -580,7 +580,10 @@ export const search = {
         const star = Number(btn?.dataset?.star) || 0;
         if (!id || !type || !star) return;
         const item = (this.state.watchlist || []).find(i => String(i.id) === String(id) && i.type === type);
-        if (!item) return;
+        if (!item) {
+            this.showToast('Save it to your library first, then rate it.');
+            return;
+        }
         let val = star;
         try {
             const rect = btn.getBoundingClientRect();

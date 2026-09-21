@@ -305,6 +305,7 @@ export const views = {
             if (filter === 'movie') return w.type === 'movie';
             if (filter === 'tv') return w.type === 'tv';
             if (filter === 'rated') return (Number(w.userRating) || 0) > 0;
+            if (filter === 'unrated') return (w.status || 'want') === 'watched' && !((Number(w.userRating) || 0) > 0);
             return true;
         }));
 
@@ -325,6 +326,9 @@ export const views = {
             : null;
         const thisYear = new Date().getFullYear();
         const yearCount = watchlist.filter(w => (w.watched_at || '').slice(0, 4) === String(thisYear)).length;
+
+        // Watched but never rated — the nudge pool.
+        const unrated = watchlist.filter(w => (w.status || 'want') === 'watched' && !((Number(w.userRating) || 0) > 0));
 
         const pill = (val, label) => `<button class="filter-btn ${filter === val ? 'active' : ''}" type="button" aria-pressed="${filter === val}" onclick="Alexandria.setWatchlistFilter('${val}')">${label}</button>`;
 
@@ -364,6 +368,7 @@ export const views = {
                         ${pill('watching', 'WATCHING')}
                         ${pill('watched', 'WATCHED')}
                         ${pill('rated', 'RATED')}
+                        ${unrated.length > 0 ? pill('unrated', `NEEDS A RATING (${unrated.length})`) : ''}
                         ${pill('movie', 'MOVIES')}
                         ${pill('tv', 'TV')}
                     </div>
@@ -384,9 +389,15 @@ export const views = {
                     </div>
                 </div>
                 ` : ''}
+                ${!filterActive && unrated.length > 0 ? `
+                <button class="wl-nudge" type="button" onclick="Alexandria.setWatchlistFilter('unrated')">
+                    <span class="wl-nudge-text"><b>★ ${unrated.length} watched ${unrated.length === 1 ? 'title still needs' : 'titles still need'} a verdict</b><span>Your stars are the whole point — tap to rate ${unrated.length === 1 ? 'it' : 'them'}.</span></span>
+                    <span class="wl-nudge-cta" aria-hidden="true">RATE →</span>
+                </button>
+                ` : ''}
                 ${filterActive ? `
                 <div class="view-section">
-                    <h3>${filter === 'want' ? 'TO WATCH' : filter === 'watching' ? 'WATCHING' : filter === 'watched' ? 'WATCHED' : filter === 'rated' ? 'RATED BY YOU' : filter === 'movie' ? 'MOVIES' : 'TV SHOWS'}</h3>
+                    <h3>${filter === 'want' ? 'TO WATCH' : filter === 'watching' ? 'WATCHING' : filter === 'watched' ? 'WATCHED' : filter === 'rated' ? 'RATED BY YOU' : filter === 'unrated' ? 'NEEDS A VERDICT' : filter === 'movie' ? 'MOVIES' : 'TV SHOWS'}</h3>
                     ${filtered.length > 0 ? (listView ? `<div class="wl-list" id="watchlist-page-grid"></div>` : `<div class="results-grid" id="watchlist-page-grid"></div>`) : '<div class="placeholder-msg">Nothing in this sector of the archive yet.</div>'}
                 </div>
                 ` : `
