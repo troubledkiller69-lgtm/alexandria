@@ -107,12 +107,12 @@ export const views = {
                         <p>${this.escapeHtml(featured?.overview || 'Your playback history across movies and television series.')}</p>
                         <div class="category-hero-actions">
                             ${featured ? `
-                                <button class="btn-primary" onclick="Alexandria.playContent(${featured.id}, '${featured.type || 'movie'}', ${featured.season || 1}, ${featured.episode || 1})">
+                                <button class="btn-primary btn-play" onclick="Alexandria.playContent(${featured.id}, '${featured.type || 'movie'}', ${featured.season || 1}, ${featured.episode || 1})">
                                     <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg> RESUME PLAYBACK
                                 </button>
                             ` : ''}
                             ${history.length > 0 ? `
-                                <button class="btn-secondary" onclick="Alexandria.clearWatchHistory()">CLEAR HISTORY</button>
+                                <button class="btn-danger" onclick="Alexandria.clearWatchHistory()">CLEAR HISTORY</button>
                             ` : ''}
                         </div>
                     </div>
@@ -341,13 +341,13 @@ export const views = {
                         <p>${this.escapeHtml(featured?.overview || 'Your saved collection of movies and television series.')}</p>
                         <div class="category-hero-actions">
                             ${featured ? `
-                                <button class="btn-primary" onclick="Alexandria.playContent(${featured.id}, '${featured.type || 'movie'}')">
+                                <button class="btn-primary btn-play" onclick="Alexandria.playContent(${featured.id}, '${featured.type || 'movie'}')">
                                     <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg> WATCH NOW
                                 </button>
-                                <button class="btn-secondary wl-details-btn" onclick="window.location.hash = '#details/${featured.type || 'movie'}/${featured.id}'">DETAILS</button>
+                                <button class="btn-quiet wl-details-btn" onclick="window.location.hash = '#details/${featured.type || 'movie'}/${featured.id}'">DETAILS</button>
                             ` : ''}
                             ${watchlist.length > 0 ? `
-                                <button class="btn-secondary" onclick="Alexandria.clearWatchlistPage()">CLEAR WATCHLIST</button>
+                                <button class="btn-danger" onclick="Alexandria.clearWatchlistPage()">CLEAR WATCHLIST</button>
                             ` : ''}
                         </div>
                     </div>
@@ -385,7 +385,7 @@ export const views = {
                             <option value="year" ${sort === 'year' ? 'selected' : ''}>NEWEST</option>
                             <option value="score" ${sort === 'score' ? 'selected' : ''}>TMDB SCORE</option>
                         </select>
-                        <button class="compact-btn" type="button" onclick="Alexandria.surpriseMeWatchlist()">SURPRISE ME</button>
+                        <button class="btn-gold btn-sm" type="button" onclick="Alexandria.surpriseMeWatchlist()">SURPRISE ME</button>
                     </div>
                 </div>
                 ` : ''}
@@ -560,8 +560,8 @@ export const views = {
                     </div>
                 </div>
                 <div class="diary-actions">
-                    <button class="btn-secondary" type="button" onclick="Alexandria.closeLogModal()">CANCEL</button>
-                    <button class="btn-primary" type="button" onclick="Alexandria.saveLogEntry('${this.escapeHtml(String(item.id))}', '${this.escapeHtml(item.type)}')">SAVE ENTRY</button>
+                    <button class="btn-quiet" type="button" onclick="Alexandria.closeLogModal()">CANCEL</button>
+                    <button class="btn-gold" type="button" onclick="Alexandria.saveLogEntry('${this.escapeHtml(String(item.id))}', '${this.escapeHtml(item.type)}')">SAVE ENTRY</button>
                 </div>
             </div>`;
         modal.addEventListener('click', e => { if (e.target === modal) this.closeLogModal(); });

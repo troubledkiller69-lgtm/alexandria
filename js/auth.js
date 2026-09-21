@@ -192,10 +192,10 @@ export const auth = {
                         <h3>${this.escapeHtml(name)}</h3>
                         <p>${this.escapeHtml(u.email || 'Verified Account')}</p>
                     </div>
-                    <button type="button" class="btn-primary" style="width: 100%; margin-top: 1rem;" onclick="Alexandria.toggleAuthModal(false); window.location.hash = '${profileHash}'">VIEW PROFILE</button>
-                    <button type="button" class="btn-secondary" style="width: 100%; margin-top: 0.5rem;" onclick="Alexandria.toggleAuthModal(false); window.location.hash = '#settings'">SETTINGS</button>
-                    <button type="button" class="btn-secondary" style="width: 100%; margin-top: 0.5rem;" onclick="Alexandria.editProfileModal(true)">EDIT PROFILE</button>
-                    <button type="button" class="btn-danger" style="width: 100%; margin-top: 0.5rem;" onclick="Alexandria.handleSignOut()">LOG OUT</button>
+                    <button type="button" class="btn-primary btn-block" onclick="Alexandria.toggleAuthModal(false); window.location.hash = '${profileHash}'">VIEW PROFILE</button>
+                    <button type="button" class="btn-quiet btn-block" onclick="Alexandria.toggleAuthModal(false); window.location.hash = '#settings'">SETTINGS</button>
+                    <button type="button" class="btn-quiet btn-block" onclick="Alexandria.editProfileModal(true)">EDIT PROFILE</button>
+                    <button type="button" class="btn-danger btn-block" onclick="Alexandria.handleSignOut()">LOG OUT</button>
                 </div>
             `;
             return;
@@ -217,7 +217,7 @@ export const auth = {
                         <label>Password</label>
                         <input type="password" id="auth-password" placeholder="••••••••" required>
                     </div>
-                    <button type="submit" class="btn-primary" style="width: 100%; margin-top: 0.5rem;">SIGN IN</button>
+                    <button type="submit" class="btn-primary btn-block">SIGN IN</button>
                 </form>
             ` : `
                 <form class="auth-form" onsubmit="Alexandria.handleSignUp(event)">
@@ -233,7 +233,7 @@ export const auth = {
                         <label>Password</label>
                         <input type="password" id="auth-password" placeholder="Min 6 characters" required minlength="6">
                     </div>
-                    <button type="submit" class="btn-primary" style="width: 100%; margin-top: 0.5rem;">CREATE ACCOUNT</button>
+                    <button type="submit" class="btn-primary btn-block">CREATE ACCOUNT</button>
                 </form>
                 <details class="auth-perks">
                     <summary>Why create an account?</summary>

@@ -415,7 +415,7 @@ export const search = {
                         <h3>${this.escapeHtml(title)}</h3>
                         <div class="roulette-result-btns">
                             <button type="button" class="btn-primary" onclick="Alexandria.closeRouletteModal(); window.location.hash = '#details/${this.escapeHtml(pick.type)}/${Number(pick.id)}'">OPEN TITLE</button>
-                            <button type="button" class="btn-secondary" onclick="Alexandria.spinRoulette()">SPIN AGAIN</button>
+                            <button type="button" class="btn-gold" onclick="Alexandria.spinRoulette()">SPIN AGAIN</button>
                         </div>
                     </div>
                 </div>`;
@@ -479,9 +479,9 @@ export const search = {
                         ${year ? `<p class="roulette-result-meta">${this.escapeHtml(year)}</p>` : ''}
                         <p class="roulette-result-overview">${this.escapeHtml(overview)}</p>
                         <div class="roulette-result-btns">
-                            <button type="button" class="btn-primary" onclick="Alexandria.closeRouletteModal(); window.location.hash = '#details/${type}/${pick.id}'">PLAY NOW</button>
-                            <button type="button" class="btn-secondary" onclick="Alexandria.toggleWatchlist(${this.escapeHtml(JSON.stringify(watchItem))})">WATCHLIST</button>
-                            <button type="button" class="btn-secondary" onclick="Alexandria.spinRoulette()">SPIN AGAIN</button>
+                            <button type="button" class="btn-primary btn-play" onclick="Alexandria.closeRouletteModal(); window.location.hash = '#details/${type}/${pick.id}'">PLAY NOW</button>
+                            <button type="button" class="btn-gold" onclick="Alexandria.toggleWatchlist(${this.escapeHtml(JSON.stringify(watchItem))})">WATCHLIST</button>
+                            <button type="button" class="btn-gold" onclick="Alexandria.spinRoulette()">SPIN AGAIN</button>
                         </div>
                     </div>
                 </div>`;

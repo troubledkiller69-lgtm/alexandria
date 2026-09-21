@@ -258,7 +258,7 @@ export const community = {
                     <span class="profile-modal-label">Favorite Genres</span>
                     <div class="genre-picker" id="genre-picker"></div>
                     <div class="profile-modal-actions">
-                        <button type="button" class="btn-secondary" onclick="Alexandria.editProfileModal(false)">CANCEL</button>
+                        <button type="button" class="btn-quiet" onclick="Alexandria.editProfileModal(false)">CANCEL</button>
                         <button type="button" class="btn-primary" onclick="Alexandria.saveProfile()">SAVE</button>
                     </div>
                 </div>

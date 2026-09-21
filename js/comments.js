@@ -794,7 +794,7 @@ export const comments = {
                         <input type="checkbox" id="review-spoiler" ${ownRow?.spoiler ? 'checked' : ''}>
                         <span class="spoiler-toggle-text">Spoiler</span>
                     </label>
-                    <button type="button" class="btn-primary" data-action="submit-rating" data-type="${/^(movie|tv)$/.test(String(type)) ? type : 'movie'}" data-id="${Number(id) || 0}">${ownRow ? 'UPDATE REVIEW' : 'SUBMIT'}</button>
+                    <button type="button" class="btn-gold" data-action="submit-rating" data-type="${/^(movie|tv)$/.test(String(type)) ? type : 'movie'}" data-id="${Number(id) || 0}">${ownRow ? 'UPDATE REVIEW' : 'SUBMIT'}</button>
                     ${ownRow && this.isSafeCommentId(String(ownRow.id)) ? `<button type="button" class="btn-danger" data-action="delete-rating" data-id="${ownRow.id}">DELETE MY REVIEW</button>` : ''}
                 </div>
             </div>

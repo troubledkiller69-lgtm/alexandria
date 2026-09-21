@@ -42,7 +42,7 @@ export const party = {
                             </select>
                         </label>
                         <button type="button" id="party-sync-clock" class="party-clock" title="Click to set sync time (e.g. 16:57)" onclick="Alexandria.partyEditSyncClock()" style="display: ${this.isHost ? 'inline-flex' : 'none'};">0:00</button>
-                        <button type="button" id="party-play-toggle" class="btn-secondary party-play-toggle" style="display: ${this.isHost ? 'inline-flex' : 'none'};" title="Play/pause the whole room" onclick="Alexandria.partyHostCommand(Alexandria.isPartyPaused() ? 'play' : 'pause')">PAUSE</button>
+                        <button type="button" id="party-play-toggle" class="btn-primary btn-sm party-play-toggle" style="display: ${this.isHost ? 'inline-flex' : 'none'};" title="Play/pause the whole room" onclick="Alexandria.partyHostCommand(Alexandria.isPartyPaused() ? 'play' : 'pause')">PAUSE</button>
                         <button type="button" id="party-guest-sync" class="party-sync-link" onclick="Alexandria.partyGuestSync()" style="display: ${this.isHost ? 'none' : 'inline-flex'};">Sync</button>
                         <span id="party-sync-clock-guest" class="party-clock party-clock--static" style="display: ${this.isHost ? 'none' : 'inline-flex'};">0:00</span>
                         <button type="button" class="btn-secondary party-invite" onclick="Alexandria.copyPartyLink()">Invite</button>
@@ -79,7 +79,7 @@ export const party = {
                     </div>
                     <div class="party-chat-compose">
                         <input type="text" id="party-chat-input" placeholder="Message…" maxlength="280" onkeypress="if(event.key === 'Enter') Alexandria.sendPartyChatMessage()">
-                        <button type="button" class="btn-primary" onclick="Alexandria.sendPartyChatMessage()">Send</button>
+                        <button type="button" class="btn-primary btn-sm" onclick="Alexandria.sendPartyChatMessage()">Send</button>
                     </div>
                 </aside>
             </section>`;

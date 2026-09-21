@@ -2669,7 +2669,9 @@ h1, h2, h3, h4 {
 .details-actions > * { margin-left: 0 !important; }
 @media (max-width: 720px) {
     .details-actions .btn-primary,
-    .details-actions .btn-secondary {
+    .details-actions .btn-secondary,
+    .details-actions .btn-gold,
+    .details-actions .btn-quiet {
         padding-inline: 1rem;
         font-size: 0.8rem;
     }
@@ -7365,6 +7367,83 @@ h1, h2, h3, h4 {
 }
 .btn-arrow:hover::after {
     transform: translateX(4px);
+}
+
+/* Gold actions: the personal layer — diary, ratings, verdicts, lists.
+   Anything that's about YOUR taste, not playback or navigation. */
+.btn-gold {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    padding: 0.75rem 1.75rem;
+    border: 1px solid rgba(212, 175, 55, 0.5);
+    border-radius: 4px;
+    background: rgba(212, 175, 55, 0.08);
+    color: var(--accent-gold);
+    font-family: var(--font-body);
+    font-size: 0.84rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: background 0.2s ease, border-color 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
+}
+.btn-gold:hover {
+    background: rgba(212, 175, 55, 0.16);
+    border-color: rgba(212, 175, 55, 0.8);
+    box-shadow: 0 0 16px rgba(212, 175, 55, 0.25);
+    transform: translateY(-1px);
+}
+
+/* Quiet actions: tertiary, dismissive, navigational. Barely a button
+   until hovered — for CANCEL, CLEAR, dismiss, and back-links that
+   shouldn't compete with the real action. */
+.btn-quiet {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.4rem;
+    padding: 0.6rem 1rem;
+    border: 1px solid transparent;
+    border-radius: 4px;
+    background: transparent;
+    color: var(--text-muted);
+    font-family: var(--font-body);
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: color 0.2s ease, border-color 0.2s ease, background 0.2s ease;
+}
+.btn-quiet:hover {
+    color: var(--text-primary);
+    border-color: rgba(255, 255, 255, 0.16);
+    background: rgba(255, 255, 255, 0.04);
+}
+
+/* Size + layout modifiers. Compose freely: class="btn-secondary btn-sm",
+   class="btn-primary btn-block". These kill the inline width/margin hacks. */
+.btn-sm {
+    padding: 0.45rem 1rem;
+    font-size: 0.72rem;
+}
+.btn-block {
+    width: 100%;
+}
+.btn-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.6rem;
+}
+.btn-row-end {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 0.6rem;
 }
 
 /* ---- Franchise archive: banner + rows ---- */

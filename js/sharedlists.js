@@ -282,8 +282,8 @@ export const sharedlists = {
                 <textarea id="list-edit-desc" rows="3" maxlength="500">${this.escapeHtml(list.description || '')}</textarea>
             </div>
             <div class="profile-modal-actions">
-                <button type="button" class="btn-secondary" onclick="Alexandria.renderList()">CANCEL</button>
-                <button type="button" class="btn-primary" onclick="Alexandria.saveListEdit()">SAVE</button>
+<button type="button" class="btn-quiet" onclick="Alexandria.renderList()">CANCEL</button>
+                    <button type="button" class="btn-primary" onclick="Alexandria.saveListEdit()">SAVE</button>
             </div>
         `;
     },
@@ -347,7 +347,7 @@ export const sharedlists = {
                         <input type="text" id="list-picker-new-title" placeholder="List title" maxlength="120">
                     </div>
                     <div class="profile-modal-actions">
-                        <button type="button" class="btn-primary" onclick="Alexandria.createListFromPicker()">CREATE</button>
+                        <button type="button" class="btn-gold" onclick="Alexandria.createListFromPicker()">CREATE</button>
                     </div>
                 </div>
             `;
@@ -371,7 +371,7 @@ export const sharedlists = {
                             <span class="list-picker-row-title">${this.escapeHtml(l.title || 'Untitled list')}</span>
                             ${l.description ? `<span class="list-picker-row-desc">${this.escapeHtml(l.description)}</span>` : ''}
                         </div>
-                        <button type="button" class="btn-secondary" onclick="Alexandria.pickListAdd('${this.escapeHtml(l.id)}')">ADD</button>
+                        <button type="button" class="btn-gold btn-sm" onclick="Alexandria.pickListAdd('${this.escapeHtml(l.id)}')">ADD</button>
                     </div>`).join('')
                 : '<div class="list-picker-empty">No lists yet</div>';
         } catch {

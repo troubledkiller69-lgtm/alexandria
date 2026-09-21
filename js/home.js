@@ -12,7 +12,7 @@ export const home = {
             <p>${this.escapeHtml(m.overview || 'No overview is available yet.')}</p>
             <div class="hero-actions">
                 <button class="btn-primary btn-play" onclick="Alexandria.playContent(${id}, 'movie')">WATCH NOW</button>
-                <button class="btn-secondary" onclick="window.location.hash = '#details/movie/${id}'">MORE INFO</button>
+                        <button class="btn-quiet" onclick="window.location.hash = '#details/movie/${id}'">MORE INFO</button>
             </div>`;
     },
 

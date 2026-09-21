@@ -507,7 +507,7 @@ export const core = {
                     </div>
                     <p class="import-explainer-note">ANI LIST IMPORTS RUN THROUGH THE ANILIST BUTTON BELOW THIS ONE.</p>
                     <div class="profile-modal-actions">
-                        <button type="button" class="btn-secondary" onclick="Alexandria.closeImportExplainer()">CANCEL</button>
+                        <button type="button" class="btn-quiet" onclick="Alexandria.closeImportExplainer()">CANCEL</button>
                         <button type="button" class="btn-primary" onclick="Alexandria.pickImportFile()">CHOOSE FILE</button>
                     </div>
                 </div>`;
@@ -770,7 +770,7 @@ export const core = {
                         <input type="text" id="anilist-username" placeholder="Your AniList username" maxlength="40" autocomplete="off">
                     </div>
                     <div class="profile-modal-actions">
-                        <button type="button" class="btn-secondary" onclick="document.getElementById('anilist-import-modal').setAttribute('hidden','')">CANCEL</button>
+                        <button type="button" class="btn-quiet" onclick="document.getElementById('anilist-import-modal').setAttribute('hidden','')">CANCEL</button>
                         <button type="button" class="btn-primary" onclick="Alexandria.runAniListImport()">IMPORT</button>
                     </div>
                 </div>`;
@@ -995,7 +995,7 @@ export const core = {
                     <div class="import-notfound-list">${notFound.map(n => `<div>${this.escapeHtml(n)}</div>`).join('')}</div>
                 ` : ''}
                 <div class="profile-modal-actions">
-                    <button type="button" class="btn-primary" onclick="document.getElementById('import-result-modal').remove()">DONE</button>
+                    <button type="button" class="btn-quiet" onclick="document.getElementById('import-result-modal').remove()">DONE</button>
                 </div>
             </div>`;
         modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); });

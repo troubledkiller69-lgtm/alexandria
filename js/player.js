@@ -639,8 +639,8 @@ export const player = {
                 <p class="upnext-title">${this.escapeHtml(label)}</p>
                 <p class="upnext-count">PLAYING IN <span id="upnext-countdown">5</span>…</p>
                 <div class="upnext-actions">
-                    <button type="button" class="btn-secondary" onclick="Alexandria.cancelUpNext()">CANCEL</button>
-                    <button type="button" class="btn-primary" onclick="Alexandria.playNextNow()">PLAY NOW</button>
+<button type="button" class="btn-quiet" onclick="Alexandria.cancelUpNext()">CANCEL</button>
+                            <button type="button" class="btn-primary btn-play" onclick="Alexandria.playNextNow()">PLAY NOW</button>
                 </div>
             </div>`;
         container.appendChild(overlay);

@@ -127,7 +127,7 @@ export const settings = {
                                 <span class="set-card-title">Local caches</span>
                                 <span class="set-card-note">Mirror health snapshots and the API response cache. Safe to wipe anytime.</span>
                             </div>
-                            <button type="button" class="btn-secondary" onclick="Alexandria.clearLocalCaches()">Clear</button>
+                            <button type="button" class="btn-danger" onclick="Alexandria.clearLocalCaches()">Clear</button>
                         </div>
                     </div>
                 </div>
@@ -148,7 +148,7 @@ export const settings = {
                             <span class="set-card-title">What's new</span>
                             <span class="set-card-note">The in-app changelog, same list the bell opens.</span>
                         </div>
-                        <button type="button" class="btn-secondary" onclick="Alexandria.toggleChangelogMenu()">Changelog</button>
+                        <button type="button" class="btn-quiet" onclick="Alexandria.toggleChangelogMenu()">Changelog</button>
                     </div>
 
                     <div class="set-card">
@@ -157,7 +157,7 @@ export const settings = {
                             <span class="set-card-title">Your profile</span>
                             <span class="set-card-note">Avatars, bios, and follows live on the profile page, not here.</span>
                         </div>
-                        <button type="button" class="btn-secondary" onclick="Alexandria.toggleAccountMenu()">Account</button>
+                        <button type="button" class="btn-quiet" onclick="Alexandria.toggleAccountMenu()">Account</button>
                     </div>
                 </div>
 
