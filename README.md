@@ -1,32 +1,67 @@
 # Alexandria
 
-A streaming archive with opinions. Movies, TV, anime, and whole franchises in one dark, fast, single-page app. No frameworks, no build step — one `index.html`, one stylesheet, and 17 ES modules under `js/` that run the whole thing.
+We've all been there. Forty minutes scrolling, nothing playing. We built the thing that ends that.
 
-## What's under the hood
+Alexandria is a streaming library with strong opinions — movies, TV, and anime in one dark, fast app, with a diary that remembers what you loved, parties for watching together, and a community that actually talks about the thing. It's live now: **https://alexandr1a.vercel.app/**. Open it. You'll be watching in under a minute.
 
-TMDB feeds the catalog through Vercel functions, so the API key never leaves the server. A health probe (`/api/probe`) reachability-checks every mirror and tags dead ones in the server picker. Supabase handles accounts, watchlists, comments, ratings, and realtime — row-level security on every table, column-level grants so email never shows up in client reads. The player is an iframe embed with a mirror picker and a dual-protocol `postMessage` bridge (EmbedMaster plus PlayerJS) guarded by a 12-host origin allowlist. Routing is a hand-rolled hash router. `#tv/12345/s/2/e/3` parses straight into a render dispatcher.
+## Pick something in seconds, not hours
 
-## What it does
+Can't choose? We've got you three ways.
 
-- Home loads trending, a continue-watching row deduped against your cloud history, your watchlist, and whatever airs this week.
-- Details pages pull credits, trailers, similar titles, and IMDb scores in one pass. Similar titles get reranked by genre overlap and release-year proximity — not just keyword matches.
-- 33 curated franchise archives. MCU, Star Wars, Transformers, and friends. Each one has its own accent color. Definitions live in the Supabase `franchises` table (editable without a deploy), with bundled fallback data. Search them, filter them by genre, sort them.
-- Roulette. Spin a random title, filtered by type if you're picky.
-- Comments per title and per episode. Spoiler tags blur until you tap. Realtime insert channel, so new comments land without a refresh.
-- Star ratings plus written reviews. 1–5 scale, one per user per title.
-- Watchlist with three states: want, watching, watched. Synced to the cloud, importable and exportable as JSON.
-- Profiles with franchise avatar sets (including a Tekken 8 one), bios, genre tags, and follows. Each profile has a watch pulse — approximate hours, day streaks, a 16-week activity heatmap, and 10 earnable badges.
-- Top Watchers This Week. A 7-day window of watching activity, rendered as a top-5 board tied to real profiles.
-- Watch Party. Realtime sync over Supabase presence and broadcast. The host controls playback; guests receive state diffs with a 0.85s lead offset to absorb network jitter. Built-in chat sidebar. Works across episodes.
-- Movie Night lists. Shared, collaborative. Anyone can drop titles in; only the owner or the person who added a title can remove it. Realtime.
-- Community feed with a following filter. Activity, ratings, and list changes from the last 24 hours.
+- Hit the roulette wheel. Filter by type, genre, rating, runtime, decade — or spin your own watchlist when the queue itself is the problem.
+- Open Because You Watched. It learns from your history and stops suggesting stuff you'd never touch.
+- Check Releasing This Week. New episodes, one row, zero digging.
 
-## What's deliberately not in here
+The home hero rotates the five biggest trending titles on its own. Trailers preview on hover. Posters load before you notice them.
 
-True watch-time telemetry. The embed we use reports zero playback events, so hours are approximate — TMDB runtime credited per watch event, labeled APPROX on the profile card. We don't pretend it's exact.
+## Your library keeps score
 
-## Boring but real
+Most watchlists are graveyards. Ours isn't.
 
-CSP, HSTS preload, COOP, nosniff, and a restrictive Permissions-Policy. `escapeHtml` on every piece of dynamic content. Inbound `postMessage` data is only trusted from the allowlisted embed hosts. Deploys are a git push.
+Save anything to three shelves — TO WATCH, WATCHING, WATCHED — and it starts working for you. Rate it with real five-star precision, halves included, because four stars and four-and-a-half stars are different feelings and we respect that. Write the review while it's fresh: the diary modal stamps the date, the shelf, and your words in one save. Watched something and never rated it? A gold banner shows up and calls you out. Politely. Mostly.
 
-Live at alexandr1a.vercel.app.
+`GRID or LIST` — flip the whole library into dense diary rows with your stars inline, review snippets in italics, and a status pill that advances with a tap.
+
+Your stats pile up without asking: titles saved, watched count, your average rating, what you logged this year. Profiles go further — hours watched, day streaks, a 16-week heatmap, ten earnable badges. Receipts for your taste.
+
+Coming from somewhere else? Bring it all. We import Letterboxd CSVs and AniList lists, ratings included.
+
+## Never lose your place
+
+Pause on the TV, resume on your phone. Continue watching shows your exact timestamp on a red resume strip, episode progress syncs across devices, and per-episode tracking knows which one you're on — down to S2:E7.
+
+Dead streams are the worst part of streaming sites. So mirrors get health-checked and the picker prefers ones that actually answered. You never see the machinery. You just press play and it plays. Anime gets its own servers with a DUB/SUB toggle that sticks.
+
+## Watch it together
+
+Movie night, no couch required. Spin up a Watch Party room, send the link, and everyone's playback stays locked — the host drives, guests follow automatically. Works for films and full series runs.
+
+Planning ahead? Build a shared movie-night list, let everyone pile titles on, vote with your presence. The indecision ends before the popcorn's done.
+
+## Talk about the thing
+
+Every title has a living comment section underneath it. React with a ghost or a fire. Thread replies under the comment that started it. Spoiler tags stay blurred until you tap them, because we're not animals.
+
+Beyond single titles there's the Community feed — a 24-hour ledger of what everyone's watching, rating, and saying, with a following filter when you only care about your people. The weekly leaderboard ranks the most active watchers. Gold for first place. Obviously.
+
+Share anything with a link that unfurls properly: poster, title, year, description, right there in Discord and Telegram. Profiles and movie-night lists get their own share cards too.
+
+## Thirty-three universes, curated
+
+The franchise archives are the deep end. MCU, Star Wars, Alien, Saw, and twenty-nine more — full collections in viewing order, browsable by genre, searchable by name. New universes land without us redeploying anything.
+
+Anime isn't an afterthought here. Dedicated mirrors, dub availability badges on details pages, season and episode maps that actually resolve.
+
+## Yours, even without an account
+
+Here's the part we're proudest of: you don't need an account for any of this. Watch, save, rate, review, build the whole diary — it all works in your browser, free, no signup wall between you and the play button.
+
+An account gets you the social layer and backup: cross-device sync, Watch Party rooms, comments with your name on them, your profile, shared lists. That's the deal, stated plainly. Your library is yours either way.
+
+## On your home screen in ten seconds
+
+It's installable. Add it to your phone or desktop and it behaves like a native app. The layout's built mobile-first — shorter heroes, swipeable filters, a player that actually works on phones.
+
+---
+
+Stop scrolling. Start watching. **https://alexandr1a.vercel.app/**
