@@ -7476,17 +7476,17 @@ h1, h2, h3, h4 {
     box-shadow: 0 0 32px rgba(163, 4, 4, 0.65), inset 0 1px 0 rgba(255, 255, 255, 0.18);
 }
 
-/* Destructive actions: quiet until hovered, then the red reads as a warning
-   rather than an accent. */
+/* Destructive actions: solid red, reads as a warning at rest. */
 .btn-danger {
-    background: transparent;
-    border: 1px solid rgba(239, 68, 68, 0.4);
-    color: #fca5a5;
+    background: linear-gradient(180deg, #b90505 0%, #990404 100%);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: #fff;
+    box-shadow: 0 0 16px rgba(163, 4, 4, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.12);
 }
 .btn-danger:hover {
-    background: rgba(239, 68, 68, 0.14);
-    border-color: rgba(239, 68, 68, 0.7);
-    color: #ffffff;
+    background: linear-gradient(180deg, #c50606 0%, #a30404 100%);
+    border-color: rgba(255, 255, 255, 0.2);
+    box-shadow: 0 0 24px rgba(163, 4, 4, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.18);
     transform: translateY(-1px);
 }
 
