@@ -78,7 +78,7 @@ export const profiles = {
             .catch(() => {});
     },
 
-    async renderProfile(uid) {
+async renderProfile(uid) {
         const targetUid = uid || this.state.activeProfileId;
         if (!targetUid) {
             this.renderError('This profile is unavailable', 'No user id was supplied.', 'home');
@@ -143,6 +143,9 @@ export const profiles = {
             const tab = ['reviews', 'lists'].includes(this.state.profileTab) ? this.state.profileTab : 'activity';
             this.state.profileTab = tab;
 
+            // Kick off pulse stats calculation in background
+            this.renderProfilePulse(targetUid);
+
             this.main.innerHTML = `
                 <section class="profile-page">
                     <div class="profile-hero">
@@ -151,14 +154,17 @@ export const profiles = {
                             <h1>${this.escapeHtml(displayName)}</h1>
                             ${profile.username ? `<p class="profile-handle">@${this.escapeHtml(profile.username)}</p>` : ''}
                             ${profile.bio ? `<p class="profile-bio">${this.escapeHtml(profile.bio)}</p>` : ''}
-                            <div class="profile-stats">
+                            <div class="profile-stats" id="profile-stats">
                                 <span class="profile-stat"><strong>${activity.length}</strong>Activity</span>
-                                <span class="profile-stat"><strong>${ratings.length + comments.length}</strong>Reviews &amp; Comments</span>
+                                <span class="profile-stat"><strong>${ratings.length + comments.length}</strong>Reviews & Comments</span>
                                 <span class="profile-stat"><strong>${lists.length}</strong>Lists</span>
                                 <span class="profile-stat"><strong id="profile-followers-count">${followers}</strong>Followers</span>
                                 <span class="profile-stat"><strong>${following}</strong>Following</span>
                             </div>
                             ${genreChips ? `<div class="profile-genres">${genreChips}</div>` : ''}
+                            <div class="profile-pulse-inline" id="profile-pulse-inline">
+                                <div class="placeholder-msg pulse-loading"><span class="pulse-dot"></span> CALCULATING WATCH STATS...</div>
+                            </div>
                         </div>
                         <div class="profile-hero-actions">
                             ${followBtn}
@@ -166,29 +172,25 @@ export const profiles = {
                             ${editBtn}
                         </div>
                     </div>
-                    <div class="profile-pulse" id="profile-pulse">
-                        <div class="placeholder-msg pulse-loading"><span class="pulse-dot"></span> CALCULATING WATCH STATS...</div>
-                    </div>
                     <div class="profile-tabs">
                         <button type="button" class="profile-tab ${tab === 'activity' ? 'active' : ''}" data-tab="activity" onclick="Alexandria.setProfileTab('activity')">ACTIVITY</button>
-                        <button type="button" class="profile-tab ${tab === 'reviews' ? 'active' : ''}" data-tab="reviews" onclick="Alexandria.setProfileTab('reviews')">REVIEWS &amp; COMMENTS</button>
+                        <button type="button" class="profile-tab ${tab === 'reviews' ? 'active' : ''}" data-tab="reviews" onclick="Alexandria.setProfileTab('reviews')">REVIEWS & COMMENTS</button>
                         <button type="button" class="profile-tab ${tab === 'lists' ? 'active' : ''}" data-tab="lists" onclick="Alexandria.setProfileTab('lists')">LISTS</button>
                     </div>
                     <div id="profile-section"></div>
                 </section>
             `;
             this.renderProfileSection();
-            this.renderProfilePulse(targetUid);
         } catch (e) {
             console.error("Alexandria Protocol: Profile Render Failed", e);
             if (token === this._renderToken) this.renderError('This profile is unavailable', e.message || 'Something went wrong.', 'profile');
         }
     },
 
-    // Pulse — watch-time stats, streaks, heatmap and badges. All derived
+// Pulse — watch-time stats, streaks, heatmap and badges. All derived
     // from public activity/ratings/comments/lists, so anyone can view them.
     async renderProfilePulse(uid) {
-        const container = document.getElementById('profile-pulse');
+        const container = document.getElementById('profile-pulse-inline');
         if (!container) return;
         if (!this.supabase) { container.innerHTML = ''; return; }
         const token = this._renderToken;
@@ -279,11 +281,11 @@ export const profiles = {
                 heatHtml += `<div class="pulse-heat-col">${heatCells.slice(c * 7, c * 7 + 7).join('')}</div>`;
             }
 
-            // Badges
+            // Badges - inline chips
             const { lists = [], followers = 0, following = 0 } = this.state.profileData || {};
             const maxTvDay = Object.keys(tvPerDay).length ? Math.max(...Object.values(tvPerDay)) : 0;
             const maxMovieDay = Object.keys(moviePerDay).length ? Math.max(...Object.values(moviePerDay)) : 0;
-            const icon = p => `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${p}</svg>`;
+            const icon = p => `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${p}</svg>`;
             const badges = [];
             if (titles > 0) badges.push(['FIRST BLOOD', 'Watched your first title', icon('<path d="M12 22a7 7 0 0 0 7-7c0-2-1-3.9-3-5.5s-3.5-4-4-6.5c-.5 2.5-2 4.9-4 6.5C6 11.1 5 13 5 15a7 7 0 0 0 7 7z"></path>')]);
             if (maxTvDay >= 5) badges.push(['BINGE LORD', '5+ episodes in a single day', icon('<polygon points="12 2 2 7 12 12 22 7 12 2"></polygon><polyline points="2 17 12 22 22 17"></polyline><polyline points="2 12 12 17 22 12"></polyline>')]);
@@ -298,17 +300,16 @@ export const profiles = {
 
             const hoursText = hours >= 10 ? String(Math.round(hours)) : hours.toFixed(1);
             container.innerHTML = `
-                <div class="pulse-stats-grid">
-                    <div class="pulse-stat-card"><span class="pulse-stat-value">${hoursText}</span><span class="pulse-stat-label">HRS WATCHED <span class="pulse-stat-sub">APPROX</span></span></div>
-                    <div class="pulse-stat-card"><span class="pulse-stat-value">${episodes}</span><span class="pulse-stat-label">EPISODES</span></div>
-                    <div class="pulse-stat-card"><span class="pulse-stat-value">${titles}</span><span class="pulse-stat-label">TITLES</span></div>
-                    <div class="pulse-stat-card"><span class="pulse-stat-value">${current}</span><span class="pulse-stat-label">DAY STREAK${longest > current ? ` <span class="pulse-stat-sub">LONGEST ${longest}</span>` : ''}</span></div>
+                <div class="pulse-stats-inline">
+                    <span class="pulse-stat-inline"><strong>${hoursText}</strong><span>HRS WATCHED</span></span>
+                    <span class="pulse-stat-inline"><strong>${episodes}</strong><span>EPISODES</span></span>
+                    <span class="pulse-stat-inline"><strong>${titles}</strong><span>TITLES</span></span>
+                    <span class="pulse-stat-inline"><strong>${current}</strong><span>DAY STREAK${longest > current ? ` • LONGEST ${longest}` : ''}</span></span>
                 </div>
-                <div class="pulse-heat-wrap">
+                <div class="pulse-heat-inline">
                     <div class="pulse-heatmap">${heatHtml}</div>
-                    <div class="pulse-heat-legend">LESS <span class="pulse-heat-cell heat-1"></span><span class="pulse-heat-cell heat-2"></span><span class="pulse-heat-cell heat-3"></span><span class="pulse-heat-cell heat-4"></span> MORE</div>
                 </div>
-                ${badges.length ? `<div class="pulse-badges"><span class="pulse-badge-title">BADGES</span>${badges.map(([name, desc, badgeIcon]) => `<span class="pulse-badge" data-desc="${this.escapeHtml(desc)}">${badgeIcon}${this.escapeHtml(name)}</span>`).join('')}</div>` : '<p class="pulse-empty">Start watching to earn badges.</p>'}
+                ${badges.length ? `<div class="pulse-badges-inline">${badges.map(([name, desc, badgeIcon]) => `<span class="pulse-badge-chip" title="${this.escapeHtml(desc)}">${badgeIcon}${this.escapeHtml(name)}</span>`).join('')}</div>` : ''}
             `;
         } catch (e) {
             console.warn("Alexandria Protocol: Pulse stats failed", e);
@@ -415,22 +416,82 @@ export const profiles = {
             followed: 'started following someone',
             comment: 'commented on'
         };
-        container.innerHTML = activity.length ? activity.map(a => {
-            const verb = verbs[a.kind] || 'was active on';
-            return `
-                <div class="profile-section-item">
-                    ${avatar(36)}
-                    <div class="profile-section-body">
-                        <div class="profile-section-line">
-                            ${nameLink}
-                            <span class="profile-verb">${verb}</span>
-                            ${titleLink(a)}
-                        </div>
+
+        // Group activity by content for poster display
+        const contentMap = new Map();
+        activity.forEach(a => {
+            if (a.content_id && (a.content_type === 'movie' || a.content_type === 'tv')) {
+                const key = `${a.content_type}_${a.content_id}`;
+                if (!contentMap.has(key)) {
+                    contentMap.set(key, {
+                        id: a.content_id,
+                        type: a.content_type,
+                        title: a.title,
+                        poster_path: a.poster_path,
+                        actions: []
+                    });
+                }
+                contentMap.get(key).actions.push(a);
+            }
+        });
+
+        // Render activity as poster carousel + detail list
+        const hasPosters = contentMap.size > 0;
+        const otherActivity = activity.filter(a => !a.content_id || a.content_type === 'followed');
+
+        container.innerHTML = `
+            ${hasPosters ? `
+                <div class="profile-activity-posters">
+                    <h4 class="profile-activity-title">RECENT ACTIVITY</h4>
+                    <div class="profile-poster-carousel">
+                        ${[...contentMap.values()].map(c => `
+                            <a class="profile-poster-card" href="#details/${c.type}/${c.id}" aria-label="${this.escapeHtml(c.title || 'Unknown')}">
+                                ${c.poster_path ? `<img src="${this.imageUrl(c.poster_path, 'w342')}" alt="${this.escapeHtml(c.title || '')} poster" loading="lazy" decoding="async">` : `<div class="profile-poster-placeholder">${c.type === 'movie' ? '🎬' : '📺'}</div>`}
+                                <div class="profile-poster-overlay">
+                                    <span class="profile-poster-action">${verbs[c.actions[0]?.kind] || 'active'}</span>
+                                </div>
+                            </a>
+                        `).join('')}
                     </div>
-                    <span class="profile-timeago">${this.timeago(a.created_at)}</span>
                 </div>
-            `;
-        }).join('') : '<div class="profile-empty">No activity yet.</div>';
+            ` : ''}
+            ${otherActivity.length > 0 || !hasPosters ? `
+                <div class="profile-activity-list">
+                    ${otherActivity.length > 0 ? otherActivity.map(a => {
+                        const verb = verbs[a.kind] || 'was active on';
+                        return `
+                            <div class="profile-section-item">
+                                ${avatar(36)}
+                                <div class="profile-section-body">
+                                    <div class="profile-section-line">
+                                        ${nameLink}
+                                        <span class="profile-verb">${verb}</span>
+                                        ${titleLink(a)}
+                                    </div>
+                                </div>
+                                <span class="profile-timeago">${this.timeago(a.created_at)}</span>
+                            </div>
+                        `;
+                    }).join('') : ''}
+                    ${!hasPosters && activity.length > 0 ? activity.filter(a => a.content_id && (a.content_type === 'movie' || a.content_type === 'tv')).map(a => {
+                        const verb = verbs[a.kind] || 'was active on';
+                        return `
+                            <div class="profile-section-item">
+                                ${avatar(36)}
+                                <div class="profile-section-body">
+                                    <div class="profile-section-line">
+                                        ${nameLink}
+                                        <span class="profile-verb">${verb}</span>
+                                        ${titleLink(a)}
+                                    </div>
+                                </div>
+                                <span class="profile-timeago">${this.timeago(a.created_at)}</span>
+                            </div>
+                        `;
+                    }).join('') : ''}
+                </div>
+            ` : '<div class="profile-empty">No activity yet.</div>'}
+        `;
     },
 
     // Profile reviews tab: merge written reviews with comments, newest first.
