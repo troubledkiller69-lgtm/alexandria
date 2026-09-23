@@ -140,6 +140,13 @@ export const router = {
         });
 
         document.addEventListener('click', (e) => {
+            const wrapper = document.getElementById('filter-dropdown-wrapper');
+            if (wrapper && !wrapper.contains(e.target)) {
+                wrapper.classList.remove('open');
+            }
+        });
+
+        document.addEventListener('click', (e) => {
             const menu = document.getElementById('account-menu');
             const trigger = document.getElementById('auth-trigger');
             if (menu && !menu.hasAttribute('hidden') && !menu.contains(e.target) && !trigger?.contains(e.target)) {

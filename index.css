@@ -3293,6 +3293,167 @@ h1, h2, h3, h4 {
     font-weight: 700;
 }
 
+/* Watchlist Filter Dropdown — mirrors genre dropdown but inline toolbar height */
+.filter-dropdown-wrapper {
+    position: relative;
+    display: inline-block;
+}
+
+.filter-dropdown-trigger {
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-left: 3px solid rgba(255, 255, 255, 0.16);
+    color: var(--text-secondary);
+    padding: 0.45rem 0.9rem;
+    border-radius: 4px;
+    font-size: 0.85rem;
+    font-weight: 500;
+    cursor: pointer;
+    height: 42px;
+    min-height: 42px;
+    box-sizing: border-box;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.filter-dropdown-trigger:hover {
+    background: rgba(255, 255, 255, 0.08);
+    border-color: rgba(255, 255, 255, 0.25);
+    border-left-color: rgba(255, 255, 255, 0.4);
+    color: var(--text-primary);
+}
+
+.filter-dropdown-trigger:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 2px rgba(138, 3, 3, 0.4);
+}
+
+.filter-arrow-icon {
+    width: 16px;
+    height: 16px;
+    color: var(--accent-gold);
+    transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+    flex-shrink: 0;
+}
+
+.filter-dropdown-wrapper.open .filter-arrow-icon {
+    transform: rotate(180deg);
+}
+
+.filter-dropdown-popover {
+    position: absolute;
+    top: calc(100% + 8px);
+    left: 0;
+    z-index: 120;
+    min-width: 200px;
+    max-height: 320px;
+    overflow-y: auto;
+    background: #0d0f15;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 12px;
+    box-shadow: 0 20px 48px rgba(0, 0, 0, 0.85);
+    padding: 0.4rem;
+    display: none;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
+}
+
+.filter-dropdown-popover::-webkit-scrollbar {
+    width: 5px;
+}
+.filter-dropdown-popover::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 4px;
+}
+
+.filter-dropdown-wrapper.open .filter-dropdown-popover {
+    display: block;
+    animation: genrePopIn 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.filter-popover-item {
+    display: flex;
+    align-items: center;
+    width: 100%;
+    padding: 0.55rem 0.8rem;
+    border-radius: 8px;
+    cursor: pointer;
+    background: transparent;
+    border: none;
+    color: var(--text-secondary);
+    font-size: 0.85rem;
+    font-weight: 500;
+    text-align: left;
+    transition: background 0.15s ease, color 0.15s ease;
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    user-select: none;
+}
+
+.filter-popover-item:hover {
+    background: rgba(255, 255, 255, 0.08);
+    color: var(--text-primary);
+}
+
+.filter-popover-item.active {
+    background: rgba(138, 3, 3, 0.16);
+    color: #fff;
+}
+
+.filter-popover-item.active .filter-popover-text {
+    color: #fff;
+    font-weight: 600;
+}
+
+.filter-popover-text {
+    font-size: 0.85rem;
+    font-weight: 500;
+    color: inherit;
+}
+
+/* Surprise Me button — distinct gold-accent style, not btn-gold */
+.btn-surprise {
+    background: linear-gradient(135deg, rgba(212, 175, 55, 0.15) 0%, rgba(180, 140, 30, 0.1) 100%);
+    border: 1px solid rgba(212, 175, 55, 0.35);
+    color: #d4af37;
+    padding: 0.45rem 0.9rem;
+    border-radius: 4px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    cursor: pointer;
+    height: 42px;
+    min-height: 42px;
+    box-sizing: border-box;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.btn-surprise:hover {
+    background: linear-gradient(135deg, rgba(212, 175, 55, 0.25) 0%, rgba(180, 140, 30, 0.18) 100%);
+    border-color: rgba(212, 175, 55, 0.6);
+    color: #fff;
+    box-shadow: 0 0 16px rgba(212, 175, 55, 0.25);
+    transform: translateY(-1px);
+}
+
+.btn-surprise:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 2px rgba(212, 175, 55, 0.4);
+}
+
+.btn-surprise:active {
+    transform: translateY(0) scale(0.98);
+}
+
+.btn-surprise svg {
+    flex-shrink: 0;
+}
+
 /* Category Hero Banner (Movies, TV, Anime) */
 .category-hero-banner {
     position: relative;
@@ -6822,18 +6983,10 @@ h1, h2, h3, h4 {
     /* DETAILS is one tap away on every grid card; drop the duplicate hero button */
     .wl-details-btn { display: none; }
 
-    /* Watchlist filter pills scroll sideways instead of stacking three rows deep */
-    .watchlist-toolbar-filters {
-        display: flex;
-        flex-wrap: nowrap;
-        overflow-x: auto;
-        -webkit-overflow-scrolling: touch;
-        scrollbar-width: none;
-        padding-bottom: 0.15rem;
-        width: 100%;
-    }
-    .watchlist-toolbar-filters::-webkit-scrollbar { display: none; }
-    .watchlist-toolbar-filters .filter-btn { flex: 0 0 auto; }
+    /* Watchlist filter dropdown full-width on mobile */
+    .filter-dropdown-wrapper { width: 100%; }
+    .filter-dropdown-trigger { width: 100%; justify-content: space-between; }
+    .filter-dropdown-popover { left: 0; right: 0; min-width: auto; }
     .watchlist-toolbar-actions { width: 100%; justify-content: space-between; }
 }
 

@@ -62,6 +62,12 @@ export const views = {
         if (wrapper) wrapper.classList.toggle('open');
     },
 
+    toggleFilterDropdown(e) {
+        if (e) e.stopPropagation();
+        const wrapper = document.getElementById('filter-dropdown-wrapper');
+        if (wrapper) wrapper.classList.toggle('open');
+    },
+
     async selectGenre(genreId) {
         const genre = this.GENRES.find(g => g.id === genreId) || this.GENRES[0];
         this.state.activeGenreId = genre.id;
@@ -330,7 +336,17 @@ export const views = {
         // Watched but never rated — the nudge pool.
         const unrated = watchlist.filter(w => (w.status || 'want') === 'watched' && !((Number(w.userRating) || 0) > 0));
 
-        const pill = (val, label) => `<button class="filter-btn ${filter === val ? 'active' : ''}" type="button" aria-pressed="${filter === val}" onclick="Alexandria.setWatchlistFilter('${val}')">${label}</button>`;
+        const filterLabels = {
+            all: 'ALL',
+            want: 'TO WATCH',
+            watching: 'WATCHING',
+            watched: 'WATCHED',
+            rated: 'RATED',
+            unrated: `NEEDS A VERDICT (${unrated.length})`,
+            movie: 'MOVIES',
+            tv: 'TV'
+        };
+        const filterOptions = ['all', 'want', 'watching', 'watched', 'rated', ...(unrated.length > 0 ? ['unrated'] : []), 'movie', 'tv'];
 
         this.main.innerHTML = `
             <section class="filtered-view">
@@ -363,14 +379,19 @@ export const views = {
                 ${watchlist.length > 0 ? `
                 <div class="watchlist-toolbar">
                     <div class="watchlist-toolbar-filters">
-                        ${pill('all', 'ALL')}
-                        ${pill('want', 'TO WATCH')}
-                        ${pill('watching', 'WATCHING')}
-                        ${pill('watched', 'WATCHED')}
-                        ${pill('rated', 'RATED')}
-                        ${unrated.length > 0 ? pill('unrated', `NEEDS A RATING (${unrated.length})`) : ''}
-                        ${pill('movie', 'MOVIES')}
-                        ${pill('tv', 'TV')}
+                        <div class="filter-dropdown-wrapper" id="filter-dropdown-wrapper">
+                            <button type="button" class="filter-dropdown-trigger" onclick="Alexandria.toggleFilterDropdown(event)">
+                                <span id="filter-dropdown-label">${filterLabels[filter]}</span>
+                                <svg class="filter-arrow-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                            </button>
+                            <div class="filter-dropdown-popover" role="listbox" aria-label="Watchlist filters">
+                                ${filterOptions.map(val => `
+                                    <button class="filter-popover-item ${filter === val ? 'active' : ''}" type="button" role="option" aria-selected="${filter === val}" data-filter="${val}" onclick="Alexandria.setWatchlistFilter('${val}')">
+                                        <span class="filter-popover-text">${filterLabels[val]}</span>
+                                    </button>
+                                `).join('')}
+                            </div>
+                        </div>
                     </div>
                     <div class="watchlist-toolbar-actions">
                         <div class="settings-segmented" role="group" aria-label="Watchlist layout">
@@ -385,7 +406,10 @@ export const views = {
                             <option value="year" ${sort === 'year' ? 'selected' : ''}>NEWEST</option>
                             <option value="score" ${sort === 'score' ? 'selected' : ''}>TMDB SCORE</option>
                         </select>
-                        <button class="btn-gold btn-sm" type="button" onclick="Alexandria.surpriseMeWatchlist()">SURPRISE ME</button>
+                        <button class="btn-surprise btn-sm" type="button" onclick="Alexandria.surpriseMeWatchlist()">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="10 2 2 10 10 18"></polyline><path d="M21 12c-2 2-4 4-6 6-2-2-4-4-6-6"></path><line x1="2" y1="21" x2="10" y2="2"></line></svg>
+                            <span>SURPRISE ME</span>
+                        </button>
                     </div>
                 </div>
                 ` : ''}
@@ -493,6 +517,22 @@ export const views = {
 
     setWatchlistFilter(val) {
         this.state.watchlistFilter = val;
+        const labelEl = document.getElementById('filter-dropdown-label');
+        if (labelEl) {
+            const labels = {
+                all: 'ALL',
+                want: 'TO WATCH',
+                watching: 'WATCHING',
+                watched: 'WATCHED',
+                rated: 'RATED',
+                unrated: `NEEDS A VERDICT`,
+                movie: 'MOVIES',
+                tv: 'TV'
+            };
+            labelEl.textContent = labels[val] || 'ALL';
+        }
+        const wrapper = document.getElementById('filter-dropdown-wrapper');
+        if (wrapper) wrapper.classList.remove('open');
         this.renderWatchlistPage();
     },
 
