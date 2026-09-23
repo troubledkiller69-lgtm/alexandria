@@ -9,7 +9,7 @@ export const storage = {
             let localEpisodes = this.readStorageJson(localStorage, 'alexandria_watched_episodes', {}) || {};
 
             localWatchlist = this.dedupeItems(localWatchlist);
-            cleanHistory = this.dedupeItems(cleanHistory);
+            cleanHistory = this.dedupeItems(cleanHistory, { forHistory: true });
 
             if (this.supabase && this.state.authUser) {
                 const uid = this.state.authUser.id;
@@ -51,7 +51,8 @@ export const storage = {
                             title: h.title,
                             poster_path: h.poster_path
                         }));
-                        cleanHistory = this.dedupeItems([...cloudHist, ...cleanHistory]);
+                        // Local first: new watches on this device win over cloud
+                        cleanHistory = this.dedupeItems([...cleanHistory, ...cloudHist], { forHistory: true });
                     }
 
                     // Push local-only episode marks up so per-episode progress
@@ -109,7 +110,7 @@ export const storage = {
                 w.year = w.year || '';
                 w.score = Number.isFinite(Number(w.score)) ? Number(w.score) : 0;
             });
-            this.state.history = this.dedupeItems(cleanHistory);
+            this.state.history = this.dedupeItems(cleanHistory, { forHistory: true });
             this.state.watchedEpisodes = localEpisodes;
             this.writeLocalList('alexandria_watchlist', this.state.watchlist);
             this.writeLocalList('alexandria_history', this.state.history);
@@ -168,7 +169,7 @@ export const storage = {
 
     async addToHistory(item) {
         if (!item || item.id == null || !item.type) return;
-        this.state.history = this.dedupeItems([item, ...this.state.history]);
+        this.state.history = this.dedupeItems([item, ...this.state.history], { forHistory: true });
         if (this.state.history.length > 20) this.state.history.pop();
         this.writeLocalList('alexandria_history', this.state.history);
 
