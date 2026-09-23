@@ -143,9 +143,6 @@ async renderProfile(uid) {
             const tab = ['reviews', 'lists'].includes(this.state.profileTab) ? this.state.profileTab : 'activity';
             this.state.profileTab = tab;
 
-            // Kick off pulse stats calculation in background
-            this.renderProfilePulse(targetUid);
-
             this.main.innerHTML = `
                 <section class="profile-page">
                     <div class="profile-hero">
@@ -180,6 +177,7 @@ async renderProfile(uid) {
                     <div id="profile-section"></div>
                 </section>
             `;
+            this.renderProfilePulse(targetUid);
             this.renderProfileSection();
         } catch (e) {
             console.error("Alexandria Protocol: Profile Render Failed", e);
