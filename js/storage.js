@@ -182,6 +182,11 @@ export const storage = {
             }, { onConflict: 'user_id, content_id, type' }).then();
         }
 
+        // Refresh the Continue Watching section on home page if visible
+        if (this.state.view === 'home' && typeof this.renderHistory === 'function') {
+            this.renderHistory();
+        }
+
         if (['movie', 'tv'].includes(item.type) && String(item.id).match(/^\d+$/)) {
             // Session dedupe: re-opening the same content within the window isn't a new "started watching".
             const season = item.type === 'tv' ? (Number(item.season) || 0) : null;
