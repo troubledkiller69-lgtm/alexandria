@@ -76,11 +76,17 @@ export const franchises = {
                 }
             };
 
-            const results = (cached?.at && Date.now() - cached.at < 15 * 60 * 1000 && Array.isArray(cached.results) && cached.results.length)
-                ? cached.results
-                : await Promise.all(franchises.map(fetchCollection));
-
-            if (!(cached?.at && Date.now() - cached.at < 15 * 60 * 1000 && Array.isArray(cached.results) && cached.results.length)) {
+            const cacheValid = cached?.at && Date.now() - cached.at < 15 * 60 * 1000 && Array.isArray(cached.results) && cached.results.length;
+            let results;
+            if (cacheValid) {
+                results = cached.results;
+            } else {
+                results = [];
+                for (let i = 0; i < franchises.length; i += 6) {
+                    const wave = await Promise.all(franchises.slice(i, i + 6).map(fetchCollection));
+                    results.push(...wave);
+                    if (token !== this._renderToken) return;
+                }
                 try {
                     sessionStorage.setItem(FRANCHISE_CACHE_KEY, JSON.stringify({ at: Date.now(), results }));
                 } catch { /* quota */ }
@@ -100,6 +106,8 @@ export const franchises = {
     },
 
     renderFranchiseGrid(results) {
+        const searchFocused = document.activeElement && document.activeElement.matches('.franchise-search');
+        this.closeFranchiseDeck();
         const genre = this.state.franchiseGenre || 'All';
         const sort = this.state.franchiseSort || 'az';
         const query = (this.state.franchiseSearch || '').toLowerCase();
@@ -107,10 +115,10 @@ export const franchises = {
         let visible = results.filter(f => f.items.length && (genre === 'All' || f.genre === genre));
         if (query) visible = visible.filter(f => f.name.toLowerCase().includes(query));
         const sortTiles = (list) => {
-            list.sort((a, b) => a.name.localeCompare(b.name));
-            if (sort === 'za') list.reverse();
-            else if (sort === 'count') list.sort((a, b) => b.items.length - a.items.length);
-            return list;
+            const sorted = [...list].sort((a, b) => a.name.localeCompare(b.name));
+            if (sort === 'za') sorted.reverse();
+            else if (sort === 'count') sorted.sort((a, b) => b.items.length - a.items.length);
+            return sorted;
         };
         // Stable per-franchise index so the deck host can resolve cards.
         this._visibleFranchises = visible;
@@ -196,6 +204,13 @@ export const franchises = {
                         <button class="carousel-arrow right" type="button" aria-label="Scroll ${g ? this.escapeHtml(g) : 'franchises'} right" onclick="Alexandria.scrollCarousel(this, 800)">&#10095;</button>
                     </div>`).join('')}
                 </section>`;
+        if (searchFocused) {
+            const search = this.main.querySelector('.franchise-search');
+            if (search) {
+                search.focus();
+                try { search.setSelectionRange(search.value.length, search.value.length); } catch { /* caret */ }
+            }
+        }
     },
 
     franchiseWatchedCount(f) {
@@ -247,14 +262,27 @@ export const franchises = {
         document.querySelectorAll('.franchise-card').forEach(c => {
             c.classList.toggle('active', Number(c.dataset.franchiseIndex) === idx);
         });
+        this._deckOpener = document.querySelector(`.franchise-card[data-franchise-index="${idx}"]`);
+        if (!this._deckEscapeHandler) {
+            this._deckEscapeHandler = (e) => {
+                if (e.key !== 'Escape') return;
+                const openHost = document.getElementById('franchise-deck-host');
+                if (openHost && !openHost.hasAttribute('hidden')) this.closeFranchiseDeck();
+            };
+            document.addEventListener('keydown', this._deckEscapeHandler);
+        }
+        host.querySelector('.franchise-panel-close')?.focus();
         this.renderResults([f.items[0]], 'deck-first');
         if (f.items.length > 1) this.renderResults(f.items.slice(1), 'deck-rest');
     },
 
     closeFranchiseDeck() {
         const host = document.getElementById('franchise-deck-host');
+        const opener = this._deckOpener;
         if (host) host.setAttribute('hidden', '');
         document.querySelectorAll('.franchise-card.active').forEach(c => c.classList.remove('active'));
+        if (host && document.activeElement && host.contains(document.activeElement) && opener && opener.isConnected) opener.focus();
+        this._deckOpener = null;
     },
 
     setFranchiseSearch(value) {
