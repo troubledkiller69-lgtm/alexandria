@@ -145,9 +145,11 @@ export const home = {
         const container = document.getElementById('priority-archive-section');
         if (!container) return;
         
-        if (this.state.watchlist.length > 0) {
+        const queue = this.state.watchlist.filter(w => (w.status || 'want') !== 'watched');
+        
+        if (queue.length > 0) {
             container.innerHTML = `<div class="view-section"><h3>MY WATCHLIST</h3><div class="carousel-container"><button class="carousel-arrow left" onclick="Alexandria.scrollCarousel(this, -800)">&#10094;</button><div class="carousel-wrapper"><div class="carousel-grid" id="watchlist-results"></div></div><button class="carousel-arrow right" onclick="Alexandria.scrollCarousel(this, 800)">&#10095;</button></div></div>`;
-            this.renderResults(this.state.watchlist, 'watchlist-results');
+            this.renderResults(queue, 'watchlist-results');
         } else {
             container.innerHTML = '<div class="view-section"><h3>MY WATCHLIST</h3><div class="placeholder-msg">Your watchlist is empty. Save movies and TV shows here to watch later.</div></div>';
         }
