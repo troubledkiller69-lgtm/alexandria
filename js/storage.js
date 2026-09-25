@@ -11,6 +11,20 @@ export const storage = {
             localWatchlist = this.dedupeItems(localWatchlist);
             cleanHistory = this.dedupeItems(cleanHistory, { forHistory: true });
 
+            // Remove show-level history entries (no season/episode) when per-episode entries exist for the same show
+            const showKeysWithEpisodes = new Set();
+            cleanHistory.forEach(h => {
+                if (h.id != null && h.type && h.season != null && h.episode != null) {
+                    showKeysWithEpisodes.add(`${String(h.id)}_${h.type}`);
+                }
+            });
+            cleanHistory = cleanHistory.filter(h => {
+                if (h.id != null && h.type && (h.season == null || h.episode == null)) {
+                    return !showKeysWithEpisodes.has(`${String(h.id)}_${h.type}`);
+                }
+                return true;
+            });
+
             if (this.supabase && this.state.authUser) {
                 const uid = this.state.authUser.id;
                 try {
