@@ -1,4 +1,5 @@
 const CACHE = 'alexandria-shell-v1';
+const APP_VERSION = '20260924b';
 
 const SHELL = [
     '/',
@@ -11,6 +12,18 @@ const SHELL = [
 ];
 
 const POSTER_CACHE_MAX = 60;
+
+async function checkVersionAndReload() {
+    try {
+        const resp = await fetch('/index.html', { cache: 'no-store' });
+        const html = await resp.text();
+        const match = html.match(/js\/app\.js\?v=([^"']+)/);
+        if (match && match[1] !== APP_VERSION) {
+            await caches.keys().then(keys => Promise.all(keys.map(k => caches.delete(k))));
+            self.clients.matchAll().then(clients => clients.forEach(c => c.navigate(c.url)));
+        }
+    } catch { /* ignore */ }
+}
 
 async function trimPosterCache(cache) {
     const keys = await cache.keys();
@@ -32,6 +45,7 @@ self.addEventListener('activate', event => {
         caches.keys()
             .then(keys => Promise.all(keys.filter(k => k !== CACHE).map(k => caches.delete(k))))
             .then(() => self.clients.claim())
+            .then(() => checkVersionAndReload())
     );
 });
 
@@ -61,6 +75,8 @@ self.addEventListener('fetch', event => {
 
     // Navigations: network-first, fall back to the cached shell offline.
     if (request.mode === 'navigate') {
+        // Fire version check in background
+        checkVersionAndReload();
         event.respondWith(
             fetch(request)
                 .then(response => {
