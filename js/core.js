@@ -210,6 +210,30 @@ export const core = {
             : '';
     },
 
+    cleanLocalHistory() {
+        try {
+            const raw = localStorage.getItem('alexandria_history');
+            if (!raw) return;
+            const arr = JSON.parse(raw);
+            if (!Array.isArray(arr)) return;
+            const showKeysWithEpisodes = new Set();
+            arr.forEach(h => {
+                if (h?.id != null && h?.type && h?.season != null && h?.episode != null) {
+                    showKeysWithEpisodes.add(`${String(h.id)}_${h.type}`);
+                }
+            });
+            const cleaned = arr.filter(h => {
+                if (h?.id != null && h?.type && (h?.season == null || h?.episode == null)) {
+                    return !showKeysWithEpisodes.has(`${String(h.id)}_${h.type}`);
+                }
+                return true;
+            });
+            if (cleaned.length !== arr.length) {
+                localStorage.setItem('alexandria_history', JSON.stringify(cleaned));
+            }
+        } catch { /* ignore */ }
+    },
+
     async getJson(endpoint, options = {}) {
         const { noCache, ...fetchOptions } = options;
         const useCache = !noCache;
@@ -440,6 +464,9 @@ export const core = {
         this.runLoadingTheater();
 
         await this.syncFromCloud();
+
+        // Immediate localStorage history cleanup (handles signed-out / stale SW)
+        this.cleanLocalHistory();
 
         try {
             const savedServer = Number.parseInt(localStorage.getItem('alexandria_activeServer'), 10);

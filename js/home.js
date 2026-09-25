@@ -159,6 +159,9 @@ export const home = {
         const container = document.getElementById('continue-watching-section');
         if (!container) return;
         
+        // Ensure localStorage is clean before rendering
+        if (typeof this.cleanLocalHistory === 'function') this.cleanLocalHistory();
+        
         // Defensive dedupe: strip show-level entries when per-episode exists
         const history = (this.state.history || []).filter(h => h && h.id != null && h.type);
         const showKeysWithEpisodes = new Set();
