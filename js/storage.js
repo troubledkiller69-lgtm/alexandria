@@ -45,12 +45,19 @@ export const storage = {
                 }
 
                 if (Array.isArray(dbHistory) && dbHistory.length > 0) {
-                        const cloudHist = dbHistory.map(h => ({
-                            id: h.content_id,
-                            type: h.type,
-                            title: h.title,
-                            poster_path: h.poster_path
-                        }));
+                        // Build a set of shows we already have local history for (id+type, ignoring season/episode)
+                        const localShowKeys = new Set();
+                        cleanHistory.forEach(h => {
+                            if (h.id != null && h.type) localShowKeys.add(`${String(h.id)}_${h.type}`);
+                        });
+                        const cloudHist = dbHistory
+                            .map(h => ({
+                                id: h.content_id,
+                                type: h.type,
+                                title: h.title,
+                                poster_path: h.poster_path
+                            }))
+                            .filter(h => h.id != null && h.type && !localShowKeys.has(`${String(h.id)}_${h.type}`));
                         // Local first: new watches on this device win over cloud
                         cleanHistory = this.dedupeItems([...cleanHistory, ...cloudHist], { forHistory: true });
                     }
