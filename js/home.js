@@ -159,9 +159,20 @@ export const home = {
         const container = document.getElementById('continue-watching-section');
         if (!container) return;
         
-        if (this.state.history && this.state.history.length > 0) {
+        // Defensive dedupe: strip show-level entries when per-episode exists
+        const history = (this.state.history || []).filter(h => h && h.id != null && h.type);
+        const showKeysWithEpisodes = new Set();
+        history.forEach(h => {
+            if (h.season != null && h.episode != null) showKeysWithEpisodes.add(`${String(h.id)}_${h.type}`);
+        });
+        const cleanHistory = history.filter(h => {
+            if (h.season == null || h.episode == null) return !showKeysWithEpisodes.has(`${String(h.id)}_${h.type}`);
+            return true;
+        });
+        
+        if (cleanHistory.length > 0) {
             container.innerHTML = `<div class="view-section"><h3>CONTINUE WATCHING</h3><div class="carousel-container"><button class="carousel-arrow left" onclick="Alexandria.scrollCarousel(this, -800)">&#10094;</button><div class="carousel-wrapper"><div class="carousel-grid" id="history-results"></div></div><button class="carousel-arrow right" onclick="Alexandria.scrollCarousel(this, 800)">&#10095;</button></div></div>`;
-            this.renderResults(this.state.history, 'history-results', true);
+            this.renderResults(cleanHistory, 'history-results', true);
         } else {
             container.innerHTML = '';
         }
