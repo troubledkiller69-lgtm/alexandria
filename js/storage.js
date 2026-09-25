@@ -140,8 +140,10 @@ export const storage = {
                 w.year = w.year || '';
                 w.score = Number.isFinite(Number(w.score)) ? Number(w.score) : 0;
             });
+            this.state.history = this.dedupeItems(cleanHistory, { forHistory: true });
             this.state.watchedEpisodes = localEpisodes;
             this.writeLocalList('alexandria_watchlist', this.state.watchlist);
+            this.writeLocalList('alexandria_history', this.state.history);
             this.writeLocalList('alexandria_watched_episodes', this.state.watchedEpisodes);
         } catch (e) {
             // Never wipe in-memory state on a sync error — keep what we have.
