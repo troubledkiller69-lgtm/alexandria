@@ -463,10 +463,10 @@ export const core = {
         // gates boot; the app reveals as soon as real work finishes.
         this.runLoadingTheater();
 
-        await this.syncFromCloud();
-
-        // Immediate localStorage history cleanup (handles signed-out / stale SW)
+        // Clean localStorage history BEFORE sync reads it
         this.cleanLocalHistory();
+
+        await this.syncFromCloud();
 
         try {
             const savedServer = Number.parseInt(localStorage.getItem('alexandria_activeServer'), 10);

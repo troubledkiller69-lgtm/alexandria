@@ -100,8 +100,18 @@ export const views = {
     },
 
     renderHistoryPage() {
-        const history = this.state.history || [];
-        const featured = history[0];
+        // Ensure localStorage is clean, then use deduped history for display
+        if (typeof this.cleanLocalHistory === 'function') this.cleanLocalHistory();
+        const history = (this.state.history || []).filter(h => h && h.id != null && h.type);
+        const showKeysWithEpisodes = new Set();
+        history.forEach(h => {
+            if (h.season != null && h.episode != null) showKeysWithEpisodes.add(`${String(h.id)}_${h.type}`);
+        });
+        const cleanHistory = history.filter(h => {
+            if (h.season == null || h.episode == null) return !showKeysWithEpisodes.has(`${String(h.id)}_${h.type}`);
+            return true;
+        });
+        const featured = cleanHistory[0];
         const heroBackdrop = featured?.backdrop_path ? this.imageUrl(featured.backdrop_path, 'original') : (featured?.poster_path ? this.imageUrl(featured.poster_path, 'original') : '');
 
         this.main.innerHTML = `
@@ -117,7 +127,7 @@ export const views = {
                                     <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg> RESUME PLAYBACK
                                 </button>
                             ` : ''}
-                            ${history.length > 0 ? `
+                            ${cleanHistory.length > 0 ? `
                                 <button class="btn-danger" onclick="Alexandria.clearWatchHistory()">CLEAR HISTORY</button>
                             ` : ''}
                         </div>
@@ -125,14 +135,14 @@ export const views = {
                     <div class="sector-widget">
                         <div class="sector-widget-content">
                             <span class="sector-label">WATCH HISTORY</span>
-                            <h4>${history.length} ${history.length === 1 ? 'Title' : 'Titles'} Logged</h4>
+                            <h4>${cleanHistory.length} ${cleanHistory.length === 1 ? 'Title' : 'Titles'} Logged</h4>
                             <p>Recent playback history</p>
                         </div>
                     </div>
                 </div>
                 <div class="view-section">
                     <h3>Watch History Archive</h3>
-                    ${history.length > 0 ? `
+                    ${cleanHistory.length > 0 ? `
                         <div class="results-grid" id="history-page-grid"></div>
                     ` : `
                         <div class="placeholder-msg">Your watch history is empty. Titles you watch will appear here.</div>
@@ -140,8 +150,8 @@ export const views = {
                 </div>
             </section>
         `;
-        if (history.length > 0) {
-            this.renderResults(history, 'history-page-grid', true);
+        if (cleanHistory.length > 0) {
+            this.renderResults(cleanHistory, 'history-page-grid', true);
         }
     },
 
