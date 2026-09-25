@@ -26,13 +26,17 @@ export const storage = {
                 return true;
             });
             if (cleanedHistory.length !== cleanHistory.length) {
+                console.log('[Alexandria] syncFromCloud: removed', cleanHistory.length - cleanedHistory.length, 'duplicate show-level entries from local');
                 this.writeLocalList('alexandria_history', cleanedHistory);
                 cleanHistory = cleanedHistory;
+            } else {
+                console.log('[Alexandria] syncFromCloud: no local duplicates to remove');
             }
 
             // Always update in-memory state from cleaned localStorage (signed in or not)
             this.state.history = this.dedupeItems(cleanHistory, { forHistory: true });
             this.writeLocalList('alexandria_history', this.state.history);
+            console.log('[Alexandria] syncFromCloud: state.history set to', this.state.history.length, 'entries');
 
             if (this.supabase && this.state.authUser) {
                 const uid = this.state.authUser.id;
@@ -83,6 +87,7 @@ export const storage = {
                             .filter(h => h.id != null && h.type && !localShowKeys.has(`${String(h.id)}_${h.type}`));
                         // Local first: new watches on this device win over cloud
                         cleanHistory = this.dedupeItems([...cleanHistory, ...cloudHist], { forHistory: true });
+                        console.log('[Alexandria] syncFromCloud: after cloud merge, cleanHistory length', cleanHistory.length);
                     }
 
                     // Push local-only episode marks up so per-episode progress

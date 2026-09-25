@@ -164,6 +164,7 @@ export const home = {
         
         // Defensive dedupe: strip show-level entries when per-episode exists
         const history = (this.state.history || []).filter(h => h && h.id != null && h.type);
+        console.log('[Alexandria] renderHistory: history length', history.length, history.map(h => `${h.id}_${h.type}_s${h.season}_e${h.episode}`));
         const showKeysWithEpisodes = new Set();
         history.forEach(h => {
             if (h.season != null && h.episode != null) showKeysWithEpisodes.add(`${String(h.id)}_${h.type}`);
@@ -172,6 +173,7 @@ export const home = {
             if (h.season == null || h.episode == null) return !showKeysWithEpisodes.has(`${String(h.id)}_${h.type}`);
             return true;
         });
+        console.log('[Alexandria] renderHistory: cleanHistory length', cleanHistory.length, cleanHistory.map(h => `${h.id}_${h.type}_s${h.season}_e${h.episode}`));
         
         if (cleanHistory.length > 0) {
             container.innerHTML = `<div class="view-section"><h3>CONTINUE WATCHING</h3><div class="carousel-container"><button class="carousel-arrow left" onclick="Alexandria.scrollCarousel(this, -800)">&#10094;</button><div class="carousel-wrapper"><div class="carousel-grid" id="history-results"></div></div><button class="carousel-arrow right" onclick="Alexandria.scrollCarousel(this, 800)">&#10095;</button></div></div>`;

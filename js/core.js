@@ -229,7 +229,10 @@ export const core = {
                 return true;
             });
             if (cleaned.length !== arr.length) {
+                console.log('[Alexandria] cleanLocalHistory: removed', arr.length - cleaned.length, 'duplicate show-level entries');
                 localStorage.setItem('alexandria_history', JSON.stringify(cleaned));
+            } else {
+                console.log('[Alexandria] cleanLocalHistory: no duplicates found');
             }
         } catch { /* ignore */ }
     },
