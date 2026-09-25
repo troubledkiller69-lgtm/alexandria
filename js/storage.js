@@ -12,18 +12,23 @@ export const storage = {
             cleanHistory = this.dedupeItems(cleanHistory, { forHistory: true });
 
             // Remove show-level history entries (no season/episode) when per-episode entries exist for the same show
+            // This runs on EVERY load (signed in or not) and writes back to localStorage
             const showKeysWithEpisodes = new Set();
             cleanHistory.forEach(h => {
                 if (h.id != null && h.type && h.season != null && h.episode != null) {
                     showKeysWithEpisodes.add(`${String(h.id)}_${h.type}`);
                 }
             });
-            cleanHistory = cleanHistory.filter(h => {
+            const cleanedHistory = cleanHistory.filter(h => {
                 if (h.id != null && h.type && (h.season == null || h.episode == null)) {
                     return !showKeysWithEpisodes.has(`${String(h.id)}_${h.type}`);
                 }
                 return true;
             });
+            if (cleanedHistory.length !== cleanHistory.length) {
+                this.writeLocalList('alexandria_history', cleanedHistory);
+                cleanHistory = cleanedHistory;
+            }
 
             if (this.supabase && this.state.authUser) {
                 const uid = this.state.authUser.id;
