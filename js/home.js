@@ -161,19 +161,16 @@ export const home = {
         
         // Ensure localStorage is clean before rendering
         if (typeof this.cleanLocalHistory === 'function') this.cleanLocalHistory();
-        
-        // Defensive dedupe: strip show-level entries when per-episode exists
-        const history = (this.state.history || []).filter(h => h && h.id != null && h.type);
-        console.log('[Alexandria] renderHistory: history length', history.length, history.map(h => `${h.id}_${h.type}_s${h.season}_e${h.episode}`));
-        const showKeysWithEpisodes = new Set();
-        history.forEach(h => {
-            if (h.season != null && h.episode != null) showKeysWithEpisodes.add(`${String(h.id)}_${h.type}`);
-        });
-        const cleanHistory = history.filter(h => {
-            if (h.season == null || h.episode == null) return !showKeysWithEpisodes.has(`${String(h.id)}_${h.type}`);
+
+        // One card per title: collapse any lingering per-episode dupes, newest first.
+        const seen = new Set();
+        const cleanHistory = (this.state.history || []).filter(h => {
+            if (!h || h.id == null || !h.type) return false;
+            const key = `${String(h.id)}_${h.type}`;
+            if (seen.has(key)) return false;
+            seen.add(key);
             return true;
         });
-        console.log('[Alexandria] renderHistory: cleanHistory length', cleanHistory.length, cleanHistory.map(h => `${h.id}_${h.type}_s${h.season}_e${h.episode}`));
         
         if (cleanHistory.length > 0) {
             container.innerHTML = `<div class="view-section"><h3>CONTINUE WATCHING</h3><div class="carousel-container"><button class="carousel-arrow left" onclick="Alexandria.scrollCarousel(this, -800)">&#10094;</button><div class="carousel-wrapper"><div class="carousel-grid" id="history-results"></div></div><button class="carousel-arrow right" onclick="Alexandria.scrollCarousel(this, 800)">&#10095;</button></div></div>`;

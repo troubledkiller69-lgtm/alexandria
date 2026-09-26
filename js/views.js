@@ -100,15 +100,14 @@ export const views = {
     },
 
     renderHistoryPage() {
-        // Ensure localStorage is clean, then use deduped history for display
+        // Ensure localStorage is clean, then collapse to one card per title.
         if (typeof this.cleanLocalHistory === 'function') this.cleanLocalHistory();
-        const history = (this.state.history || []).filter(h => h && h.id != null && h.type);
-        const showKeysWithEpisodes = new Set();
-        history.forEach(h => {
-            if (h.season != null && h.episode != null) showKeysWithEpisodes.add(`${String(h.id)}_${h.type}`);
-        });
-        const cleanHistory = history.filter(h => {
-            if (h.season == null || h.episode == null) return !showKeysWithEpisodes.has(`${String(h.id)}_${h.type}`);
+        const seen = new Set();
+        const cleanHistory = (this.state.history || []).filter(h => {
+            if (!h || h.id == null || !h.type) return false;
+            const key = `${String(h.id)}_${h.type}`;
+            if (seen.has(key)) return false;
+            seen.add(key);
             return true;
         });
         const featured = cleanHistory[0];

@@ -216,23 +216,19 @@ export const core = {
             if (!raw) return;
             const arr = JSON.parse(raw);
             if (!Array.isArray(arr)) return;
-            const showKeysWithEpisodes = new Set();
-            arr.forEach(h => {
-                if (h?.id != null && h?.type && h?.season != null && h?.episode != null) {
-                    showKeysWithEpisodes.add(`${String(h.id)}_${h.type}`);
-                }
-            });
-            const cleaned = arr.filter(h => {
-                if (h?.id != null && h?.type && (h?.season == null || h?.episode == null)) {
-                    return !showKeysWithEpisodes.has(`${String(h.id)}_${h.type}`);
-                }
-                return true;
-            });
+            // Collapse to one entry per title (newest first). Heals old
+            // per-episode duplicates: first occurrence already carries the latest episode.
+            const seen = new Set();
+            const cleaned = [];
+            for (const h of arr) {
+                if (!h || h.id == null || !h.type) continue;
+                const key = `${String(h.id)}_${h.type}`;
+                if (seen.has(key)) continue;
+                seen.add(key);
+                cleaned.push(h);
+            }
             if (cleaned.length !== arr.length) {
-                console.log('[Alexandria] cleanLocalHistory: removed', arr.length - cleaned.length, 'duplicate show-level entries');
                 localStorage.setItem('alexandria_history', JSON.stringify(cleaned));
-            } else {
-                console.log('[Alexandria] cleanLocalHistory: no duplicates found');
             }
         } catch { /* ignore */ }
     },

@@ -9,34 +9,15 @@ export const storage = {
             let localEpisodes = this.readStorageJson(localStorage, 'alexandria_watched_episodes', {}) || {};
 
             localWatchlist = this.dedupeItems(localWatchlist);
-            cleanHistory = this.dedupeItems(cleanHistory, { forHistory: true });
-
-            // Remove show-level history entries (no season/episode) when per-episode entries exist for the same show
-            // This runs on EVERY load (signed in or not) and writes back to localStorage
-            const showKeysWithEpisodes = new Set();
-            cleanHistory.forEach(h => {
-                if (h.id != null && h.type && h.season != null && h.episode != null) {
-                    showKeysWithEpisodes.add(`${String(h.id)}_${h.type}`);
-                }
-            });
-            const cleanedHistory = cleanHistory.filter(h => {
-                if (h.id != null && h.type && (h.season == null || h.episode == null)) {
-                    return !showKeysWithEpisodes.has(`${String(h.id)}_${h.type}`);
-                }
-                return true;
-            });
-            if (cleanedHistory.length !== cleanHistory.length) {
-                console.log('[Alexandria] syncFromCloud: removed', cleanHistory.length - cleanedHistory.length, 'duplicate show-level entries from local');
-                this.writeLocalList('alexandria_history', cleanedHistory);
-                cleanHistory = cleanedHistory;
-            } else {
-                console.log('[Alexandria] syncFromCloud: no local duplicates to remove');
+            // One entry per title (newest first). Collapses old per-episode
+            // duplicates from before into a single card carrying the latest episode.
+            const collapsed = this.dedupeItems(cleanHistory);
+            if (collapsed.length !== cleanHistory.length) {
+                this.writeLocalList('alexandria_history', collapsed);
+                cleanHistory = collapsed;
             }
-
-            // Always update in-memory state from cleaned localStorage (signed in or not)
-            this.state.history = this.dedupeItems(cleanHistory, { forHistory: true });
+            this.state.history = cleanHistory;
             this.writeLocalList('alexandria_history', this.state.history);
-            console.log('[Alexandria] syncFromCloud: state.history set to', this.state.history.length, 'entries');
 
             if (this.supabase && this.state.authUser) {
                 const uid = this.state.authUser.id;
@@ -72,22 +53,14 @@ export const storage = {
                 }
 
                 if (Array.isArray(dbHistory) && dbHistory.length > 0) {
-                        // Build a set of shows we already have local history for (id+type, ignoring season/episode)
-                        const localShowKeys = new Set();
-                        cleanHistory.forEach(h => {
-                            if (h.id != null && h.type) localShowKeys.add(`${String(h.id)}_${h.type}`);
-                        });
-                        const cloudHist = dbHistory
-                            .map(h => ({
-                                id: h.content_id,
-                                type: h.type,
-                                title: h.title,
-                                poster_path: h.poster_path
-                            }))
-                            .filter(h => h.id != null && h.type && !localShowKeys.has(`${String(h.id)}_${h.type}`));
+                        const cloudHist = dbHistory.map(h => ({
+                            id: h.content_id,
+                            type: h.type,
+                            title: h.title,
+                            poster_path: h.poster_path
+                        }));
                         // Local first: new watches on this device win over cloud
-                        cleanHistory = this.dedupeItems([...cleanHistory, ...cloudHist], { forHistory: true });
-                        console.log('[Alexandria] syncFromCloud: after cloud merge, cleanHistory length', cleanHistory.length);
+                        cleanHistory = this.dedupeItems([...cleanHistory, ...cloudHist]);
                     }
 
                     // Push local-only episode marks up so per-episode progress
@@ -204,7 +177,7 @@ export const storage = {
 
     async addToHistory(item) {
         if (!item || item.id == null || !item.type) return;
-        this.state.history = this.dedupeItems([item, ...this.state.history], { forHistory: true });
+        this.state.history = this.dedupeItems([item, ...this.state.history]);
         if (this.state.history.length > 20) this.state.history.pop();
         this.writeLocalList('alexandria_history', this.state.history);
 

@@ -376,15 +376,13 @@ export const router = {
 
     dedupeItems(list, opts = {}) {
         if (!Array.isArray(list)) return [];
-        const { forHistory = false } = opts;
         const seen = new Set();
         const result = [];
         for (const item of list) {
             if (!item || item.id == null || !item.type) continue;
-            let key = `${String(item.id)}_${item.type}`;
-            if (forHistory && item.type === 'tv' && item.season != null && item.episode != null) {
-                key += `_s${item.season}_e${item.episode}`;
-            }
+            // One card per title: newest entry wins (lists are newest-first),
+            // per-episode progress lives on the surviving entry + watchedEpisodes.
+            const key = `${String(item.id)}_${item.type}`;
             if (!seen.has(key)) {
                 seen.add(key);
                 result.push(item);
