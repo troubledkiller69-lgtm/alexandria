@@ -93,7 +93,7 @@ async renderProfile(uid) {
             const me = this.state.authUser?.id;
             const [profile, activityRes, ratingsRes, commentsRes, listsRes] = await Promise.all([
                 this.fetchProfile(targetUid),
-                this.supabase ? safeQuery(this.supabase.from('activity').select('*').eq('user_id', targetUid).gte('created_at', new Date(Date.now() - 86400000).toISOString()).order('created_at', { ascending: false }).limit(20)) : Promise.resolve({ data: [] }),
+                this.supabase ? safeQuery(this.supabase.from('activity').select('*').eq('user_id', targetUid).order('created_at', { ascending: false }).limit(20)) : Promise.resolve({ data: [] }),
                 this.supabase ? safeQuery(this.supabase.from('ratings').select('*').eq('user_id', targetUid).order('created_at', { ascending: false }).limit(50)) : Promise.resolve({ data: [] }),
                 this.supabase ? safeQuery(this.supabase.from('comments').select('*').eq('user_id', targetUid).order('created_at', { ascending: false }).limit(50)) : Promise.resolve({ data: [] }),
                 this.supabase ? safeQuery(this.supabase.from('movie_night_lists').select('*').eq('owner_id', targetUid).order('created_at', { ascending: false })) : Promise.resolve({ data: [] })
@@ -116,7 +116,21 @@ async renderProfile(uid) {
                 return;
             }
 
-            const activity = activityRes.data || [];
+            let activity = activityRes.data || [];
+            // Own profile, cloud empty (signed out while watching, offline,
+            // failed log): fall back to local watch history so recently
+            // watched titles still show instead of "No activity yet".
+            if (!activity.length && me && me === targetUid && Array.isArray(this.state.history) && this.state.history.length) {
+                const now = Date.now();
+                activity = this.state.history.slice(0, 20).map((h, i) => ({
+                    kind: 'watching',
+                    content_id: h.id,
+                    content_type: h.type,
+                    title: h.title,
+                    poster_path: h.poster_path,
+                    created_at: new Date(now - i * 60000).toISOString()
+                }));
+            }
             const ratings = ratingsRes.data || [];
             const comments = commentsRes.data || [];
             const lists = listsRes.data || [];
