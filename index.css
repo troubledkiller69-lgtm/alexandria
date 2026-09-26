@@ -6801,6 +6801,144 @@ h1, h2, h3, h4 {
     opacity: 0.9;
 }
 
+/* ============ ACCOUNT PROFILE — minimal social header, Letterboxd grammar ============ */
+.profile-page.account {
+    max-width: 1080px;
+    margin: 0 auto;
+}
+.account-head {
+    display: flex;
+    gap: 1.25rem;
+    align-items: flex-start;
+    padding-top: 0.5rem;
+}
+.account-id {
+    flex: 1;
+    min-width: 0;
+}
+.account-id h1 {
+    font-size: 1.9rem;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    color: var(--text-primary);
+    margin: 0;
+    line-height: 1.1;
+    overflow-wrap: break-word;
+}
+.account-actions {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+    flex-shrink: 0;
+    flex-wrap: wrap;
+    padding-top: 0.25rem;
+}
+.account-actions .follow-btn,
+.account-actions .btn-quiet,
+.account-actions .btn-secondary {
+    border-radius: 999px;
+    width: auto;
+}
+.account-actions .btn-quiet {
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+.account-stats {
+    display: flex;
+    flex-wrap: wrap;
+    row-gap: 0.75rem;
+    margin: 1.15rem 0 0;
+    padding: 0;
+}
+.account-stat {
+    display: flex;
+    flex-direction: column-reverse;
+    gap: 0.1rem;
+    padding-right: 1.25rem;
+    margin-right: 1.25rem;
+    border-right: 1px solid rgba(255, 255, 255, 0.08);
+}
+.account-stat:last-child {
+    border-right: none;
+    margin-right: 0;
+    padding-right: 0;
+}
+.account-stat dt {
+    font-size: 0.68rem;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    margin: 0;
+}
+.account-stat dd {
+    margin: 0;
+    font-size: 1.5rem;
+    font-weight: 800;
+    line-height: 1.1;
+    color: var(--text-primary);
+    font-variant-numeric: tabular-nums;
+}
+.tab-count {
+    font-weight: 700;
+    font-size: 0.72em;
+    color: var(--text-muted);
+    background: rgba(255, 255, 255, 0.06);
+    border-radius: 999px;
+    padding: 0.1em 0.55em;
+    margin-left: 0.45em;
+    letter-spacing: 0;
+}
+.profile-tab.active .tab-count {
+    color: var(--text-primary);
+    background: rgba(239, 68, 68, 0.16);
+}
+.pulse-heat-legend {
+    display: flex;
+    align-items: center;
+    gap: 3px;
+    font-size: 0.68rem;
+    color: var(--text-muted);
+    font-weight: 600;
+}
+.pulse-heat-legend .pulse-heat-cell {
+    width: 10px;
+    height: 10px;
+}
+.pulse-heat-legend .pulse-heat-cell.heat-0 {
+    background: rgba(255, 255, 255, 0.05);
+}
+.account-head a:focus-visible,
+.account-stats a:focus-visible,
+.profile-tab:focus-visible,
+.account-actions button:focus-visible,
+.pulse-badge-chip:focus-visible {
+    outline: 2px solid var(--accent-gold);
+    outline-offset: 2px;
+}
+@media (max-width: 720px) {
+    .account-head {
+        flex-wrap: wrap;
+    }
+    .account-actions {
+        width: 100%;
+    }
+    .account-id h1 {
+        font-size: 1.55rem;
+    }
+    .account-stat {
+        padding-right: 0.9rem;
+        margin-right: 0.9rem;
+    }
+    .account-stat dd {
+        font-size: 1.25rem;
+    }
+}
+@media (prefers-reduced-motion: reduce) {
+    .pulse-heat-inline .pulse-heat-cell:hover {
+        transform: none;
+    }
+}
+
 /* ============ PROFILE ACTIVITY POSTER CAROUSEL ============ */
 .profile-activity-posters {
     margin-bottom: 1.5rem;

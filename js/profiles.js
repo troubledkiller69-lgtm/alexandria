@@ -144,35 +144,35 @@ async renderProfile(uid) {
             this.state.profileTab = tab;
 
             this.main.innerHTML = `
-                <section class="profile-page">
-                    <div class="profile-hero">
+                <section class="profile-page account">
+                    <header class="account-head">
                         ${this.avatarHtml(profile, 96)}
-                        <div class="profile-hero-info">
+                        <div class="account-id">
                             <h1>${this.escapeHtml(displayName)}</h1>
                             ${profile.username ? `<p class="profile-handle">@${this.escapeHtml(profile.username)}</p>` : ''}
                             ${profile.bio ? `<p class="profile-bio">${this.escapeHtml(profile.bio)}</p>` : ''}
-                            <div class="profile-stats" id="profile-stats">
-                                <span class="profile-stat"><strong>${activity.length}</strong>Activity</span>
-                                <span class="profile-stat"><strong>${ratings.length + comments.length}</strong>Reviews & Comments</span>
-                                <span class="profile-stat"><strong>${lists.length}</strong>Lists</span>
-                                <span class="profile-stat"><strong id="profile-followers-count">${followers}</strong>Followers</span>
-                                <span class="profile-stat"><strong>${following}</strong>Following</span>
-                            </div>
-                            ${genreChips ? `<div class="profile-genres">${genreChips}</div>` : ''}
-                            <div class="profile-pulse-inline" id="profile-pulse-inline">
-                                <div class="placeholder-msg pulse-loading"><span class="pulse-dot"></span> CALCULATING WATCH STATS...</div>
-                            </div>
                         </div>
-                        <div class="profile-hero-actions">
+                        <div class="account-actions">
                             ${followBtn}
                             <button type="button" class="btn-quiet" onclick="Alexandria.shareCurrent('${this.escapeHtml(displayName)} on Alexandria')">SHARE</button>
                             ${editBtn}
                         </div>
+                    </header>
+                    <dl class="account-stats" id="profile-stats">
+                        <div class="account-stat"><dt>Activity</dt><dd>${activity.length}</dd></div>
+                        <div class="account-stat"><dt>Reviews</dt><dd>${ratings.length + comments.length}</dd></div>
+                        <div class="account-stat"><dt>Lists</dt><dd>${lists.length}</dd></div>
+                        <div class="account-stat"><dt>Followers</dt><dd id="profile-followers-count">${followers}</dd></div>
+                        <div class="account-stat"><dt>Following</dt><dd>${following}</dd></div>
+                    </dl>
+                    ${genreChips ? `<div class="profile-genres">${genreChips}</div>` : ''}
+                    <div class="profile-pulse-inline" id="profile-pulse-inline">
+                        <div class="placeholder-msg pulse-loading"><span class="pulse-dot"></span> CALCULATING WATCH STATS...</div>
                     </div>
-                    <div class="profile-tabs">
-                        <button type="button" class="profile-tab ${tab === 'activity' ? 'active' : ''}" data-tab="activity" onclick="Alexandria.setProfileTab('activity')">ACTIVITY</button>
-                        <button type="button" class="profile-tab ${tab === 'reviews' ? 'active' : ''}" data-tab="reviews" onclick="Alexandria.setProfileTab('reviews')">REVIEWS & COMMENTS</button>
-                        <button type="button" class="profile-tab ${tab === 'lists' ? 'active' : ''}" data-tab="lists" onclick="Alexandria.setProfileTab('lists')">LISTS</button>
+                    <div class="profile-tabs" role="tablist">
+                        <button type="button" role="tab" aria-selected="${tab === 'activity' ? 'true' : 'false'}" class="profile-tab ${tab === 'activity' ? 'active' : ''}" data-tab="activity" onclick="Alexandria.setProfileTab('activity')">Activity <span class="tab-count">${activity.length}</span></button>
+                        <button type="button" role="tab" aria-selected="${tab === 'reviews' ? 'true' : 'false'}" class="profile-tab ${tab === 'reviews' ? 'active' : ''}" data-tab="reviews" onclick="Alexandria.setProfileTab('reviews')">Reviews <span class="tab-count">${ratings.length + comments.length}</span></button>
+                        <button type="button" role="tab" aria-selected="${tab === 'lists' ? 'true' : 'false'}" class="profile-tab ${tab === 'lists' ? 'active' : ''}" data-tab="lists" onclick="Alexandria.setProfileTab('lists')">Lists <span class="tab-count">${lists.length}</span></button>
                     </div>
                     <div id="profile-section"></div>
                 </section>
@@ -299,13 +299,14 @@ async renderProfile(uid) {
             const hoursText = hours >= 10 ? String(Math.round(hours)) : hours.toFixed(1);
             container.innerHTML = `
                 <div class="pulse-stats-inline">
-                    <span class="pulse-stat-inline"><strong>${hoursText}</strong><span>HRS WATCHED</span></span>
-                    <span class="pulse-stat-inline"><strong>${episodes}</strong><span>EPISODES</span></span>
-                    <span class="pulse-stat-inline"><strong>${titles}</strong><span>TITLES</span></span>
-                    <span class="pulse-stat-inline"><strong>${current}</strong><span>DAY STREAK${longest > current ? ` • LONGEST ${longest}` : ''}</span></span>
+                    <span class="pulse-stat-inline"><strong>${hoursText}</strong><span>Hrs watched</span></span>
+                    <span class="pulse-stat-inline"><strong>${episodes}</strong><span>Episodes</span></span>
+                    <span class="pulse-stat-inline"><strong>${titles}</strong><span>Titles</span></span>
+                    <span class="pulse-stat-inline"><strong>${current}</strong><span>Day streak${longest > current ? ` · longest ${longest}` : ''}</span></span>
                 </div>
                 <div class="pulse-heat-inline">
-                    <div class="pulse-heatmap">${heatHtml}</div>
+                    <div class="pulse-heatmap" role="img" aria-label="Watch activity over the last 16 weeks">${heatHtml}</div>
+                    <div class="pulse-heat-legend" aria-hidden="true"><span>Less</span><span class="pulse-heat-cell heat-0"></span><span class="pulse-heat-cell heat-1"></span><span class="pulse-heat-cell heat-2"></span><span class="pulse-heat-cell heat-3"></span><span class="pulse-heat-cell heat-4"></span><span>More</span></div>
                 </div>
                 ${badges.length ? `<div class="pulse-badges-inline">${badges.map(([name, desc, badgeIcon]) => `<span class="pulse-badge-chip" title="${this.escapeHtml(desc)}">${badgeIcon}${this.escapeHtml(name)}</span>`).join('')}</div>` : ''}
             `;
@@ -356,7 +357,9 @@ async renderProfile(uid) {
         if (!['activity', 'reviews', 'lists'].includes(tab)) tab = 'activity';
         this.state.profileTab = tab;
         document.querySelectorAll('.profile-tab').forEach(btn => {
-            btn.classList.toggle('active', btn.dataset.tab === tab);
+            const on = btn.dataset.tab === tab;
+            btn.classList.toggle('active', on);
+            btn.setAttribute('aria-selected', on ? 'true' : 'false');
         });
         this.renderProfileSection();
     },
