@@ -505,7 +505,7 @@ async renderProfile(uid) {
                         `;
                     }).join('') : ''}
                 </div>
-            ` : '<div class="profile-empty">No activity yet.</div>'}
+            ` : ''}
         `;
     },
 
