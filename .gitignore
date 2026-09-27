@@ -22,3 +22,7 @@ PixelGunCheatInternal/
 .cursor/
 .mcp.json
 skills-lock.json
+
+# generated social video artifacts (rebuild via social/build_video.py)
+social/cache/
+social/out/
