@@ -134,8 +134,10 @@ async renderProfile(uid) {
             const ratings = ratingsRes.data || [];
             const comments = commentsRes.data || [];
             const lists = listsRes.data || [];
-            const followers = (followersRes.data || []).length;
-            const following = (followingRes.data || []).length;
+            const followerIds = (followersRes.data || []).map(r => r.follower_id).filter(Boolean);
+            const followingIds = (followingRes.data || []).map(r => r.followee_id).filter(Boolean);
+            const followers = followerIds.length;
+            const following = followingIds.length;
             const isFollowing = Boolean(myFollowRes.data);
 
             // Watched tab: titles marked watched in the watchlist. Own profile
@@ -158,7 +160,7 @@ async renderProfile(uid) {
             }
             if (token !== this._renderToken) return;
 
-            this.state.profileData = { profile, activity, ratings, comments, lists, watched, followers, following, isFollowing };
+            this.state.profileData = { profile, activity, ratings, comments, lists, watched, followers, following, followerIds, followingIds, isFollowing };
 
             const displayName = profile.nickname || profile.username || 'Member';
             const isMe = Boolean(me && me === targetUid);
@@ -192,13 +194,13 @@ async renderProfile(uid) {
                             ${editBtn}
                         </div>
                     </header>
-                    <dl class="account-stats" id="profile-stats">
-                        <div class="account-stat"><dt>Activity</dt><dd>${activity.length}</dd></div>
-                        <div class="account-stat"><dt>Reviews</dt><dd>${ratings.length + comments.length}</dd></div>
-                        <div class="account-stat"><dt>Lists</dt><dd>${lists.length}</dd></div>
-                        <div class="account-stat"><dt>Followers</dt><dd id="profile-followers-count">${followers}</dd></div>
-                        <div class="account-stat"><dt>Following</dt><dd>${following}</dd></div>
-                    </dl>
+                    <div class="account-stats" id="profile-stats">
+                        <div class="account-stat"><span class="stat-num">${activity.length}</span><span class="stat-label">Activity</span></div>
+                        <div class="account-stat"><span class="stat-num">${ratings.length + comments.length}</span><span class="stat-label">Reviews</span></div>
+                        <div class="account-stat"><span class="stat-num">${lists.length}</span><span class="stat-label">Lists</span></div>
+                        <button type="button" class="account-stat is-link" onclick="Alexandria.showFriendList('followers')"><span class="stat-num" id="profile-followers-count">${followers}</span><span class="stat-label">Followers</span></button>
+                        <button type="button" class="account-stat is-link" onclick="Alexandria.showFriendList('following')"><span class="stat-num">${following}</span><span class="stat-label">Following</span></button>
+                    </div>
                     ${genreChips ? `<div class="profile-genres">${genreChips}</div>` : ''}
                     <div class="profile-pulse-inline" id="profile-pulse-inline">
                         <div class="placeholder-msg pulse-loading"><span class="pulse-dot"></span> CALCULATING WATCH STATS...</div>
@@ -624,6 +626,49 @@ async renderProfile(uid) {
         }).join('');
     },
 
+    async showFriendList(kind, open) {
+        let modal = document.getElementById('friends-modal');
+        if (!modal) {
+            modal = document.createElement('div');
+            modal.id = 'friends-modal';
+            modal.className = 'profile-modal-overlay';
+            modal.setAttribute('hidden', '');
+            modal.innerHTML = `
+                <div class="profile-modal-card friends-card">
+                    <button class="auth-close-btn" type="button" aria-label="Close" onclick="Alexandria.showFriendList(null, false)">✕</button>
+                    <h3 class="profile-modal-title" id="friends-modal-title">FRIENDS</h3>
+                    <div id="friends-modal-list"></div>
+                </div>
+            `;
+            modal.addEventListener('click', e => { if (e.target === modal) this.showFriendList(null, false); });
+            document.body.appendChild(modal);
+        }
+        const show = open !== undefined ? Boolean(open) : modal.hasAttribute('hidden');
+        if (!show) {
+            modal.setAttribute('hidden', '');
+            return;
+        }
+        const data = this.state.profileData;
+        const ids = kind === 'followers' ? (data?.followerIds || []) : (data?.followingIds || []);
+        document.getElementById('friends-modal-title').textContent = kind === 'followers' ? 'FOLLOWERS' : 'FOLLOWING';
+        const list = document.getElementById('friends-modal-list');
+        list.innerHTML = '<div class="placeholder-msg"><span class="pulse-dot"></span> LOADING...</div>';
+        modal.removeAttribute('hidden');
+        const byId = await this.fetchProfilesBulk(ids);
+        if (modal.hasAttribute('hidden')) return;
+        list.innerHTML = ids.length ? ids.map(uid => {
+            const p = byId[uid] || {};
+            const name = p.nickname || p.username || 'Member';
+            return `
+                <a class="friend-row" href="#profile/${this.escapeHtml(uid)}" onclick="Alexandria.showFriendList(null, false)">
+                    ${this.avatarHtml(p, 40)}
+                    <span class="friend-name">${this.escapeHtml(name)}
+                        ${p.username ? `<span class="friend-handle">@${this.escapeHtml(p.username)}</span>` : ''}
+                    </span>
+                </a>`;
+        }).join('') : `<p class="friends-empty">${kind === 'followers' ? 'No followers yet.' : 'Not following anyone yet.'}</p>`;
+    },
+
     async toggleFollow(uid) {
         if (!uid) return;
         if (!this.supabase || !this.state.authUser) {
@@ -658,6 +703,11 @@ async renderProfile(uid) {
             if (countEl) {
                 const current = Number(countEl.textContent) || 0;
                 countEl.textContent = String(current + (nowFollowing ? 1 : -1));
+            }
+            const ids = this.state.profileData?.followerIds;
+            if (Array.isArray(ids)) {
+                if (nowFollowing && !ids.includes(me)) ids.push(me);
+                else if (!nowFollowing) this.state.profileData.followerIds = ids.filter(id => id !== me);
             }
             this.showToast(nowFollowing ? 'Following' : 'Unfollowed');
         } catch (err) {

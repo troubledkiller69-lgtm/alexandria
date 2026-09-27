@@ -6851,18 +6851,25 @@ h1, h2, h3, h4 {
 }
 .account-stat {
     display: flex;
-    flex-direction: column-reverse;
+    flex-direction: column;
     gap: 0.1rem;
     padding-right: 1.25rem;
     margin-right: 1.25rem;
+    border-top: none;
     border-right: 1px solid rgba(255, 255, 255, 0.08);
+    border-bottom: none;
+    border-left: none;
+    background: none;
+    font: inherit;
+    text-align: left;
+    color: inherit;
 }
 .account-stat:last-child {
     border-right: none;
     margin-right: 0;
     padding-right: 0;
 }
-.account-stat dt {
+.account-stat .stat-label {
     font-size: 0.68rem;
     font-weight: 600;
     letter-spacing: 0.08em;
@@ -6870,13 +6877,67 @@ h1, h2, h3, h4 {
     color: var(--text-muted);
     margin: 0;
 }
-.account-stat dd {
+.account-stat .stat-num {
     margin: 0;
     font-size: 1.5rem;
     font-weight: 800;
     line-height: 1.1;
     color: var(--text-primary);
     font-variant-numeric: tabular-nums;
+}
+.account-stat.is-link {
+    cursor: pointer;
+    border-radius: 8px;
+}
+.account-stat.is-link:hover .stat-num {
+    color: var(--accent-gold);
+}
+.account-stat.is-link:hover .stat-label {
+    color: var(--text-secondary);
+}
+.friends-card {
+    max-height: 70vh;
+    display: flex;
+    flex-direction: column;
+}
+#friends-modal-list {
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    margin-top: 0.75rem;
+}
+.friend-row {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.55rem 0.65rem;
+    border-radius: 10px;
+    text-decoration: none;
+    border: 1px solid transparent;
+}
+.friend-row:hover {
+    background: rgba(255, 255, 255, 0.04);
+    border-color: rgba(255, 255, 255, 0.08);
+}
+.friend-name {
+    color: var(--text-primary);
+    font-weight: 700;
+    font-size: 0.92rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.1rem;
+    min-width: 0;
+}
+.friend-handle {
+    color: var(--text-muted);
+    font-weight: 500;
+    font-size: 0.8rem;
+}
+.friends-empty {
+    color: var(--text-muted);
+    font-size: 0.9rem;
+    margin: 0.5rem 0 0;
 }
 .tab-count {
     font-weight: 700;
@@ -6929,7 +6990,7 @@ h1, h2, h3, h4 {
         padding-right: 0.9rem;
         margin-right: 0.9rem;
     }
-    .account-stat dd {
+    .account-stat .stat-num {
         font-size: 1.25rem;
     }
 }
