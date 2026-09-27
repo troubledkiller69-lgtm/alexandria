@@ -25,7 +25,7 @@ export const halloween = {
 
     async fetchHalloweenMovies() {
         const token = this._renderToken;
-        const toDay = (m, i) => ({
+        const toDay = (m, i, tag) => ({
             id: m.id,
             title: m.title || m.name,
             poster_path: m.poster_path,
@@ -33,22 +33,77 @@ export const halloween = {
             vote_average: m.vote_average,
             overview: m.overview || '',
             day: i + 1,
+            tag: tag || m.tag,
         });
+        // The canon: slashers, Stephen King, cult classics. Resolved live by
+        // title+year so posters/ratings are always real, never hardcoded.
+        const curated = [
+            { t: 'Halloween', y: 1978, tag: 'SLASHER' },
+            { t: 'The Shining', y: 1980, tag: 'STEPHEN KING' },
+            { t: 'The Exorcist', y: 1973, tag: 'CULT CLASSIC' },
+            { t: 'A Nightmare on Elm Street', y: 1984, tag: 'SLASHER' },
+            { t: 'Carrie', y: 1976, tag: 'STEPHEN KING' },
+            { t: 'Psycho', y: 1960, tag: 'CULT CLASSIC' },
+            { t: 'Friday the 13th', y: 1980, tag: 'SLASHER' },
+            { t: 'It', y: 2017, tag: 'STEPHEN KING' },
+            { t: 'Night of the Living Dead', y: 1968, tag: 'CULT CLASSIC' },
+            { t: 'Scream', y: 1996, tag: 'SLASHER' },
+            { t: 'Misery', y: 1990, tag: 'STEPHEN KING' },
+            { t: 'The Texas Chain Saw Massacre', y: 1974, tag: 'SLASHER' },
+            { t: "Rosemary's Baby", y: 1968, tag: 'CULT CLASSIC' },
+            { t: 'Pet Sematary', y: 1989, tag: 'STEPHEN KING' },
+            { t: 'The Thing', y: 1982, tag: 'CULT CLASSIC' },
+            { t: "Child's Play", y: 1988, tag: 'SLASHER' },
+            { t: 'The Mist', y: 2007, tag: 'STEPHEN KING' },
+            { t: 'Alien', y: 1979, tag: 'CULT CLASSIC' },
+            { t: 'Candyman', y: 1992, tag: 'SLASHER' },
+            { t: 'Doctor Sleep', y: 2019, tag: 'STEPHEN KING' },
+            { t: 'Dawn of the Dead', y: 1978, tag: 'CULT CLASSIC' },
+            { t: 'Hellraiser', y: 1987, tag: 'SLASHER' },
+            { t: 'The Fly', y: 1986, tag: 'CULT CLASSIC' },
+            { t: 'The Omen', y: 1976, tag: 'CULT CLASSIC' },
+            { t: 'Poltergeist', y: 1982, tag: 'CULT CLASSIC' },
+            { t: 'Evil Dead II', y: 1987, tag: 'CULT CLASSIC' },
+            { t: 'The Conjuring', y: 2013, tag: 'CULT CLASSIC' },
+            { t: 'Hereditary', y: 2018, tag: 'CULT CLASSIC' },
+            { t: 'Get Out', y: 2017, tag: 'CULT CLASSIC' },
+            { t: 'The Silence of the Lambs', y: 1991, tag: 'CULT CLASSIC' },
+            { t: 'The Babadook', y: 2014, tag: 'CULT CLASSIC' },
+        ];
         try {
-            // getJson encodes the endpoint itself; two pages for variety.
-            const [p1, p2] = await Promise.all([
-                this.getJson('discover/movie?with_genres=27&sort_by=popularity.desc&vote_average.gte=5&vote_count.gte=100&page=1&include_adult=false&language=en-US'),
-                this.getJson('discover/movie?with_genres=27&sort_by=popularity.desc&vote_average.gte=5&vote_count.gte=100&page=2&include_adult=false&language=en-US'),
-            ]);
+            const resolved = await this.mapWithConcurrency(curated, 4, async (c) => {
+                try {
+                    const data = await this.getJson(`search/movie?query=${encodeURIComponent(c.t)}&year=${c.y}&language=en-US&include_adult=false`);
+                    const results = (data?.results || []).filter(r => r && r.poster_path && r.release_date);
+                    if (!results.length) return null;
+                    const exact = results.find(r => (r.release_date || '').startsWith(String(c.y)));
+                    const pick = exact || results[0];
+                    return { ...pick, tag: c.tag };
+                } catch {
+                    return null;
+                }
+            });
             if (token !== this._renderToken) return [];
-            const seen = new Set();
             const picks = [];
-            for (const m of [...(p1?.results || []), ...(p2?.results || [])]) {
-                if (picks.length >= 31 || !m || seen.has(m.id)) continue;
-                if (!m.poster_path || !m.release_date) continue;
-                if (!(m.genre_ids || []).includes(27)) continue;
-                seen.add(m.id);
-                picks.push(m);
+            const seen = new Set();
+            for (const m of resolved) {
+                if (m && !seen.has(m.id)) {
+                    seen.add(m.id);
+                    picks.push(m);
+                }
+            }
+            // Fill any misses with popular horror so the grid still hits 31.
+            if (picks.length < 31) {
+                try {
+                    const p1 = await this.getJson('discover/movie?with_genres=27&sort_by=popularity.desc&vote_average.gte=5&vote_count.gte=100&page=1&include_adult=false&language=en-US');
+                    for (const m of (p1?.results || [])) {
+                        if (picks.length >= 31 || !m || seen.has(m.id)) continue;
+                        if (!m.poster_path || !m.release_date) continue;
+                        if (!(m.genre_ids || []).includes(27)) continue;
+                        seen.add(m.id);
+                        picks.push({ ...m, tag: 'HORROR' });
+                    }
+                } catch { /* keep what resolved */ }
             }
             if (picks.length) return picks.slice(0, 31).map(toDay);
         } catch { /* fall through to franchise fallback */ }
@@ -118,6 +173,7 @@ export const halloween = {
                     <div class="halloween-card-day">${m.day}</div>
                     <div class="halloween-card-poster">
                         ${poster ? `<img src="${poster}" alt="${this.escapeHtml(m.title)}" loading="lazy" decoding="async">` : '<div class="halloween-poster-placeholder">🎃</div>'}
+                        ${m.tag ? `<div class="halloween-tag">${this.escapeHtml(m.tag)}</div>` : ''}
                         ${isWatched ? '<div class="halloween-watched-overlay"><span class="halloween-watched-icon">✓</span><span>WATCHED</span></div>' : ''}
                     </div>
                     <div class="halloween-card-info">
