@@ -162,7 +162,7 @@ create policy "Authenticated users can post comments" on public.comments
 create policy "Users can delete own comments" on public.comments for delete using (auth.uid() = user_id);
 
 -- survival_cache (watchlist)
-create policy "Users can read watchlist" on public.survival_cache for select using (auth.uid() = user_id);
+create policy "Public read watchlist" on public.survival_cache for select using (true);
 create policy "Users can add to watchlist" on public.survival_cache for insert with check (auth.uid() = user_id);
 create policy "Users can update watchlist" on public.survival_cache for update using (auth.uid() = user_id) with check (auth.uid() = user_id);
 create policy "Users can delete from watchlist" on public.survival_cache for delete using (auth.uid() = user_id);
