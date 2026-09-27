@@ -138,7 +138,27 @@ async renderProfile(uid) {
             const following = (followingRes.data || []).length;
             const isFollowing = Boolean(myFollowRes.data);
 
-            this.state.profileData = { profile, activity, ratings, comments, lists, followers, following, isFollowing };
+            // Watched tab: titles marked watched in the watchlist. Own profile
+            // reads local-first state; others read their public watchlist rows.
+            let watched = [];
+            if (me && me === targetUid) {
+                const local = (Array.isArray(this.state.watchlist) && this.state.watchlist.length)
+                    ? this.state.watchlist
+                    : (this.readStorageJson(localStorage, 'alexandria_watchlist', []) || []);
+                watched = local
+                    .filter(w => w && (w.status || 'want') === 'watched')
+                    .map(w => ({ ...w, status: 'watched' }));
+            } else if (this.supabase) {
+                const wRes = await safeQuery(this.supabase.from('survival_cache').select('*').eq('user_id', targetUid));
+                watched = (wRes.data || [])
+                    .filter(w => w && (w.status || 'want') === 'watched')
+                    .map(w => ({ id: w.tmdb_id, type: w.media_type, title: w.title, poster_path: w.poster_path, status: 'watched' }))
+                    .filter(w => w.id != null && w.type);
+                watched.sort((a, b) => new Date(b.watched_at || 0) - new Date(a.watched_at || 0));
+            }
+            if (token !== this._renderToken) return;
+
+            this.state.profileData = { profile, activity, ratings, comments, lists, watched, followers, following, isFollowing };
 
             const displayName = profile.nickname || profile.username || 'Member';
             const isMe = Boolean(me && me === targetUid);
@@ -154,7 +174,7 @@ async renderProfile(uid) {
                     const g = this.GENRES.find(genre => String(genre.id) === gid);
                     return g ? `<span class="genre-chip">${this.escapeHtml(g.name)}</span>` : '';
                 }).join('');
-            const tab = ['reviews', 'lists'].includes(this.state.profileTab) ? this.state.profileTab : 'activity';
+            const tab = ['reviews', 'watched', 'lists'].includes(this.state.profileTab) ? this.state.profileTab : 'activity';
             this.state.profileTab = tab;
 
             this.main.innerHTML = `
@@ -186,6 +206,7 @@ async renderProfile(uid) {
                     <div class="profile-tabs" role="tablist">
                         <button type="button" role="tab" aria-selected="${tab === 'activity' ? 'true' : 'false'}" class="profile-tab ${tab === 'activity' ? 'active' : ''}" data-tab="activity" onclick="Alexandria.setProfileTab('activity')">Activity <span class="tab-count">${activity.length}</span></button>
                         <button type="button" role="tab" aria-selected="${tab === 'reviews' ? 'true' : 'false'}" class="profile-tab ${tab === 'reviews' ? 'active' : ''}" data-tab="reviews" onclick="Alexandria.setProfileTab('reviews')">Reviews <span class="tab-count">${ratings.length + comments.length}</span></button>
+                        <button type="button" role="tab" aria-selected="${tab === 'watched' ? 'true' : 'false'}" class="profile-tab ${tab === 'watched' ? 'active' : ''}" data-tab="watched" onclick="Alexandria.setProfileTab('watched')">Watched <span class="tab-count">${watched.length}</span></button>
                         <button type="button" role="tab" aria-selected="${tab === 'lists' ? 'true' : 'false'}" class="profile-tab ${tab === 'lists' ? 'active' : ''}" data-tab="lists" onclick="Alexandria.setProfileTab('lists')">Lists <span class="tab-count">${lists.length}</span></button>
                     </div>
                     <div id="profile-section"></div>
@@ -368,7 +389,7 @@ async renderProfile(uid) {
     },
 
     setProfileTab(tab) {
-        if (!['activity', 'reviews', 'lists'].includes(tab)) tab = 'activity';
+        if (!['activity', 'reviews', 'watched', 'lists'].includes(tab)) tab = 'activity';
         this.state.profileTab = tab;
         document.querySelectorAll('.profile-tab').forEach(btn => {
             const on = btn.dataset.tab === tab;
@@ -382,7 +403,7 @@ async renderProfile(uid) {
         const container = document.getElementById('profile-section');
         const data = this.state.profileData;
         if (!container || !data) return;
-        const { profile, activity, ratings, comments, lists } = data;
+        const { profile, activity, ratings, comments, lists, watched = [] } = data;
         const targetUid = this.state.activeProfileId || profile.id;
         const displayName = profile.nickname || profile.username || 'Member';
         const avatar = size => `<a class="profile-avatar-link" href="#profile/${this.escapeHtml(targetUid)}">${this.avatarHtml(profile, size)}</a>`;
@@ -401,6 +422,12 @@ async renderProfile(uid) {
         if (this.state.profileTab === 'reviews') {
             container.innerHTML = '<div class="placeholder-msg"><span class="pulse-dot"></span> LOADING REVIEWS & COMMENTS...</div>';
             this.renderProfileReviews(container, profile, ratings, comments, targetUid);
+            return;
+        }
+
+        if (this.state.profileTab === 'watched') {
+            container.innerHTML = watched.length ? '<div class="results-grid" id="watched-grid"></div>' : '';
+            if (watched.length) this.renderResults(watched, 'watched-grid', false, { watchlistMode: true });
             return;
         }
 
