@@ -16,6 +16,7 @@ import { party } from './party.js';
 import { sharedlists } from './sharedlists.js';
 import { settings } from './settings.js';
 import { ui } from './ui.js';
+import { halloween } from './halloween.js';
 
 const Alexandria = Object.assign(
     {},
@@ -36,7 +37,8 @@ const Alexandria = Object.assign(
     party,
     sharedlists,
     settings,
-    ui
+    ui,
+    halloween
 );
 
 window.Alexandria = Alexandria;
