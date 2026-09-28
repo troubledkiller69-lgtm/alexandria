@@ -23,6 +23,15 @@ export const halloween = {
         this.renderHalloweenGrid(movies);
         this.updateHalloweenProgress(movies);
         this.updateHalloweenCountdown();
+        this.spotlightTonight();
+    },
+
+    spotlightTonight() {
+        if (new Date().getMonth() !== 9) return;
+        const card = document.querySelector(`.halloween-card[data-day="${new Date().getDate()}"]`);
+        if (!card) return;
+        card.classList.add('tonight');
+        try { card.scrollIntoView({ block: 'center' }); } catch { /* ignore */ }
     },
 
     updateHalloweenCountdown() {
@@ -202,7 +211,7 @@ export const halloween = {
             const year = m.release_date ? m.release_date.slice(0, 4) : '';
 
             return `
-                <article class="halloween-card ${isWatched ? 'watched' : ''}" data-id="${m.id}" data-type="movie">
+                <article class="halloween-card ${isWatched ? 'watched' : ''}" data-id="${m.id}" data-type="movie" data-day="${m.day}">
                     <div class="halloween-card-day">${m.day}</div>
                     <div class="halloween-card-poster">
                         ${poster ? `<img src="${poster}" alt="${this.escapeHtml(m.title)}" loading="lazy" decoding="async">` : '<div class="halloween-poster-placeholder">🎃</div>'}

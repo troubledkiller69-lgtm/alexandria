@@ -54,6 +54,17 @@ export const auth = {
     // not an archive.
     CHANGELOG: [
         {
+            key: 'v1.13.0',
+            date: 'Sep 28, 2026',
+            title: 'Halloween Calendar & New Display Type',
+            items: [
+                'Halloween calendar rebuilt on the big franchises — Halloween, Friday the 13th, Nightmare on Elm Street, Scream, and six more, oldest film first',
+                'A countdown line under the header tells you how many nights are left until Halloween',
+                'Tonight\'s pick: in October, the card for today\'s date gets a gold spotlight with a TONIGHT ribbon and scrolls into view',
+                'Headlines across the whole app now set in Oswald — condensed poster type instead of Inter everywhere'
+            ]
+        },
+        {
             key: 'v1.12.0',
             date: 'Sep 21, 2026',
             title: 'Watchlist Diary & Settings Rebuild',
@@ -110,16 +121,6 @@ export const auth = {
                 'Search page rebuilt: full-width flush search bar, underline type tabs, TRENDING NOW / RESULTS headers',
                 'Recent searches appear as chips on the search page — click to re-run, ✕ to forget, CLEAR to wipe',
                 'Roulette got a gold pill treatment in the search toolbar'
-            ]
-        },
-        {
-            key: 'v1.9.5',
-            date: 'Aug 21, 2026',
-            title: 'Share Cards',
-            items: [
-                'Sharing a title now copies an alexandr1a.vercel.app/share/movie/123 link instead of a raw hash URL',
-                'Discord and Telegram unfurls show the poster, title, year, and description — plus Twitter large-image cards',
-                'People clicking a shared link land directly on the title page'
             ]
         }
     ],
