@@ -166,7 +166,11 @@ export const halloween = {
 
         grid.innerHTML = movies.map(m => {
             const isWatched = watched.has(String(m.id));
-            const poster = m.poster_path ? this.imageUrl(m.poster_path, 'w342') : '';
+            let poster = '';
+            try {
+                poster = m.poster_path ? this.imageUrl(m.poster_path, 'w342') : '';
+            } catch { poster = ''; }
+            if (typeof poster !== 'string') poster = '';
             const rating = m.vote_average ? m.vote_average.toFixed(1) : '—';
             const year = m.release_date ? m.release_date.slice(0, 4) : '';
             const franchise = m.franchise ? String(m.franchise) : '';
