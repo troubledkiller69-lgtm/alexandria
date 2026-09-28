@@ -190,7 +190,6 @@ export const halloween = {
                     <div class="halloween-card-day">${m.day}</div>
                     <div class="halloween-card-poster">
                         ${poster ? `<img src="${poster}" alt="${this.escapeHtml(m.title)}" loading="lazy" decoding="async">` : '<div class="halloween-poster-placeholder">🎃</div>'}
-                        ${franchise ? `<div class="halloween-tag">${this.escapeHtml(franchise)}</div>` : ''}
                         ${isWatched ? '<div class="halloween-watched-overlay"><span class="halloween-watched-icon">✓</span><span>WATCHED</span></div>' : ''}
                     </div>
                     <div class="halloween-card-info">
