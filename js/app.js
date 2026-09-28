@@ -17,6 +17,7 @@ import { sharedlists } from './sharedlists.js';
 import { settings } from './settings.js';
 import { ui } from './ui.js';
 import { halloween } from './halloween.js';
+import { palette } from './palette.js';
 
 const Alexandria = Object.assign(
     {},
@@ -38,8 +39,10 @@ const Alexandria = Object.assign(
     sharedlists,
     settings,
     ui,
-    halloween
+    halloween,
+    palette
 );
 
 window.Alexandria = Alexandria;
 Alexandria.init();
+Alexandria.initPalette();
