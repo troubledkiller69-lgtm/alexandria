@@ -8545,6 +8545,14 @@ h1, h2, h3, h4 {
 .halloween-sub {
     color: var(--text-secondary);
     font-size: 1.05rem;
+    margin: 0 0 0.5rem;
+}
+.halloween-countdown {
+    color: var(--accent-gold);
+    font-size: 0.85rem;
+    font-weight: 800;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
     margin: 0 0 1.25rem;
 }
 .halloween-progress {
@@ -8629,20 +8637,6 @@ h1, h2, h3, h4 {
 }
 .halloween-card:hover .halloween-card-poster img {
     transform: scale(1.05);
-}
-.halloween-tag {
-    position: absolute;
-    top: 0.5rem;
-    right: 0.5rem;
-    font-size: 0.6rem;
-    font-weight: 800;
-    letter-spacing: 0.08em;
-    padding: 0.25rem 0.5rem;
-    border-radius: 6px;
-    background: rgba(0, 0, 0, 0.72);
-    border: 1px solid var(--accent-gold);
-    color: var(--accent-gold);
-    pointer-events: none;
 }
 .halloween-poster-placeholder {
     width: 100%;

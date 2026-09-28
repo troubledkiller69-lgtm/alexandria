@@ -9,6 +9,7 @@ export const halloween = {
                     <div class="halloween-badge">🎃 OCTOBER HORROR CALENDAR</div>
                     <h1>31 Days of Horror</h1>
                     <p class="halloween-sub">One movie per night. Watch them all if you survive.</p>
+                    <p class="halloween-countdown" id="halloween-countdown"></p>
                     <div class="halloween-progress" id="halloween-progress">
                         <span class="halloween-progress-text">0 / 31 watched</span>
                         <div class="halloween-progress-bar"><div class="halloween-progress-fill" style="width: 0%"></div></div>
@@ -21,6 +22,21 @@ export const halloween = {
         const movies = await this.fetchHalloweenMovies();
         this.renderHalloweenGrid(movies);
         this.updateHalloweenProgress(movies);
+        this.updateHalloweenCountdown();
+    },
+
+    updateHalloweenCountdown() {
+        const el = document.getElementById('halloween-countdown');
+        if (!el) return;
+        const now = new Date();
+        const year = now.getFullYear();
+        let target = new Date(year, 9, 31, 23, 59, 59);
+        if (now > target) target = new Date(year + 1, 9, 31, 23, 59, 59);
+        const days = Math.ceil((target - now) / 86400000);
+        el.textContent =
+            days <= 0 ? 'It\'s Halloween night. No excuses.' :
+            days === 1 ? '1 night until Halloween.' :
+            `${days} nights until Halloween.`;
     },
 
     async fetchHalloweenMovies() {
