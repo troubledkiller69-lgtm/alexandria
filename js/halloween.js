@@ -168,12 +168,26 @@ export const halloween = {
             const isWatched = watched.has(String(m.id));
             let poster = '';
             try {
-                poster = m.poster_path ? this.imageUrl(m.poster_path, 'w342') : '';
+                const rawPoster = m.poster_path;
+                if (rawPoster) {
+                    const url = this.imageUrl(rawPoster, 'w342');
+                    poster = typeof url === 'string' ? url : '';
+                }
             } catch { poster = ''; }
-            if (typeof poster !== 'string') poster = '';
+            if (typeof poster !== 'string' || !poster.startsWith('http')) poster = '';
+            
+            let franchise = '';
+            try {
+                franchise = m.franchise ? String(m.franchise) : '';
+            } catch { franchise = ''; }
+            if (typeof franchise !== 'string') franchise = '';
+            
             const rating = m.vote_average ? m.vote_average.toFixed(1) : '—';
             const year = m.release_date ? m.release_date.slice(0, 4) : '';
-            const franchise = m.franchise ? String(m.franchise) : '';
+            
+            // Debug: log first movie's poster
+            if (m.day === 1) console.log('[HALLOWEEN] Day 1 poster:', poster, 'franchise:', franchise);
+
             return `
                 <article class="halloween-card ${isWatched ? 'watched' : ''}" data-id="${m.id}" data-type="movie">
                     <div class="halloween-card-day">${m.day}</div>
