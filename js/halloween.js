@@ -25,7 +25,7 @@ export const halloween = {
 
     async fetchHalloweenMovies() {
         const token = this._renderToken;
-        const toDay = (m, i, tag) => ({
+        const toDay = (m, i, franchise) => ({
             id: m.id,
             title: m.title || m.name,
             poster_path: m.poster_path,
@@ -33,125 +33,126 @@ export const halloween = {
             vote_average: m.vote_average,
             overview: m.overview || '',
             day: i + 1,
-            tag: tag || m.tag,
+            franchise: franchise || m.franchise,
         });
-        // The canon: slashers, Stephen King, cult classics. Resolved live by
-        // title+year so posters/ratings are always real, never hardcoded.
-        const curated = [
-            { t: 'Halloween', y: 1978, tag: 'SLASHER' },
-            { t: 'The Shining', y: 1980, tag: 'STEPHEN KING' },
-            { t: 'The Exorcist', y: 1973, tag: 'CULT CLASSIC' },
-            { t: 'A Nightmare on Elm Street', y: 1984, tag: 'SLASHER' },
-            { t: 'Carrie', y: 1976, tag: 'STEPHEN KING' },
-            { t: 'Psycho', y: 1960, tag: 'CULT CLASSIC' },
-            { t: 'Friday the 13th', y: 1980, tag: 'SLASHER' },
-            { t: 'It', y: 2017, tag: 'STEPHEN KING' },
-            { t: 'Night of the Living Dead', y: 1968, tag: 'CULT CLASSIC' },
-            { t: 'Scream', y: 1996, tag: 'SLASHER' },
-            { t: 'Misery', y: 1990, tag: 'STEPHEN KING' },
-            { t: 'The Texas Chain Saw Massacre', y: 1974, tag: 'SLASHER' },
-            { t: "Rosemary's Baby", y: 1968, tag: 'CULT CLASSIC' },
-            { t: 'Pet Sematary', y: 1989, tag: 'STEPHEN KING' },
-            { t: 'The Thing', y: 1982, tag: 'CULT CLASSIC' },
-            { t: "Child's Play", y: 1988, tag: 'SLASHER' },
-            { t: 'The Mist', y: 2007, tag: 'STEPHEN KING' },
-            { t: 'Alien', y: 1979, tag: 'CULT CLASSIC' },
-            { t: 'Candyman', y: 1992, tag: 'SLASHER' },
-            { t: 'Doctor Sleep', y: 2019, tag: 'STEPHEN KING' },
-            { t: 'Dawn of the Dead', y: 1978, tag: 'CULT CLASSIC' },
-            { t: 'Hellraiser', y: 1987, tag: 'SLASHER' },
-            { t: 'The Fly', y: 1986, tag: 'CULT CLASSIC' },
-            { t: 'The Omen', y: 1976, tag: 'CULT CLASSIC' },
-            { t: 'Poltergeist', y: 1982, tag: 'CULT CLASSIC' },
-            { t: 'Evil Dead II', y: 1987, tag: 'CULT CLASSIC' },
-            { t: 'The Conjuring', y: 2013, tag: 'CULT CLASSIC' },
-            { t: 'Hereditary', y: 2018, tag: 'CULT CLASSIC' },
-            { t: 'Get Out', y: 2017, tag: 'CULT CLASSIC' },
-            { t: 'The Silence of the Lambs', y: 1991, tag: 'CULT CLASSIC' },
-            { t: 'The Babadook', y: 2014, tag: 'CULT CLASSIC' },
+
+        // Major horror franchise collection IDs from TMDB
+        const franchiseCollections = [
+            { id: 91361, name: 'Halloween' },           // Halloween franchise
+            { id: 9735, name: 'Friday the 13th' },      // Friday the 13th franchise
+            { id: 8581, name: 'A Nightmare on Elm Street' }, // Nightmare on Elm Street
+            { id: 656, name: 'Scream' },                 // Scream franchise
+            { id: 2602, name: 'The Texas Chainsaw Massacre' }, // Texas Chainsaw
+            { id: 313086, name: 'Child\'s Play' },      // Child's Play / Chucky
+            { id: 1960, name: 'Hellraiser' },            // Hellraiser
+            { id: 8864, name: 'The Conjuring' },         // Conjuring Universe
+            { id: 228446, name: 'Insidious' },           // Insidious
+            { id: 41437, name: 'Evil Dead' },            // Evil Dead
         ];
+
         try {
-            const resolved = await this.mapWithConcurrency(curated, 4, async (c) => {
+            // Fetch all movies from each franchise collection
+            const franchiseMovies = await this.mapWithConcurrency(franchiseCollections, 3, async (fc) => {
                 try {
-                    const data = await this.getJson(`search/movie?query=${encodeURIComponent(c.t)}&year=${c.y}&language=en-US&include_adult=false`);
-                    const results = (data?.results || []).filter(r => r && r.poster_path && r.release_date);
-                    if (!results.length) return null;
-                    const exact = results.find(r => (r.release_date || '').startsWith(String(c.y)));
-                    const pick = exact || results[0];
-                    return { ...pick, tag: c.tag };
+                    const data = await this.getJson('collection/' + fc.id);
+                    const parts = (data?.parts || [])
+                        .filter(p => p && p.poster_path && p.release_date)
+                        .sort((a, b) => {
+                            // Sort by release date (oldest first)
+                            const da = new Date(a.release_date || 0).getTime();
+                            const db = new Date(b.release_date || 0).getTime();
+                            return da - db;
+                        });
+                    return { franchise: fc.name, movies: parts };
+                } catch {
+                    return { franchise: fc.name, movies: [] };
+                }
+            });
+
+            if (token !== this._renderToken) return [];
+
+            // Round-robin pick one from each franchise to get variety across the month
+            const picks = [];
+            const seen = new Set();
+            for (let round = 0; round < 5 && picks.length < 31; round++) {
+                for (const fm of franchiseMovies) {
+                    const m = fm.movies[round];
+                    if (m && !seen.has(m.id)) {
+                        seen.add(m.id);
+                        picks.push({ ...m, franchise: fm.franchise });
+                        if (picks.length >= 31) break;
+                    }
+                }
+            }
+
+            // If still short, fill with more from largest franchises
+            if (picks.length < 31) {
+                for (const fm of franchiseMovies) {
+                    for (const m of fm.movies) {
+                        if (picks.length >= 31 || !m || seen.has(m.id)) continue;
+                        seen.add(m.id);
+                        picks.push({ ...m, franchise: fm.franchise });
+                    }
+                    if (picks.length >= 31) break;
+                }
+            }
+
+            if (picks.length) return picks.slice(0, 31).map(toDay);
+        } catch { /* fall through */ }
+
+        // Ultimate fallback: static curated list with known TMDB IDs
+        const fallback = [
+            { id: 781, franchise: 'Halloween' },           // Halloween (1978)
+            { id: 4488, franchise: 'Friday the 13th' },    // Friday the 13th (1980)
+            { id: 118, franchise: 'A Nightmare on Elm Street' }, // Nightmare (1984)
+            { id: 4232, franchise: 'Halloween' },          // Halloween II (1981)
+            { id: 9923, franchise: 'Friday the 13th' },    // Friday 13th Part 2 (1981)
+            { id: 1053, franchise: 'A Nightmare on Elm Street' }, // Nightmare 2 (1985)
+            { id: 10554, franchise: 'Halloween' },         // Halloween III (1982)
+            { id: 9924, franchise: 'Friday the 13th' },    // Friday 13th Part 3 (1982)
+            { id: 733, franchise: 'A Nightmare on Elm Street' }, // Nightmare 3 (1987)
+            { id: 11452, franchise: 'Halloween' },         // Halloween 4 (1988)
+            { id: 10646, franchise: 'Friday the 13th' },   // Friday 13th Part 4 (1984)
+            { id: 1381, franchise: 'A Nightmare on Elm Street' }, // Nightmare 4 (1988)
+            { id: 11652, franchise: 'Halloween' },         // Halloween 5 (1989)
+            { id: 10647, franchise: 'Friday the 13th' },   // Friday 13th Part 5 (1985)
+            { id: 1382, franchise: 'A Nightmare on Elm Street' }, // Nightmare 5 (1989)
+            { id: 11469, franchise: 'Scream' },            // Scream (1996)
+            { id: 27953, franchise: 'Scream' },            // Scream 2 (1997)
+            { id: 4233, franchise: 'Halloween' },          // Halloween 6 (1995)
+            { id: 10648, franchise: 'Friday the 13th' },   // Friday 13th Part 6 (1986)
+            { id: 1383, franchise: 'A Nightmare on Elm Street' }, // Nightmare 6 (1991)
+            { id: 11474, franchise: 'Halloween' },         // H20 (1998)
+            { id: 10649, franchise: 'Friday the 13th' },   // Friday 13th Part 7 (1988)
+            { id: 2642, franchise: 'The Texas Chainsaw Massacre' }, // TCM (1974)
+            { id: 942, franchise: 'Child\'s Play' },       // Child's Play (1988)
+            { id: 757, franchise: 'Hellraiser' },          // Hellraiser (1987)
+            { id: 4234, franchise: 'Halloween' },          // Halloween Resurrection (2002)
+            { id: 10650, franchise: 'Friday the 13th' },   // Jason X (2001)
+            { id: 41438, franchise: 'Evil Dead' },         // Evil Dead (1981)
+            { id: 10836, franchise: 'Evil Dead' },         // Evil Dead II (1987)
+            { id: 11485, franchise: 'Halloween' },         // Halloween (2007 remake)
+            { id: 345349, franchise: 'Halloween' },        // Halloween (2018)
+        ];
+
+        try {
+            const resolved = await this.mapWithConcurrency(fallback, 4, async (m) => {
+                try {
+                    const data = await this.getJson('movie/' + m.id);
+                    if (data && data.poster_path && data.release_date) {
+                        return { ...data, franchise: m.franchise };
+                    }
+                    return null;
                 } catch {
                     return null;
                 }
             });
             if (token !== this._renderToken) return [];
-            const picks = [];
-            const seen = new Set();
-            for (const m of resolved) {
-                if (m && !seen.has(m.id)) {
-                    seen.add(m.id);
-                    picks.push(m);
-                }
-            }
-            // Fill any misses with popular horror so the grid still hits 31.
-            if (picks.length < 31) {
-                try {
-                    const p1 = await this.getJson('discover/movie?with_genres=27&sort_by=popularity.desc&vote_average.gte=5&vote_count.gte=100&page=1&include_adult=false&language=en-US');
-                    for (const m of (p1?.results || [])) {
-                        if (picks.length >= 31 || !m || seen.has(m.id)) continue;
-                        if (!m.poster_path || !m.release_date) continue;
-                        if (!(m.genre_ids || []).includes(27)) continue;
-                        seen.add(m.id);
-                        picks.push({ ...m, tag: 'HORROR' });
-                    }
-                } catch { /* keep what resolved */ }
-            }
+            const picks = resolved.filter(m => m && !seen.has(m.id)).map(m => ({ ...m, franchise: m.franchise }));
             if (picks.length) return picks.slice(0, 31).map(toDay);
-        } catch { /* fall through to franchise fallback */ }
-        try {
-            return await this.getFallbackHalloweenMovies(token);
-        } catch {
-            return [];
-        }
-    },
+        } catch { /* give up */ }
 
-    // Offline-proof fallback: horror franchise collections already curated
-    // in-repo (franchise-data.js). Resolved live so posters/ratings are real.
-    async getFallbackHalloweenMovies(token) {
-        const horrorCollections = [91361, 9735, 8581, 656, 2602, 313086, 1960, 8864, 228446, 41437];
-        const perFranchise = await this.mapWithConcurrency(horrorCollections, 3, async (cid) => {
-            try {
-                const data = await this.getJson('collection/' + cid);
-                return (data?.parts || [])
-                    .filter(p => p && p.poster_path && p.release_date)
-                    .sort((a, b) => (b.vote_average || 0) - (a.vote_average || 0))
-                    .slice(0, 4);
-            } catch {
-                return [];
-            }
-        });
-        if (token !== undefined && token !== this._renderToken) return [];
-        // Round-robin across franchises so days alternate killers, ghosts, dolls.
-        const picks = [];
-        const seen = new Set();
-        for (let round = 0; round < 4 && picks.length < 31; round++) {
-            for (const group of perFranchise) {
-                const m = group[round];
-                if (m && !seen.has(m.id)) {
-                    seen.add(m.id);
-                    picks.push(m);
-                    if (picks.length >= 31) break;
-                }
-            }
-        }
-        return picks.map((m, i) => ({
-            id: m.id,
-            title: m.title,
-            poster_path: m.poster_path,
-            release_date: m.release_date,
-            vote_average: m.vote_average,
-            overview: m.overview || '',
-            day: i + 1,
-        }));
+        return [];
     },
 
     renderHalloweenGrid(movies) {
@@ -168,12 +169,13 @@ export const halloween = {
             const poster = m.poster_path ? this.imageUrl(m.poster_path, 'w342') : '';
             const rating = m.vote_average ? m.vote_average.toFixed(1) : '—';
             const year = m.release_date ? m.release_date.slice(0, 4) : '';
+            const franchise = m.franchise ? String(m.franchise) : '';
             return `
                 <article class="halloween-card ${isWatched ? 'watched' : ''}" data-id="${m.id}" data-type="movie">
                     <div class="halloween-card-day">${m.day}</div>
                     <div class="halloween-card-poster">
                         ${poster ? `<img src="${poster}" alt="${this.escapeHtml(m.title)}" loading="lazy" decoding="async">` : '<div class="halloween-poster-placeholder">🎃</div>'}
-                        ${m.tag ? `<div class="halloween-tag">${this.escapeHtml(m.tag)}</div>` : ''}
+                        ${franchise ? `<div class="halloween-tag">${this.escapeHtml(franchise)}</div>` : ''}
                         ${isWatched ? '<div class="halloween-watched-overlay"><span class="halloween-watched-icon">✓</span><span>WATCHED</span></div>' : ''}
                     </div>
                     <div class="halloween-card-info">
