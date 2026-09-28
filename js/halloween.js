@@ -25,7 +25,7 @@ export const halloween = {
 
     async fetchHalloweenMovies() {
         const token = this._renderToken;
-        const toDay = (m, i, franchise) => ({
+        const toDay = (m, i) => ({
             id: m.id,
             title: m.title || m.name,
             poster_path: m.poster_path,
@@ -33,7 +33,7 @@ export const halloween = {
             vote_average: m.vote_average,
             overview: m.overview || '',
             day: i + 1,
-            franchise: franchise || m.franchise,
+            franchise: typeof m.franchise === 'string' ? m.franchise : '',
         });
 
         // Major horror franchise collection IDs from TMDB
@@ -97,7 +97,7 @@ export const halloween = {
                 }
             }
 
-            if (picks.length) return picks.slice(0, 31).map(toDay);
+            if (picks.length) return picks.slice(0, 31).map((m, i) => toDay(m, i));
         } catch { /* fall through */ }
 
         // Ultimate fallback: static curated list with known TMDB IDs
@@ -184,9 +184,6 @@ export const halloween = {
             
             const rating = m.vote_average ? m.vote_average.toFixed(1) : '—';
             const year = m.release_date ? m.release_date.slice(0, 4) : '';
-            
-            // Debug: log first movie's poster
-            if (m.day === 1) console.log('[HALLOWEEN] Day 1 poster:', poster, 'franchise:', franchise);
 
             return `
                 <article class="halloween-card ${isWatched ? 'watched' : ''}" data-id="${m.id}" data-type="movie">
