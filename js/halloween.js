@@ -241,7 +241,8 @@ export const halloween = {
                 const score = Number(btn.dataset.score);
                 const already = btn.classList.contains('watched');
                 if (already) {
-                    await this.removeFromWatchlist({ id, type });
+                    this.state.history = (this.state.history || []).filter(h => !(String(h.id) === String(id) && h.type === type));
+                    this.writeLocalList('alexandria_history', this.state.history);
                     btn.textContent = 'Mark Watched';
                     btn.classList.remove('watched');
                     const card = btn.closest('.halloween-card');
@@ -249,7 +250,7 @@ export const halloween = {
                     const overlay = card.querySelector('.halloween-watched-overlay');
                     if (overlay) overlay.remove();
                 } else {
-                    await this.addToWatchlist({ id, type, title, poster_path: poster });
+                    await this.addToHistory({ id, type, title, poster_path: poster });
                     btn.textContent = '✓ Watched';
                     btn.classList.add('watched');
                     const card = btn.closest('.halloween-card');
@@ -283,10 +284,11 @@ export const halloween = {
         }));
     },
 
-    updateHalloweenProgress(movies) {
+    updateHalloweenProgress() {
         const text = document.querySelector('.halloween-progress-text');
         const fill = document.querySelector('.halloween-progress-fill');
         if (!text || !fill) return;
+        const movies = this.getHalloweenMovies();
         const watched = movies.filter(m => m.watched).length;
         const total = movies.length || 31;
         text.textContent = `${watched} / ${total} watched`;
