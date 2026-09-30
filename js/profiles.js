@@ -345,6 +345,9 @@ async renderProfile(uid) {
             const hasFive = ratings.some(r => Number(r.rating) >= 5);
             const hasOne = ratings.some(r => Number(r.rating) <= 1);
             const rewatched = Object.values(perTitle).some(n => n >= 3);
+            const maxTvDay = Object.keys(tvPerDay).length ? Math.max(...Object.values(tvPerDay)) : 0;
+            const maxMovieDay = Object.keys(moviePerDay).length ? Math.max(...Object.values(moviePerDay)) : 0;
+            const { lists = [], followers = 0, following = 0 } = this.state.profileData || {};
             const defs = [
                 ['FIRST BLOOD', 'Watch your first title', icon('<path d="M12 22a7 7 0 0 0 7-7c0-2-1-3.9-3-5.5s-3.5-4-4-6.5c-.5 2.5-2 4.9-4 6.5C6 11.1 5 13 5 15a7 7 0 0 0 7 7z"></path>'), titles > 0],
                 ['DOUBLE FEATURE', 'Watch 2 movies in a single day', icon('<rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>'), maxMovieDay >= 2],
@@ -388,7 +391,11 @@ async renderProfile(uid) {
             this.enrichPulseHours(titleKeys, perTitle, token);
         } catch (e) {
             console.warn("Alexandria Protocol: Pulse stats failed", e);
-            if (token === this._renderToken) container.innerHTML = '';
+            // Never blank a painted strip, and never sit on loading forever —
+            // say so out loud instead of vanishing.
+            if (token === this._renderToken && container.querySelector('.pulse-loading')) {
+                container.innerHTML = '<div class="placeholder-msg">WATCH STATS UNAVAILABLE RIGHT NOW.</div>';
+            }
         }
     },
 
