@@ -1,5 +1,5 @@
 const CACHE = 'alexandria-shell-v1';
-const APP_VERSION = '20260924z';
+const APP_VERSION = '20260930a';
 
 const SHELL = [
     '/',

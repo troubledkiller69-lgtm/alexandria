@@ -285,20 +285,9 @@ async renderProfile(uid) {
             let cursor = daySet.has(today) ? today : this.dayKeyOffset(today, -1);
             while (daySet.has(cursor)) { current++; cursor = this.dayKeyOffset(cursor, -1); }
 
-            // Approx hours: per watch event, movie runtime / avg episode runtime
-            let hours = 0;
+            // Titles touched — hours enrich after paint (see enrichPulseHours),
+            // so slow TMDB lookups never hold stats/badges hostage.
             const titleKeys = Object.keys(perTitle);
-            if (titleKeys.length > 0) {
-                const targets = titleKeys.map(k => {
-                    const i = k.indexOf('_');
-                    return { key: k, type: k.slice(0, i), id: Number(k.slice(i + 1)) };
-                });
-                await this.mapWithConcurrency(targets, 4, async t => {
-                    const rt = await this.runtimeFor(t.type, t.id);
-                    hours += (rt / 60) * perTitle[t.key];
-                });
-            }
-            if (token !== this._renderToken) return;
 
             const episodes = Object.values(tvPerDay).reduce((s, n) => s + n, 0);
             const titles = titleKeys.length;
@@ -351,10 +340,9 @@ async renderProfile(uid) {
             const badges = defs.filter(d => d[3]);
             this.state.profileBadgeDefs = defs.map(d => ({ name: d[0], desc: d[1], badgeIcon: d[2], earned: d[3] }));
 
-            const hoursText = hours >= 10 ? String(Math.round(hours)) : hours.toFixed(1);
             container.innerHTML = `
                 <div class="pulse-stats-inline">
-                    <span class="pulse-stat-inline"><strong>${hoursText}</strong><span>Hrs watched</span></span>
+                    <span class="pulse-stat-inline"><strong id="pulse-hours">${titleKeys.length ? '…' : '0.0'}</strong><span>Hrs watched</span></span>
                     <span class="pulse-stat-inline"><strong>${episodes}</strong><span>Episodes</span></span>
                     <span class="pulse-stat-inline"><strong>${titles}</strong><span>Titles</span></span>
                     <span class="pulse-stat-inline"><strong>${current}</strong><span>Day streak${longest > current ? ` · longest ${longest}` : ''}</span></span>
@@ -368,10 +356,33 @@ async renderProfile(uid) {
                     <button type="button" class="btn-quiet" onclick="Alexandria.showBadgeQuests()">BADGE QUESTS — ${badges.length}/${defs.length} COLLECTED</button>
                 </div>
             `;
+            // Hours fill in when TMDB answers — fire and forget, never blank.
+            this.enrichPulseHours(titleKeys, perTitle, token);
         } catch (e) {
             console.warn("Alexandria Protocol: Pulse stats failed", e);
             if (token === this._renderToken) container.innerHTML = '';
         }
+    },
+
+    // Background hours enrichment for the pulse strip. Runs after paint;
+    // a dead proxy or a huge library only delays the number, never the
+    // stats, heatmap, badges or quest button.
+    async enrichPulseHours(titleKeys, perTitle, token) {
+        if (!titleKeys.length) return;
+        let hours = 0;
+        try {
+            const targets = titleKeys.map(k => {
+                const i = k.indexOf('_');
+                return { key: k, type: k.slice(0, i), id: Number(k.slice(i + 1)) };
+            });
+            await this.mapWithConcurrency(targets, 4, async t => {
+                const rt = await this.runtimeFor(t.type, t.id);
+                hours += (rt / 60) * (perTitle[t.key] || 0);
+            });
+        } catch { /* number stays pending */ }
+        if (token !== this._renderToken || hours <= 0) return;
+        const el = document.getElementById('pulse-hours');
+        if (el) el.textContent = hours >= 10 ? String(Math.round(hours)) : hours.toFixed(1);
     },
 
     localDayKey(dateOrIso) {
