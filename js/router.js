@@ -86,10 +86,8 @@ export const router = {
             return;
         } else if (path === 'halloween') {
             this.setView('halloween');
-        } else if (path === 'autopsy') {
-            this.setView('autopsy');
         } else {
-            const allowedViews = new Set(['home', 'movies', 'tv', 'anime', 'franchises', 'search', 'history', 'watchlist', 'community', 'settings', 'halloween', 'autopsy']);
+            const allowedViews = new Set(['home', 'movies', 'tv', 'anime', 'franchises', 'search', 'history', 'watchlist', 'community', 'settings', 'halloween']);
             this.setView(allowedViews.has(path) ? path : 'home');
         }
     },

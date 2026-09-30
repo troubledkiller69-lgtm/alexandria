@@ -176,8 +176,9 @@ async renderProfile(uid) {
                     const g = this.GENRES.find(genre => String(genre.id) === gid);
                     return g ? `<span class="genre-chip">${this.escapeHtml(g.name)}</span>` : '';
                 }).join('');
-            const tab = ['reviews', 'watched', 'lists'].includes(this.state.profileTab) ? this.state.profileTab : 'activity';
+            const tab = ['reviews', 'watched', 'lists', 'autopsy'].includes(this.state.profileTab) ? this.state.profileTab : 'activity';
             this.state.profileTab = tab;
+            const autopsyCount = isMe ? (this.state.watchlist || []).filter(w => (Number(w.userRating) || 0) > 0).length : 0;
 
             this.main.innerHTML = `
                 <section class="profile-page account">
@@ -210,6 +211,7 @@ async renderProfile(uid) {
                         <button type="button" role="tab" aria-selected="${tab === 'reviews' ? 'true' : 'false'}" class="profile-tab ${tab === 'reviews' ? 'active' : ''}" data-tab="reviews" onclick="Alexandria.setProfileTab('reviews')">Reviews <span class="tab-count">${ratings.length + comments.length}</span></button>
                         <button type="button" role="tab" aria-selected="${tab === 'watched' ? 'true' : 'false'}" class="profile-tab ${tab === 'watched' ? 'active' : ''}" data-tab="watched" onclick="Alexandria.setProfileTab('watched')">Watched <span class="tab-count">${watched.length}</span></button>
                         <button type="button" role="tab" aria-selected="${tab === 'lists' ? 'true' : 'false'}" class="profile-tab ${tab === 'lists' ? 'active' : ''}" data-tab="lists" onclick="Alexandria.setProfileTab('lists')">Lists <span class="tab-count">${lists.length}</span></button>
+                        <button type="button" role="tab" aria-selected="${tab === 'autopsy' ? 'true' : 'false'}" class="profile-tab ${tab === 'autopsy' ? 'active' : ''}" data-tab="autopsy" onclick="Alexandria.setProfileTab('autopsy')">Autopsy${isMe && autopsyCount ? ` <span class="tab-count">${autopsyCount}</span>` : ''}</button>
                     </div>
                     <div id="profile-section"></div>
                 </section>
@@ -458,7 +460,7 @@ async renderProfile(uid) {
     },
 
     setProfileTab(tab) {
-        if (!['activity', 'reviews', 'watched', 'lists'].includes(tab)) tab = 'activity';
+        if (!['activity', 'reviews', 'watched', 'lists', 'autopsy'].includes(tab)) tab = 'activity';
         this.state.profileTab = tab;
         document.querySelectorAll('.profile-tab').forEach(btn => {
             const on = btn.dataset.tab === tab;
@@ -487,6 +489,12 @@ async renderProfile(uid) {
             }
             return item.title ? this.escapeHtml(item.title) : '';
         };
+
+        if (this.state.profileTab === 'autopsy') {
+            container.innerHTML = '<div class="placeholder-msg"><span class="pulse-dot"></span> READING THE SHELF...</div>';
+            this.renderAutopsySection(container, targetUid);
+            return;
+        }
 
         if (this.state.profileTab === 'reviews') {
             container.innerHTML = '<div class="placeholder-msg"><span class="pulse-dot"></span> LOADING REVIEWS & COMMENTS...</div>';

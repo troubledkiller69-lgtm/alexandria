@@ -1,8 +1,15 @@
 export const autopsy = {
-    async renderAutopsy() {
-        if (!this.main) this.main = document.getElementById('content');
-        if (!this.main) return;
+    // Profile-tab section: your rated shelf read back to you. No page hero —
+    // the tab sits alongside Activity / Reviews / Watched / Lists and speaks
+    // in the same components (pulse stats, hairline rows, watchlist rows).
+    async renderAutopsySection(container, uid) {
+        if (!container) return;
         const token = this._renderToken;
+        const me = this.state.authUser?.id;
+        if (!me || me !== uid) {
+            container.innerHTML = '<div class="placeholder-msg">The autopsy only reads your own shelf.</div>';
+            return;
+        }
         const rated = (this.state.watchlist || []).filter(w => (Number(w.userRating) || 0) > 0);
         const canon = [...rated]
             .filter(w => Number(w.userRating) >= 4.5)
@@ -12,29 +19,19 @@ export const autopsy = {
         const avg = rated.length
             ? (rated.reduce((s, w) => s + (Number(w.userRating) || 0), 0) / rated.length).toFixed(1)
             : null;
+        if (rated.length < 3) {
+            container.innerHTML = '<div class="placeholder-msg">Not enough blood samples. Rate at least 3 titles. <a class="btn-quiet" href="#watchlist">OPEN WATCHLIST</a></div>';
+            return;
+        }
 
-        this.main.innerHTML = `
-            <section class="filtered-view autopsy-page">
-                <div class="hero-featured">
-                    <div class="featured-content">
-                        <h1>Taste Autopsy</h1>
-                        <p>${rated.length ? `${rated.length} rated title${rated.length === 1 ? '' : 's'} on the slab.` : 'No bodies on the slab yet.'}</p>
-                    </div>
-                    <div class="sector-widget">
-                        <div class="sector-widget-content wl-stats">
-                            <div class="wl-stat"><b>${rated.length}</b><span>RATED</span></div>
-                            <div class="wl-stat"><b>${canon.length}</b><span>FAVORITES</span></div>
-                            <div class="wl-stat"><b>${avg ? `★ ${avg}` : '—'}</b><span>AVG RATING</span></div>
-                        </div>
-                    </div>
-                </div>
-                ${rated.length < 3 ? `
-                <div class="view-section">
-                    <div class="placeholder-msg">Not enough blood samples. Rate at least 3 titles. <a class="btn-quiet" href="#watchlist">OPEN WATCHLIST</a></div>
-                </div>` : `<div id="autopsy-body">${this.autopsyBodyHtml(rated, canon, null)}</div>`}
-            </section>
+        container.innerHTML = `
+            <div class="pulse-stats-inline">
+                <span class="pulse-stat-inline"><strong>${rated.length}</strong><span>Rated</span></span>
+                <span class="pulse-stat-inline"><strong>${canon.length}</strong><span>Favorites</span></span>
+                <span class="pulse-stat-inline"><strong>${avg ? `★ ${avg}` : '—'}</strong><span>Avg rating</span></span>
+            </div>
+            <div id="autopsy-body">${this.autopsyBodyHtml(rated, canon, null)}</div>
         `;
-        if (rated.length < 3) return;
 
         // Enrich the canon in one call per title, then re-render. getJson caches 10min.
         let enriched = null;
@@ -47,9 +44,9 @@ export const autopsy = {
                 } catch { return { entry, data: null }; }
             });
         } catch { enriched = null; }
-        if (token !== this._renderToken || this.state.view !== 'autopsy') return;
+        if (token !== this._renderToken || this.state.profileTab !== 'autopsy') return;
         const body = document.getElementById('autopsy-body');
-        if (body) body.innerHTML = this.autopsyBodyHtml(rated, canon, enriched);
+        if (body && body.isConnected) body.innerHTML = this.autopsyBodyHtml(rated, canon, enriched);
     },
 
     autopsyBodyHtml(rated, canon, enriched) {
@@ -82,7 +79,7 @@ export const autopsy = {
         return `
             <div class="view-section">
                 <h3>The Verdict</h3>
-                <div class="autopsy-verdicts">${verdicts.map((v, i) => `<div class="autopsy-finding"><span class="autopsy-finding-no" aria-hidden="true">${String(i + 1).padStart(2, '0')}</span><p>${v}</p></div>`).join('')}</div>
+                <div class="autopsy-lines">${verdicts.map(v => `<p class="autopsy-line">${v}</p>`).join('')}</div>
             </div>
             <div class="view-section">
                 <h3>Favorites — ★4.5 and above</h3>
@@ -113,25 +110,31 @@ export const autopsy = {
 
     autopsyCanonHtml(canon) {
         if (!canon.length) return '<div class="placeholder-msg">No titles cleared ★4.5 yet. Your favorites shelf sits empty.</div>';
-        return `<div class="autopsy-canon">${canon.map(w => {
-            let poster = '';
-            try {
-                const url = this.imageUrl(w.poster_path, 'w154');
-                poster = typeof url === 'string' ? url : '';
-            } catch { poster = ''; }
-            if (typeof poster !== 'string' || !poster.startsWith('http')) poster = '';
+        return `<div class="autopsy-shelf">${canon.map(w => {
             const title = w.title || w.name || 'Untitled';
             const type = w.type === 'tv' ? 'tv' : 'movie';
-            const inner = poster
-                ? `<img src="${poster}" alt="${this.escapeHtml(title)} poster" loading="lazy" decoding="async">`
-                : `<span class="autopsy-poster-fallback" aria-hidden="true">${this.escapeHtml(String(title).slice(0, 1).toUpperCase() || 'A')}</span>`;
-            return `<a class="autopsy-canon-item" href="#details/${type}/${this.escapeHtml(String(w.id))}" title="${this.escapeHtml(title)} — ★${this.escapeHtml(String(w.userRating))}">${inner}<span class="autopsy-canon-rating">★ ${this.escapeHtml(String(w.userRating))}</span></a>`;
+            const safeId = this.escapeHtml(String(w.id));
+            let poster = '';
+            try {
+                const url = this.imageUrl(w.poster_path, 'w185');
+                poster = (typeof url === 'string' && url.startsWith('http')) ? url : '';
+            } catch { poster = ''; }
+            const year = w.year || '';
+            return `
+                <div class="wl-row" data-id="${safeId}" data-type="${type}">
+                    <a class="wl-row-thumb" href="#details/${type}/${safeId}" aria-label="View ${this.escapeHtml(title)}">${poster ? `<img src="${poster}" alt="${this.escapeHtml(title)} poster" loading="lazy" decoding="async">` : '<span class="wl-row-thumb-fallback" aria-hidden="true">A</span>'}</a>
+                    <div class="wl-row-main">
+                        <div class="wl-row-title"><a href="#details/${type}/${safeId}">${this.escapeHtml(title)}</a>${year ? `<span class="wl-row-year">${this.escapeHtml(String(year))}</span>` : ''}</div>
+                        <div class="wl-row-sub"><span>${type === 'movie' ? 'FILM' : 'SERIES'}</span></div>
+                        ${this.starsHtml(String(w.id), type, w.userRating, Number(w.score) || 0)}
+                    </div>
+                </div>`;
         }).join('')}</div>`;
     },
 
     autopsyBarHtml(label, count, max) {
         const pct = max > 0 ? Math.round((count / max) * 100) : 0;
-        return `<div class="autopsy-row"><span class="autopsy-label">${this.escapeHtml(label)}</span><div class="halloween-progress-bar autopsy-bar"><div class="halloween-progress-fill" style="width: ${pct}%"></div></div><span class="autopsy-count">${count}</span></div>`;
+        return `<div class="autopsy-row"><span class="autopsy-label">${this.escapeHtml(label)}</span><div class="autopsy-track"><div class="autopsy-fill" style="width: ${pct}%"></div></div><span class="autopsy-count">${count}</span></div>`;
     },
 
     autopsyDecades(rated) {
@@ -218,7 +221,7 @@ export const autopsy = {
     autopsyRuntimeHtml(enriched) {
         const line = this.autopsyRuntimeLine(enriched);
         if (!line) return '<div class="placeholder-msg">No runtime data on the slab.</div>';
-        return `<div class="autopsy-verdicts"><div class="autopsy-finding"><p>${this.escapeHtml(line)}</p></div></div>`;
+        return `<div class="autopsy-lines"><p class="autopsy-line">${this.escapeHtml(line)}</p></div>`;
     },
 
     autopsyVerdicts(rated, canon, enriched) {
