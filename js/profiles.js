@@ -227,20 +227,48 @@ async renderProfile(uid) {
     async renderProfilePulse(uid) {
         const container = document.getElementById('profile-pulse-inline');
         if (!container) return;
-        if (!this.supabase) { container.innerHTML = ''; return; }
         const token = this._renderToken;
         const safeQuery = promise => Promise.resolve(promise).catch(() => ({ data: [] }));
+        // A hung cloud must never stick the strip on loading.
+        const timed = promise => Promise.race([safeQuery(promise), new Promise(res => setTimeout(() => res({ data: [] }), 12000))]);
         try {
-            const [actRes, ratingRes, commentRes] = await Promise.all([
-                safeQuery(this.supabase.from('activity').select('kind, content_id, content_type, created_at').eq('user_id', uid).order('created_at', { ascending: false }).limit(1000)),
-                safeQuery(this.supabase.from('ratings').select('rating').eq('user_id', uid).limit(1000)),
-                safeQuery(this.supabase.from('comments').select('id', { count: 'exact', head: true }).eq('user_id', uid))
-            ]);
+            const [actRes, ratingRes, commentRes] = this.supabase ? await Promise.all([
+                timed(this.supabase.from('activity').select('kind, content_id, content_type, created_at').eq('user_id', uid).order('created_at', { ascending: false }).limit(1000)),
+                timed(this.supabase.from('ratings').select('rating').eq('user_id', uid).limit(1000)),
+                timed(this.supabase.from('comments').select('id', { count: 'exact', head: true }).eq('user_id', uid))
+            ]) : [{ data: [] }, { data: [] }, { data: [] }];
             if (token !== this._renderToken) return;
 
-            const activity = (actRes.data || []).filter(a => a.kind && a.created_at);
-            const ratings = ratingRes.data || [];
+            const activity = Array.isArray(actRes.data) ? actRes.data.filter(a => a && a.kind && a.created_at) : [];
+            const ratings = Array.isArray(ratingRes.data) ? ratingRes.data.filter(r => r) : [];
             const commentCount = Number(commentRes.count) || 0;
+
+            // Own profile: diary entries + watchlist stars live in
+            // localStorage and never reach the cloud tables, so fold them
+            // in — otherwise the strip reads zeros for diary-first users.
+            // (Public profiles stay cloud-only; we can't see their shelf.)
+            const me = this.state.authUser?.id;
+            if (me && me === uid) {
+                const seen = new Set(activity
+                    .filter(a => a.kind === 'watching')
+                    .map(a => ['watching', a.content_type, String(a.content_id), (a.created_at || '').slice(0, 10)].join('|')));
+                const pushLocal = (id, type, ts) => {
+                    const d = ts instanceof Date ? ts : new Date(ts);
+                    if (id == null || !type || isNaN(d.getTime())) return;
+                    const key = ['watching', type, String(id), this.localDayKey(d)].join('|');
+                    if (seen.has(key)) return;
+                    seen.add(key);
+                    activity.push({ kind: 'watching', content_id: id, content_type: type, created_at: d.toISOString() });
+                };
+                for (const w of this.state.watchlist || []) {
+                    if (!w) continue;
+                    if ((w.status || 'want') === 'watched' && w.watched_at) pushLocal(w.id, w.type, w.watched_at);
+                    if (Number(w.userRating) > 0) ratings.push({ rating: Number(w.userRating) });
+                }
+                for (const h of this.state.history || []) {
+                    if (h) pushLocal(h.id, h.type, h.watched_at || h.ts || h.created_at);
+                }
+            }
 
             // Day buckets, per-title watch counts, badges input
             const dayCounts = {};
