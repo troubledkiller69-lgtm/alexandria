@@ -30,6 +30,7 @@ export const views = {
         else if (this.state.view === 'list') return this.renderList();
         else if (this.state.view === 'settings') return this.renderSettings();
         else if (this.state.view === 'halloween') return this.renderHalloween();
+        else if (this.state.view === 'autopsy') return this.renderAutopsy();
 
         else {
             this.state.view = 'home';

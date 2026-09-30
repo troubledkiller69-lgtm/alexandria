@@ -8758,3 +8758,79 @@ h1, h2, h3, h4 {
         grid-template-columns: 1fr;
     }
 }
+/* Taste Autopsy */
+.autopsy-verdicts p {
+    font-size: 1.15rem;
+    line-height: 1.6;
+    color: var(--text-primary);
+    margin: 0 0 0.75rem;
+}
+.autopsy-verdicts p:last-child {
+    margin-bottom: 0;
+}
+.autopsy-canon {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+}
+.autopsy-canon-item {
+    position: relative;
+    display: block;
+    width: 92px;
+    border-radius: 8px;
+    overflow: hidden;
+    background: var(--bg-panel);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+}
+.autopsy-canon-item img,
+.autopsy-poster-fallback {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 92px;
+    height: 138px;
+    object-fit: cover;
+}
+.autopsy-poster-fallback {
+    background: #8a0303;
+    color: #fff;
+    font-size: 2rem;
+    font-weight: 800;
+    font-family: var(--font-display);
+}
+.autopsy-canon-rating {
+    display: block;
+    text-align: center;
+    font-size: 0.7rem;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    color: var(--accent-gold);
+    padding: 0.3rem 0;
+}
+.autopsy-row {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 0.55rem;
+}
+.autopsy-label {
+    min-width: 7.5rem;
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.autopsy-bar {
+    flex: 1;
+}
+.autopsy-count {
+    min-width: 1.5rem;
+    text-align: right;
+    font-size: 0.85rem;
+    font-weight: 800;
+    color: var(--text-primary);
+}
