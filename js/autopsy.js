@@ -14,7 +14,7 @@ export const autopsy = {
             : null;
 
         this.main.innerHTML = `
-            <section class="filtered-view">
+            <section class="filtered-view autopsy-page">
                 <div class="hero-featured">
                     <div class="featured-content">
                         <h1>Taste Autopsy</h1>
@@ -82,7 +82,7 @@ export const autopsy = {
         return `
             <div class="view-section">
                 <h3>The Verdict</h3>
-                <div class="autopsy-verdicts">${verdicts.map(v => `<p>${v}</p>`).join('')}</div>
+                <div class="autopsy-verdicts">${verdicts.map((v, i) => `<div class="autopsy-finding"><span class="autopsy-finding-no" aria-hidden="true">${String(i + 1).padStart(2, '0')}</span><p>${v}</p></div>`).join('')}</div>
             </div>
             <div class="view-section">
                 <h3>Favorites — ★4.5 and above</h3>
@@ -218,7 +218,7 @@ export const autopsy = {
     autopsyRuntimeHtml(enriched) {
         const line = this.autopsyRuntimeLine(enriched);
         if (!line) return '<div class="placeholder-msg">No runtime data on the slab.</div>';
-        return `<div class="autopsy-verdicts"><p>${this.escapeHtml(line)}</p></div>`;
+        return `<div class="autopsy-verdicts"><div class="autopsy-finding"><p>${this.escapeHtml(line)}</p></div></div>`;
     },
 
     autopsyVerdicts(rated, canon, enriched) {

@@ -8759,14 +8759,50 @@ h1, h2, h3, h4 {
     }
 }
 /* Taste Autopsy */
-.autopsy-verdicts p {
-    font-size: 1.15rem;
+.autopsy-page .view-section > h3 {
+    font-family: var(--font-display);
+    font-size: 1rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+    color: var(--text-primary);
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+}
+.autopsy-page .view-section > h3::before {
+    content: '';
+    width: 22px;
+    height: 3px;
+    background: var(--accent-primary);
+    flex: none;
+}
+.autopsy-finding {
+    display: flex;
+    gap: 1rem;
+    align-items: baseline;
+    background: #0a0a0c;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-left: 3px solid var(--accent-primary);
+    border-radius: 0 10px 10px 0;
+    padding: 0.9rem 1.1rem;
+    margin: 0 0 0.6rem;
+}
+.autopsy-finding:last-child {
+    margin-bottom: 0;
+}
+.autopsy-finding-no {
+    font-family: var(--font-display);
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: var(--accent-gold);
+    flex: none;
+}
+.autopsy-finding p {
+    font-size: 1.05rem;
     line-height: 1.6;
     color: var(--text-primary);
-    margin: 0 0 0.75rem;
-}
-.autopsy-verdicts p:last-child {
-    margin-bottom: 0;
+    margin: 0;
 }
 .autopsy-canon {
     display: flex;
