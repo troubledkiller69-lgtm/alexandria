@@ -23,7 +23,7 @@ export const autopsy = {
                     <div class="sector-widget">
                         <div class="sector-widget-content wl-stats">
                             <div class="wl-stat"><b>${rated.length}</b><span>RATED</span></div>
-                            <div class="wl-stat"><b>${canon.length}</b><span>CANON</span></div>
+                            <div class="wl-stat"><b>${canon.length}</b><span>FAVORITES</span></div>
                             <div class="wl-stat"><b>${avg ? `★ ${avg}` : '—'}</b><span>AVG RATING</span></div>
                         </div>
                     </div>
@@ -85,7 +85,7 @@ export const autopsy = {
                 <div class="autopsy-verdicts">${verdicts.map(v => `<p>${v}</p>`).join('')}</div>
             </div>
             <div class="view-section">
-                <h3>The Canon — ★4.5 and above</h3>
+                <h3>Favorites — ★4.5 and above</h3>
                 ${this.autopsyCanonHtml(canon)}
             </div>
             <div class="view-section">
@@ -93,11 +93,11 @@ export const autopsy = {
                 ${decadeRows ? `<div class="autopsy-bars">${decadeRows}</div>` : '<div class="placeholder-msg">Your titles carry no dates. The slab can\'t carbon-date them.</div>'}
             </div>
             <div class="view-section">
-                <h3>Canon Genres</h3>
+                <h3>Favorite Genres</h3>
                 ${loading ? genreRows : `<div class="autopsy-bars">${genreRows}</div>`}
             </div>
             <div class="view-section">
-                <h3>Canon Directors</h3>
+                <h3>Favorite Directors</h3>
                 ${loading ? directorRows : `<div class="autopsy-bars">${directorRows}</div>`}
             </div>
             <div class="view-section">
@@ -112,7 +112,7 @@ export const autopsy = {
     },
 
     autopsyCanonHtml(canon) {
-        if (!canon.length) return '<div class="placeholder-msg">No titles cleared ★4.5 yet. The canon shelf sits empty.</div>';
+        if (!canon.length) return '<div class="placeholder-msg">No titles cleared ★4.5 yet. Your favorites shelf sits empty.</div>';
         return `<div class="autopsy-canon">${canon.map(w => {
             let poster = '';
             try {
@@ -210,9 +210,9 @@ export const autopsy = {
         if (!minutes.length) return null;
         const avgRt = Math.round(minutes.reduce((s, m) => s + m, 0) / minutes.length);
         const tvNote = tvCounted ? ' TV counted by episode length.' : '';
-        if (avgRt >= 150) return `The canon averages ${avgRt} minutes across ${minutes.length} timed bodies.${tvNote} You commit to the long haul.`;
-        if (avgRt < 105) return `The canon averages ${avgRt} minutes across ${minutes.length} timed bodies.${tvNote} Lean nights, no filler.`;
-        return `The canon averages ${avgRt} minutes across ${minutes.length} timed bodies.${tvNote} Neither bloated nor starved.`;
+        if (avgRt >= 150) return `Your favorites average ${avgRt} minutes across ${minutes.length} timed bodies.${tvNote} You commit to the long haul.`;
+        if (avgRt < 105) return `Your favorites average ${avgRt} minutes across ${minutes.length} timed bodies.${tvNote} Lean nights, no filler.`;
+        return `Your favorites average ${avgRt} minutes across ${minutes.length} timed bodies.${tvNote} Neither bloated nor starved.`;
     },
 
     autopsyRuntimeHtml(enriched) {
@@ -229,8 +229,8 @@ export const autopsy = {
         // Certainty: a canon with no halves.
         if (canonN > 0) {
             const canonAvg = canon.reduce((s, w) => s + (Number(w.userRating) || 0), 0) / canonN;
-            if (canonAvg === 5) lines.push(`No halves in the canon — ${canonN} titles at a flat ★5.0. Certain.`);
-            else if (canonAvg >= 4.8) lines.push(`The canon averages ★${canonAvg.toFixed(1)} across ${canonN} titles — nearly unanimous.`);
+            if (canonAvg === 5) lines.push(`No halves among your favorites — ${canonN} titles at a flat ★5.0. Certain.`);
+            else if (canonAvg >= 4.8) lines.push(`Your favorites average ★${canonAvg.toFixed(1)} across ${canonN} titles — nearly unanimous.`);
         }
 
         // Runtime (needs enrichment).
@@ -254,16 +254,16 @@ export const autopsy = {
             if (directors.length && canonN > 0) {
                 const top = directors[0];
                 const safeName = this.escapeHtml(top.name);
-                if (top.count >= 3) lines.push(`${safeName} has a wing in your church — ${top.count} canon titles.`);
-                else lines.push(`${safeName} leads the canon with ${top.count} of ${canonN} — no single auteur runs the morgue.`);
+                if (top.count >= 3) lines.push(`${safeName} has a wing in your church — ${top.count} favorite titles.`);
+                else lines.push(`${safeName} leads your favorites with ${top.count} of ${canonN} — no single auteur runs the morgue.`);
             }
             const genres = this.autopsyCanonGenres(enriched);
             if (genres.length && canonN > 0) {
                 const top = genres[0];
                 const safeGenre = this.escapeHtml(top.name);
-                if (top.name === 'Horror') lines.push(`Horror sits at #1 with ${top.count} canon titles. You come here to be scared.`);
-                else if (top.name === 'Comedy') lines.push(`Comedy sits at #1 with ${top.count} canon titles. You come here to feel better.`);
-                else lines.push(`${safeGenre} sits at #1 with ${top.count} of ${canonN} canon titles. That's your blood type.`);
+                if (top.name === 'Horror') lines.push(`Horror sits at #1 with ${top.count} favorite titles. You come here to be scared.`);
+                else if (top.name === 'Comedy') lines.push(`Comedy sits at #1 with ${top.count} favorite titles. You come here to feel better.`);
+                else lines.push(`${safeGenre} sits at #1 with ${top.count} of ${canonN} favorite titles. That's your blood type.`);
             }
         }
 
@@ -278,9 +278,9 @@ export const autopsy = {
         // Selectivity + shelf average (always available, guarantee >= 3 lines).
         if (canonN > 0) {
             const pct = Math.round((canonN / ratedN) * 100);
-            lines.push(`Only ${canonN} of ${ratedN} rated titles (${pct}%) made the canon. The slab is selective.`);
+            lines.push(`Only ${canonN} of ${ratedN} rated titles (${pct}%) made your favorites. The slab is selective.`);
         } else {
-            lines.push(`None of your ${ratedN} rated titles cleared ★4.5. The canon shelf sits empty.`);
+            lines.push(`None of your ${ratedN} rated titles cleared ★4.5. Your favorites shelf sits empty.`);
         }
         const avg = ratedN ? (rated.reduce((s, w) => s + (Number(w.userRating) || 0), 0) / ratedN) : 0;
         if (avg >= 4) lines.push(`Your shelf averages ★${avg.toFixed(1)} across ${ratedN} rated titles. You hand out flowers.`);
