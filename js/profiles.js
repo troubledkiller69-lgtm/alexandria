@@ -249,6 +249,8 @@ async renderProfile(uid) {
             const tvPerDay = {};
             const moviePerDay = {};
             let nightOwl = false;
+            let weekendWatch = false;
+            let earlyBird = false;
             for (const a of activity) {
                 const d = this.localDayKey(a.created_at);
                 if (!d) continue;
@@ -263,6 +265,9 @@ async renderProfile(uid) {
                     }
                     const h = new Date(a.created_at).getHours();
                     if (h < 5) nightOwl = true;
+                    if (h >= 5 && h < 8) earlyBird = true;
+                    const wd = new Date(a.created_at).getDay();
+                    if (wd === 0 || wd === 6) weekendWatch = true;
                 }
             }
             dayKeys.sort();
@@ -316,22 +321,35 @@ async renderProfile(uid) {
                 heatHtml += `<div class="pulse-heat-col">${heatCells.slice(c * 7, c * 7 + 7).join('')}</div>`;
             }
 
-            // Badges - inline chips
-            const { lists = [], followers = 0, following = 0 } = this.state.profileData || {};
-            const maxTvDay = Object.keys(tvPerDay).length ? Math.max(...Object.values(tvPerDay)) : 0;
-            const maxMovieDay = Object.keys(moviePerDay).length ? Math.max(...Object.values(moviePerDay)) : 0;
+            // Badges - [name, how to earn, icon paths, earned]. The full def
+            // list doubles as the quest log: earned filters to chips,
+            // everything renders in the quests popup with locked states.
             const icon = p => `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${p}</svg>`;
-            const badges = [];
-            if (titles > 0) badges.push(['FIRST BLOOD', 'Watched your first title', icon('<path d="M12 22a7 7 0 0 0 7-7c0-2-1-3.9-3-5.5s-3.5-4-4-6.5c-.5 2.5-2 4.9-4 6.5C6 11.1 5 13 5 15a7 7 0 0 0 7 7z"></path>')]);
-            if (maxTvDay >= 5) badges.push(['BINGE LORD', '5+ episodes in a single day', icon('<polygon points="12 2 2 7 12 12 22 7 12 2"></polygon><polyline points="2 17 12 22 22 17"></polyline><polyline points="2 12 12 17 22 12"></polyline>')]);
-            if (maxMovieDay >= 3) badges.push(['MARATHON MAN', '3+ movies in a single day', icon('<rect x="2" y="2" width="20" height="20" rx="2.18" ry="2.18"></rect><line x1="7" y1="2" x2="7" y2="22"></line><line x1="17" y1="2" x2="17" y2="22"></line><line x1="2" y1="12" x2="22" y2="12"></line><line x1="2" y1="7" x2="7" y2="7"></line><line x1="2" y1="17" x2="7" y2="17"></line><line x1="17" y1="17" x2="22" y2="17"></line><line x1="17" y1="7" x2="22" y2="7"></line>')]);
-            if (nightOwl) badges.push(['NIGHT OWL', 'Watching after midnight', icon('<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>')]);
-            if (ratings.length >= 5) badges.push(['CRITIC', '5+ ratings given', icon('<polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon>')]);
-            if (commentCount >= 10) badges.push(['TALKER', '10+ comments posted', icon('<path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"></path>')]);
-            if (longest >= 7) badges.push(['ON FIRE', '7-day watch streak', icon('<path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"></path>')]);
-            if (longest >= 30) badges.push(['UNSTOPPABLE', '30-day watch streak', icon('<polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>')]);
-            if (lists.length >= 3) badges.push(['CURATOR', '3+ lists created', icon('<polyline points="21 8 21 21 3 21 3 8"></polyline><rect x="1" y="3" width="22" height="5"></rect><line x1="10" y1="12" x2="14" y2="12"></line>')]);
-            if (followers + following >= 3) badges.push(['CONNECTED', '3+ followers or following', icon('<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path>')]);
+            const hasFive = ratings.some(r => Number(r.rating) >= 5);
+            const hasOne = ratings.some(r => Number(r.rating) <= 1);
+            const rewatched = Object.values(perTitle).some(n => n >= 3);
+            const defs = [
+                ['FIRST BLOOD', 'Watch your first title', icon('<path d="M12 22a7 7 0 0 0 7-7c0-2-1-3.9-3-5.5s-3.5-4-4-6.5c-.5 2.5-2 4.9-4 6.5C6 11.1 5 13 5 15a7 7 0 0 0 7 7z"></path>'), titles > 0],
+                ['DOUBLE FEATURE', 'Watch 2 movies in a single day', icon('<rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>'), maxMovieDay >= 2],
+                ['MARATHON MAN', 'Watch 3+ movies in a single day', icon('<rect x="2" y="2" width="20" height="20" rx="2.18" ry="2.18"></rect><line x1="7" y1="2" x2="7" y2="22"></line><line x1="17" y1="2" x2="17" y2="22"></line><line x1="2" y1="12" x2="22" y2="12"></line><line x1="2" y1="7" x2="7" y2="7"></line><line x1="2" y1="17" x2="7" y2="17"></line><line x1="17" y1="17" x2="22" y2="17"></line><line x1="17" y1="7" x2="22" y2="7"></line>'), maxMovieDay >= 3],
+                ['BINGE LORD', 'Watch 5+ episodes in a single day', icon('<polygon points="12 2 2 7 12 12 22 7 12 2"></polygon><polyline points="2 17 12 22 22 17"></polyline><polyline points="2 12 12 17 22 12"></polyline>'), maxTvDay >= 5],
+                ['SERIES DEVOURER', 'Watch 10+ episodes in a single day', icon('<rect x="2" y="7" width="20" height="14" rx="2" ry="2"></rect><polyline points="17 2 12 7 7 2"></polyline>'), maxTvDay >= 10],
+                ['REWATCHER', 'Log the same title 3+ times', icon('<polyline points="23 4 23 10 17 10"></polyline><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path>'), rewatched],
+                ['NIGHT OWL', 'Watch something after midnight', icon('<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>'), nightOwl],
+                ['EARLY BIRD', 'Watch something before 8 in the morning', icon('<path d="M17 18a5 5 0 0 0-10 0"></path><line x1="12" y1="2" x2="12" y2="9"></line><line x1="4.22" y1="10.22" x2="5.64" y2="11.64"></line><line x1="1" y1="18" x2="3" y2="18"></line><line x1="21" y1="18" x2="23" y2="18"></line><line x1="18.36" y1="11.64" x2="19.78" y2="10.22"></line><line x1="23" y1="22" x2="1" y2="22"></line><polyline points="8 6 12 2 16 6"></polyline>'), earlyBird],
+                ['WEEKEND WARRIOR', 'Watch something on a Saturday or Sunday', icon('<rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line>'), weekendWatch],
+                ['CRITIC', 'Give 5+ ratings', icon('<polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon>'), ratings.length >= 5],
+                ['GOLD STAR', 'Hand out a 5-star rating', icon('<circle cx="12" cy="8" r="7"></circle><polyline points="8.21 13.89 7 23 12 20 17 23 15.79 13.88"></polyline>'), hasFive],
+                ['BRUTAL', 'Hand out a 1-star rating — no mercy', icon('<circle cx="12" cy="12" r="10"></circle><line x1="15" y1="9" x2="9" y2="15"></line><line x1="9" y1="9" x2="15" y2="15"></line>'), hasOne],
+                ['TALKER', 'Post 10+ comments', icon('<path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"></path>'), commentCount >= 10],
+                ['ON FIRE', 'Reach a 7-day watch streak', icon('<path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"></path>'), longest >= 7],
+                ['UNSTOPPABLE', 'Reach a 30-day watch streak', icon('<polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>'), longest >= 30],
+                ['CENTURY CLUB', 'Log 100+ watch events', icon('<circle cx="12" cy="12" r="10"></circle><circle cx="12" cy="12" r="6"></circle><circle cx="12" cy="12" r="2"></circle>'), activity.length >= 100],
+                ['CURATOR', 'Create 3+ lists', icon('<polyline points="21 8 21 21 3 21 3 8"></polyline><rect x="1" y="3" width="22" height="5"></rect><line x1="10" y1="12" x2="14" y2="12"></line>'), lists.length >= 3],
+                ['CONNECTED', 'Reach 3+ followers or following', icon('<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path>'), followers + following >= 3]
+            ];
+            const badges = defs.filter(d => d[3]);
+            this.state.profileBadgeDefs = defs.map(d => ({ name: d[0], desc: d[1], badgeIcon: d[2], earned: d[3] }));
 
             const hoursText = hours >= 10 ? String(Math.round(hours)) : hours.toFixed(1);
             container.innerHTML = `
@@ -346,6 +364,9 @@ async renderProfile(uid) {
                     <div class="pulse-heat-legend" aria-hidden="true"><span>Less</span><span class="pulse-heat-cell heat-0"></span><span class="pulse-heat-cell heat-1"></span><span class="pulse-heat-cell heat-2"></span><span class="pulse-heat-cell heat-3"></span><span class="pulse-heat-cell heat-4"></span><span>More</span></div>
                 </div>
                 ${badges.length ? `<div class="pulse-badges-inline">${badges.map(([name, desc, badgeIcon]) => `<span class="pulse-badge-chip" title="${this.escapeHtml(desc)}">${badgeIcon}${this.escapeHtml(name)}</span>`).join('')}</div>` : ''}
+                <div class="pulse-quests">
+                    <button type="button" class="btn-quiet" onclick="Alexandria.showBadgeQuests()">BADGE QUESTS — ${badges.length}/${defs.length} COLLECTED</button>
+                </div>
             `;
         } catch (e) {
             console.warn("Alexandria Protocol: Pulse stats failed", e);
@@ -667,6 +688,50 @@ async renderProfile(uid) {
                     </span>
                 </a>`;
         }).join('') : `<p class="friends-empty">${kind === 'followers' ? 'No followers yet.' : 'Not following anyone yet.'}</p>`;
+    },
+
+    // Badge quest log: every badge with its unlock condition, earned
+    // first, locked after. Same overlay pattern as showFriendList.
+    showBadgeQuests(open) {
+        let modal = document.getElementById('quests-modal');
+        if (!modal) {
+            modal = document.createElement('div');
+            modal.id = 'quests-modal';
+            modal.className = 'profile-modal-overlay';
+            modal.setAttribute('hidden', '');
+            modal.innerHTML = `
+                <div class="profile-modal-card quests-card">
+                    <button class="auth-close-btn" type="button" aria-label="Close" onclick="Alexandria.showBadgeQuests(false)">✕</button>
+                    <h3 class="profile-modal-title">BADGE QUESTS</h3>
+                    <div id="quests-modal-list"></div>
+                </div>
+            `;
+            modal.addEventListener('click', e => { if (e.target === modal) this.showBadgeQuests(false); });
+            document.body.appendChild(modal);
+        }
+        const show = open !== undefined ? Boolean(open) : modal.hasAttribute('hidden');
+        if (!show) {
+            modal.setAttribute('hidden', '');
+            return;
+        }
+        const defList = this.state.profileBadgeDefs || [];
+        const earned = defList.filter(d => d.earned);
+        const locked = defList.filter(d => !d.earned);
+        const row = d => `
+            <div class="quest-row ${d.earned ? 'earned' : 'locked'}">
+                <span class="quest-icon" aria-hidden="true">${d.badgeIcon}</span>
+                <span class="quest-text">
+                    <strong>${this.escapeHtml(d.name)}</strong>
+                    <small>${this.escapeHtml(d.desc)}</small>
+                </span>
+                ${d.earned
+                    ? '<span class="quest-state is-earned">EARNED</span>'
+                    : '<span class="quest-state">LOCKED</span>'}
+            </div>`;
+        document.getElementById('quests-modal-list').innerHTML = defList.length
+            ? `<p class="quests-progress">${earned.length} of ${defList.length} collected</p>${earned.map(row).join('')}${locked.map(row).join('')}`
+            : '<div class="placeholder-msg"><span class="pulse-dot"></span> CALCULATING WATCH STATS...</div>';
+        modal.removeAttribute('hidden');
     },
 
     async toggleFollow(uid) {

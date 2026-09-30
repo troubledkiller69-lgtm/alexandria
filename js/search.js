@@ -568,10 +568,45 @@ export const search = {
         return out;
     },
 
-    starsHtml(id, type, rating) {
+    starsHtml(id, type, rating, score) {
         const safeId = this.escapeHtml(String(id));
         const safeType = this.escapeHtml(String(type));
-        return `<div class="wl-stars" role="group" aria-label="Your rating" data-stars-for="${safeId}|${safeType}" data-wl-id="${safeId}" data-wl-type="${safeType}">${this.starsInner(rating)}</div>`;
+        const crowd = Number(score) || 0;
+        const suggest = crowd > 0 ? `<button class="wl-suggest" type="button" data-score="${crowd.toFixed(1)}" title="Can't decide? Start from the crowd score (★ ${crowd.toFixed(1)})" aria-label="Suggest a rating from the crowd score" onclick="event.stopPropagation(); event.preventDefault(); Alexandria.suggestRating(event, this)">?</button>` : '';
+        return `<div class="wl-stars" role="group" aria-label="Your rating" data-stars-for="${safeId}|${safeType}" data-wl-id="${safeId}" data-wl-type="${safeType}">${this.starsInner(rating)}${suggest}</div>`;
+    },
+
+    // Repaint every visible copy of a title's stars after a rating change.
+    // Star buttons are swapped only — the suggest button survives.
+    paintStars(id, type, rating) {
+        document.querySelectorAll(`[data-stars-for="${CSS.escape(String(id))}|${CSS.escape(String(type))}"]`).forEach(el => {
+            el.querySelectorAll('.wl-star').forEach(b => b.remove());
+            el.insertAdjacentHTML('afterbegin', this.starsInner(rating));
+        });
+        this.refreshWatchlistStats();
+    },
+
+    // For the indecisive: seed your rating from the TMDB crowd score
+    // (score / 2, snapped to a half star). Still fully adjustable after.
+    suggestRating(event, btn) {
+        const wrap = btn?.closest('.wl-stars');
+        const id = wrap?.dataset.wlId || btn?.dataset?.wlId;
+        const type = wrap?.dataset.wlType || btn?.dataset?.wlType;
+        if (!id || !type) return;
+        const item = (this.state.watchlist || []).find(i => String(i.id) === String(id) && i.type === type);
+        if (!item) {
+            this.showToast('Save it to your library first, then rate it.');
+            return;
+        }
+        const crowd = Number(btn?.dataset?.score) || Number(item.score) || 0;
+        if (!crowd) {
+            this.showToast('No crowd score to work from — trust your gut.');
+            return;
+        }
+        item.userRating = Math.min(5, Math.max(0.5, Math.round(crowd) / 2));
+        this.writeLocalList('alexandria_watchlist', this.state.watchlist);
+        this.paintStars(id, type, item.userRating);
+        this.showToast(`The crowd says ${item.userRating} — adjust to taste.`);
     },
 
     rateTitle(event, btn) {
@@ -597,10 +632,7 @@ export const search = {
             this.renderWatchlistPage();
             return;
         }
-        document.querySelectorAll(`[data-stars-for="${CSS.escape(String(id))}|${CSS.escape(String(type))}"]`).forEach(el => {
-            el.innerHTML = this.starsInner(item.userRating);
-        });
-        this.refreshWatchlistStats();
+        this.paintStars(id, type, item.userRating);
         this.showToast(item.userRating ? `Rated ${item.userRating}/5.` : 'Rating cleared.');
     },
 
@@ -688,7 +720,7 @@ export const search = {
                         ${wlMode ? `
                             ${(itemYear || itemScore) ? `<div class="wl-card-meta">${itemYear ? `<span>${this.escapeHtml(itemYear)}</span>` : ''}${itemYear && itemScore ? '<span aria-hidden="true">·</span>' : ''}${itemScore ? `<span class="wl-tmdb-score" title="TMDB score">★ ${itemScore.toFixed(1)}</span>` : ''}</div>` : ''}
                             <div class="wl-card-rate">
-                                ${this.starsHtml(itemIdStr, type, item.userRating)}
+                                ${this.starsHtml(itemIdStr, type, item.userRating, itemScore)}
                                 <button class="wl-log-btn ${item.userReview ? 'has-review' : ''}" type="button" aria-label="${item.userReview ? 'Edit diary entry' : 'Log to diary'}" title="${item.userReview ? 'Edit diary entry' : 'Log to diary'}" onclick="event.stopPropagation(); event.preventDefault(); Alexandria.openLogModal('${safeItemId}', '${type}')">✎</button>
                             </div>
                         ` : ''}

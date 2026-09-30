@@ -507,7 +507,7 @@ export const views = {
                     <div class="wl-row-main">
                         <div class="wl-row-title"><a href="${target}">${safeTitle}</a>${year ? `<span class="wl-row-year">${this.escapeHtml(String(year))}</span>` : ''}</div>
                         <div class="wl-row-sub">${score ? `<span class="wl-tmdb-score" title="TMDB score">★ ${score.toFixed(1)}</span><span aria-hidden="true">·</span>` : ''}<span>${type === 'movie' ? 'FILM' : watchedCount ? `${watchedCount} EPS SEEN` : 'SERIES'}</span>${item.watched_at ? `<span aria-hidden="true">·</span><span>LOGGED ${(item.watched_at || '').slice(0, 10)}</span>` : ''}</div>
-                        ${this.starsHtml(itemIdStr, type, item.userRating)}
+                        ${this.starsHtml(itemIdStr, type, item.userRating, score)}
                         ${review ? `<p class="wl-row-review">“${this.escapeHtml(review.length > 220 ? review.slice(0, 220) + '…' : review)}”</p>` : ''}
                     </div>
                     <div class="wl-row-side">
@@ -592,7 +592,7 @@ export const views = {
                 </div>
                 <div class="diary-field">
                     <span class="diary-label">YOUR RATING</span>
-                    ${this.starsHtml(String(item.id), item.type, item.userRating)}
+                    ${this.starsHtml(String(item.id), item.type, item.userRating, Number(item.score) || 0)}
                 </div>
                 <div class="diary-field">
                     <label class="diary-label" for="diary-date">WATCHED ON</label>

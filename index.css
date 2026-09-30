@@ -1938,6 +1938,26 @@ h1, h2, h3, h4 {
 .wl-stars {
     display: inline-flex;
     gap: 2px;
+    align-items: center;
+}
+.wl-suggest {
+    appearance: none;
+    background: none;
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    border-radius: 50%;
+    width: 1.15rem;
+    height: 1.15rem;
+    margin-left: 0.35rem;
+    padding: 0;
+    font-size: 0.7rem;
+    font-weight: 800;
+    line-height: 1;
+    color: var(--text-muted);
+    cursor: pointer;
+}
+.wl-suggest:hover {
+    border-color: var(--accent-gold);
+    color: var(--accent-gold);
 }
 .wl-star {
     appearance: none;
@@ -6935,6 +6955,82 @@ h1, h2, h3, h4 {
     color: var(--text-muted);
     font-size: 0.9rem;
     margin: 0.5rem 0 0;
+}
+/* Badge quests */
+.pulse-quests {
+    margin-top: 0.6rem;
+}
+#quests-modal-list {
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    margin-top: 0.75rem;
+}
+.quests-progress {
+    font-family: var(--font-display);
+    font-size: 0.85rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--accent-gold);
+    margin: 0 0 0.4rem;
+}
+.quest-row {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.55rem 0.65rem;
+    border-radius: 10px;
+    border: 1px solid transparent;
+}
+.quest-row.earned {
+    border-color: rgba(212, 175, 55, 0.35);
+    background: rgba(212, 175, 55, 0.06);
+}
+.quest-row.locked {
+    opacity: 0.55;
+}
+.quest-icon {
+    display: inline-flex;
+    flex: none;
+    color: var(--accent-gold);
+}
+.quest-icon svg {
+    width: 16px;
+    height: 16px;
+}
+.quest-row.locked .quest-icon {
+    color: var(--text-muted);
+}
+.quest-text {
+    display: flex;
+    flex-direction: column;
+    gap: 0.1rem;
+    min-width: 0;
+    flex: 1;
+}
+.quest-text strong {
+    color: var(--text-primary);
+    font-size: 0.85rem;
+    letter-spacing: 0.06em;
+}
+.quest-text small {
+    color: var(--text-muted);
+    font-size: 0.78rem;
+}
+.quest-state {
+    flex: none;
+    font-size: 0.65rem;
+    font-weight: 800;
+    letter-spacing: 0.12em;
+    color: var(--text-muted);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 999px;
+    padding: 0.15rem 0.55rem;
+}
+.quest-state.is-earned {
+    color: var(--accent-gold);
+    border-color: rgba(212, 175, 55, 0.5);
 }
 .tab-count {
     font-weight: 700;

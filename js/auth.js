@@ -54,6 +54,18 @@ export const auth = {
     // not an archive.
     CHANGELOG: [
         {
+            key: 'v1.14.0',
+            date: 'Sep 30, 2026',
+            title: 'Badge Quests & Rating Helper',
+            items: [
+                'Eight new profile badges to collect: Double Feature, Series Devourer, Rewatcher, Early Bird, Weekend Warrior, Gold Star, Brutal, and Century Club',
+                'New BADGE QUESTS button on profiles opens the full quest log — every badge with how to earn it, earned first, locked after',
+                'Stuck on a rating? A ? button now sits next to your stars and seeds them from the crowd score — still fully adjustable after',
+                'Taste Autopsy calls your 4.5-and-up shelf Favorites instead of canon, and the verdict reads as numbered case findings',
+                'Halloween calendar Mark Watched buttons work again and the watched count reads correctly'
+            ]
+        },
+        {
             key: 'v1.13.0',
             date: 'Sep 28, 2026',
             title: 'Halloween Calendar & New Display Type',
@@ -110,17 +122,6 @@ export const auth = {
             items: [
                 'Hosts get a PAUSE/PLAY button in the watch party bar — one click pauses or resumes the whole room, since the embed never reports its own play/pause events to us',
                 'Guests follow the host toggle automatically, with the sync clock holding the right timestamp'
-            ]
-        },
-        {
-            key: 'v1.9.6',
-            date: 'Aug 21, 2026',
-            title: 'Letterboxd Import & Netflix-Style Search',
-            items: [
-                'Import your Letterboxd export CSV (watched.csv or watchlist.csv) through the sidebar Import Lists button — titles are matched against TMDB, watchlist and ratings sync to your account',
-                'Search page rebuilt: full-width flush search bar, underline type tabs, TRENDING NOW / RESULTS headers',
-                'Recent searches appear as chips on the search page — click to re-run, ✕ to forget, CLEAR to wipe',
-                'Roulette got a gold pill treatment in the search toolbar'
             ]
         }
     ],
