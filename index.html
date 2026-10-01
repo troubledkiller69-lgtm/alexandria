@@ -24,7 +24,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="preconnect" href="https://image.tmdb.org" crossorigin>
-    <link rel="stylesheet" href="index.css?v=20261001a">
+    <link rel="stylesheet" href="index.css?v=20261001b">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Oswald:wght@500;600;700&display=swap" rel="stylesheet">
     <script defer src="js/vendor/supabase-js.js"></script>
     <script defer src="/_vercel/insights/script.js"></script>
@@ -48,13 +48,16 @@
             </button>
         </header>
 
-        <!-- Horizontal Category Tabs -->
+        <!-- Horizontal Category Tabs (all sidebar sections) -->
         <nav class="category-tabs" role="tablist" aria-label="Content categories">
             <button class="category-tab active" role="tab" aria-selected="true" data-view="home" onclick="Alexandria.navigate('home')">Home</button>
             <button class="category-tab" role="tab" aria-selected="false" data-view="movies" onclick="Alexandria.navigate('movies')">Movies</button>
             <button class="category-tab" role="tab" aria-selected="false" data-view="tv" onclick="Alexandria.navigate('tv')">TV</button>
             <button class="category-tab" role="tab" aria-selected="false" data-view="anime" onclick="Alexandria.navigate('anime')">Anime</button>
-            <button class="category-tab" role="tab" aria-selected="false" data-view="roulette" onclick="Alexandria.navigate('roulette')">Roulette</button>
+            <button class="category-tab" role="tab" aria-selected="false" data-view="franchises" onclick="Alexandria.navigate('franchises')">Franchises</button>
+            <button class="category-tab" role="tab" aria-selected="false" data-view="halloween" onclick="Alexandria.navigate('halloween')">Halloween</button>
+            <button class="category-tab" role="tab" aria-selected="false" data-view="history" onclick="Alexandria.navigate('history')">History</button>
+            <button class="category-tab" role="tab" aria-selected="false" data-view="watchlist" onclick="Alexandria.navigate('watchlist')">Watchlist</button>
         </nav>
 
         <!-- Desktop Top Nav (hidden on mobile) -->
@@ -164,6 +167,6 @@
     </div>
 
     <noscript><p class="noscript-message">Alexandria needs JavaScript enabled to load the archive.</p></noscript>
-    <script type="module" src="js/app.js?v=20261001a"></script>
+    <script type="module" src="js/app.js?v=20261001b"></script>
 </body>
 </html>

@@ -12,7 +12,7 @@ export const views = {
         });
 
         // Update Category Tabs Active State (mobile)
-        const catTabMap = { home: 'home', movies: 'movies', tv: 'tv', anime: 'anime', roulette: 'roulette' };
+        const catTabMap = { home: 'home', movies: 'movies', tv: 'tv', anime: 'anime', franchises: 'franchises', halloween: 'halloween', history: 'history', watchlist: 'watchlist' };
         const activeCat = catTabMap[this.state.view] || 'home';
         document.querySelectorAll('.category-tab').forEach(btn => {
             const isActive = btn.dataset.view === activeCat;
