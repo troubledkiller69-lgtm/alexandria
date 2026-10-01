@@ -3,11 +3,16 @@ export const halloween = {
         if (!this.main) this.main = document.getElementById('content');
         if (!this.main) return;
 
+        const year = new Date().getFullYear();
+
         this.main.innerHTML = `
             <section class="halloween-page">
+                <div class="hw-moon" aria-hidden="true"></div>
+                <div class="hw-fog" aria-hidden="true"></div>
                 <header class="halloween-header">
-                    <div class="halloween-badge">🎃 OCTOBER HORROR CALENDAR</div>
+                    <div class="halloween-badge"><span class="hw-pip" aria-hidden="true"></span>October horror calendar</div>
                     <h1>31 Days of Horror</h1>
+                    <p class="hw-month">October ${year}</p>
                     <p class="halloween-sub">One movie per night. Watch them all if you survive.</p>
                     <p class="halloween-countdown" id="halloween-countdown"></p>
                     <div class="halloween-progress" id="halloween-progress">
@@ -15,7 +20,11 @@ export const halloween = {
                         <div class="halloween-progress-bar"><div class="halloween-progress-fill" style="width: 0%"></div></div>
                     </div>
                 </header>
-                <div class="halloween-grid" id="halloween-grid"></div>
+                <div class="hw-weekdays" aria-hidden="true">
+                    <span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span><span>Sun</span>
+                </div>
+                <div class="halloween-grid hw-cal" id="halloween-grid"></div>
+                <p class="hw-legend">Tap the lantern to log a night. Tap the cell for details.</p>
             </section>
         `;
 
@@ -187,10 +196,19 @@ export const halloween = {
             grid.innerHTML = '<div class="placeholder-msg">THE CRYPT IS EMPTY — CHECK YOUR CONNECTION. <button type="button" class="btn-quiet" data-retry-view="halloween">RETRY</button></div>';
             return;
         }
+        const now = new Date();
+        const inOctober = now.getMonth() === 9;
+        const today = now.getDate();
+        // Monday-first offset so Oct 1 lands on its real weekday.
+        const lead = (new Date(now.getFullYear(), 9, 1).getDay() + 6) % 7;
         const watched = new Set((this.state.history || []).filter(h => h.type === 'movie').map(h => String(h.id)));
 
-        grid.innerHTML = movies.map(m => {
+        const blanks = '<span class="cal-blank" aria-hidden="true"></span>'.repeat(lead);
+
+        grid.innerHTML = blanks + movies.map(m => {
             const isWatched = watched.has(String(m.id));
+            const missed = inOctober && !isWatched && m.day < today;
+            const finale = m.day === 31;
             let poster = '';
             try {
                 const rawPoster = m.poster_path;
@@ -200,50 +218,39 @@ export const halloween = {
                 }
             } catch { poster = ''; }
             if (typeof poster !== 'string' || !poster.startsWith('http')) poster = '';
-            
-            let franchise = '';
-            try {
-                franchise = m.franchise ? String(m.franchise) : '';
-            } catch { franchise = ''; }
-            if (typeof franchise !== 'string') franchise = '';
-            
+
             const rating = m.vote_average ? m.vote_average.toFixed(1) : '—';
             const year = m.release_date ? m.release_date.slice(0, 4) : '';
 
             return `
-                <article class="halloween-card ${isWatched ? 'watched' : ''}" data-id="${m.id}" data-type="movie" data-day="${m.day}">
-                    <div class="halloween-card-day">${m.day}</div>
-                    <div class="halloween-card-poster">
-                        ${poster ? `<img src="${poster}" alt="${this.escapeHtml(m.title)}" loading="lazy" decoding="async">` : '<div class="halloween-poster-placeholder">🎃</div>'}
-                        ${isWatched ? '<div class="halloween-watched-overlay"><span class="halloween-watched-icon">✓</span><span>WATCHED</span></div>' : ''}
+                <article class="halloween-card cal-cell${isWatched ? ' watched' : ''}${missed ? ' missed' : ''}${finale ? ' finale' : ''}" data-id="${m.id}" data-type="movie" data-day="${m.day}">
+                    <div class="cal-poster">
+                        ${poster ? `<img src="${poster}" alt="" loading="lazy" decoding="async">` : '<div class="halloween-poster-placeholder" aria-hidden="true"></div>'}
                     </div>
-                    <div class="halloween-card-info">
-                        <h3 class="halloween-card-title">${this.escapeHtml(m.title)}</h3>
-                        <div class="halloween-card-meta">
-                            <span class="halloween-rating">${rating} ★</span>
-                            <span class="halloween-year">${year}</span>
-                        </div>
-                        <button type="button" class="halloween-log-btn" data-id="${m.id}" data-type="movie" data-title="${this.escapeHtml(m.title)}" data-poster="${m.poster_path || ''}" data-score="${rating}" aria-label="${isWatched ? 'Mark as unwatched' : 'Mark as watched'}">
-                            ${isWatched ? '✓ Watched' : 'Mark Watched'}
-                        </button>
+                    <div class="cal-shade" aria-hidden="true"></div>
+                    <span class="cal-date">${m.day}</span>
+                    <button type="button" class="cal-check${isWatched ? ' watched' : ''}" data-id="${m.id}" data-type="movie" data-title="${this.escapeHtml(m.title)}" data-poster="${m.poster_path || ''}" aria-label="${isWatched ? 'Mark Oct ' + m.day + ' as unwatched' : 'Log Oct ' + m.day + ' as watched'}">✓</button>
+                    ${isWatched ? '<div class="halloween-watched-overlay"><span class="halloween-watched-icon">✓</span><span>WATCHED</span></div>' : ''}
+                    ${finale ? '<span class="cal-finale">Halloween night</span>' : ''}
+                    <div class="cal-meta">
+                        <h3 class="cal-title">${this.escapeHtml(m.title)}</h3>
+                        <span class="cal-sub">${rating} ★ · ${year}</span>
                     </div>
                 </article>
             `;
         }).join('');
 
-        grid.querySelectorAll('.halloween-log-btn').forEach(btn => {
+        grid.querySelectorAll('.cal-check').forEach(btn => {
             btn.addEventListener('click', async (e) => {
                 e.stopPropagation();
                 const id = Number(btn.dataset.id);
                 const type = btn.dataset.type;
                 const title = btn.dataset.title;
                 const poster = btn.dataset.poster;
-                const score = Number(btn.dataset.score);
                 const already = btn.classList.contains('watched');
                 if (already) {
                     this.state.history = (this.state.history || []).filter(h => !(String(h.id) === String(id) && h.type === type));
                     this.writeLocalList('alexandria_history', this.state.history);
-                    btn.textContent = 'Mark Watched';
                     btn.classList.remove('watched');
                     const card = btn.closest('.halloween-card');
                     card.classList.remove('watched');
@@ -251,13 +258,12 @@ export const halloween = {
                     if (overlay) overlay.remove();
                 } else {
                     await this.addToHistory({ id, type, title, poster_path: poster });
-                    btn.textContent = '✓ Watched';
                     btn.classList.add('watched');
                     const card = btn.closest('.halloween-card');
                     card.classList.add('watched');
-                    const posterDiv = card.querySelector('.halloween-card-poster');
-                    if (posterDiv && !posterDiv.querySelector('.halloween-watched-overlay')) {
-                        posterDiv.insertAdjacentHTML('beforeend', '<div class="halloween-watched-overlay"><span class="halloween-watched-icon">✓</span><span>WATCHED</span></div>');
+                    card.classList.remove('missed');
+                    if (!card.querySelector('.halloween-watched-overlay')) {
+                        card.insertAdjacentHTML('beforeend', '<div class="halloween-watched-overlay"><span class="halloween-watched-icon">✓</span><span>WATCHED</span></div>');
                     }
                 }
                 this.updateHalloweenProgress(this.getHalloweenMovies());
@@ -266,7 +272,7 @@ export const halloween = {
 
         grid.querySelectorAll('.halloween-card').forEach(card => {
             card.addEventListener('click', (e) => {
-                if (e.target.closest('.halloween-log-btn')) return;
+                if (e.target.closest('.cal-check')) return;
                 const id = card.dataset.id;
                 const type = card.dataset.type;
                 window.location.hash = `#details/${type}/${id}`;

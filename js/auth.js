@@ -54,6 +54,17 @@ export const auth = {
     // not an archive.
     CHANGELOG: [
         {
+            key: 'v1.14.2',
+            date: 'Oct 1, 2026',
+            title: 'Halloween Becomes a Real Calendar',
+            items: [
+                'October renders as an actual month grid — weekday headers, real alignment, and a blood-rimmed finale cell for the 31st',
+                'Graveyard theme: harvest-moon glow, drifting fog, cobwebbed corners, and a dried-blood edge under the header',
+                'Tap the lantern to log a night — logged cells burn jack-o-lantern orange, missed nights rot grey',
+                'Tonight gets the moon-gold spotlight and the layout holds seven columns all the way down to phones'
+            ]
+        },
+        {
             key: 'v1.14.1',
             date: 'Oct 1, 2026',
             title: 'Continue Watching Syncs Across Devices',
@@ -124,6 +135,17 @@ export const auth = {
                 'SHARE buttons rebuilt — instant clipboard copy with confirmation, native share sheet on phones',
                 'Faster boots (no more fake loading gate), batched imports, parallel cloud sync',
                 'Alexandria is now installable — manifest added for home-screen / app use'
+            ]
+        },
+        {
+            key: 'v1.11.0',
+            date: 'Sep 3, 2026',
+            title: 'Mirror Watch & Live Archives',
+            items: [
+                'Server picker now prefers mirrors that answered a health check, so you spend less time staring at blank players',
+                'Franchise archives moved into a live database — new universes and fixes roll out without a redeploy',
+                'Continue watching posters show a red RESUME strip with your exact timestamp',
+                'Under the hood: comments and feeds load in one batch query instead of one per person, the home airing row fetches only shows that actually air this week, and TV episodes no longer double-fetch their comments'
             ]
         }
     ],
