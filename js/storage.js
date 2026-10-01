@@ -22,11 +22,12 @@ export const storage = {
             if (this.supabase && this.state.authUser) {
                 const uid = this.state.authUser.id;
                 try {
-                    // Three independent reads — fetch them concurrently.
-                const [wlRes, epRes, histRes] = await Promise.all([
+                    // Four independent reads — fetch them concurrently.
+                const [wlRes, epRes, histRes, progRes] = await Promise.all([
                     this.supabase.from('survival_cache').select('*').eq('user_id', uid),
                     this.supabase.from('watched_episodes').select('tmdb_id, season, episode').eq('user_id', uid),
-                    this.supabase.from('history').select('*').eq('user_id', uid).order('created_at', { ascending: false })
+                    this.supabase.from('history').select('*').eq('user_id', uid).order('created_at', { ascending: false }),
+                    this.supabase.from('watch_progress').select('content_id, content_type, season, episode, seconds, updated_at').eq('user_id', uid)
                 ]);
                 const dbWatchlist = wlRes.data;
                 const dbEpisodes = epRes.data;
@@ -61,6 +62,35 @@ export const storage = {
                         }));
                         // Local first: new watches on this device win over cloud
                         cleanHistory = this.dedupeItems([...cleanHistory, ...cloudHist]);
+                    }
+
+                    // Stamp per-episode resume positions from watch_progress
+                    // (the history table is title-level only). Local first:
+                    // keep this device's episode; take the furthest position
+                    // when the episode matches, so fresh devices inherit the
+                    // exact resume point from wherever you last watched.
+                    if (Array.isArray(progRes?.data)) {
+                        const latest = {};
+                        for (const row of progRes.data) {
+                            if (row == null) continue;
+                            const key = `${row.content_type}_${String(row.content_id)}`;
+                            if (!latest[key] || String(row.updated_at || '') > String(latest[key].updated_at || '')) {
+                                latest[key] = row;
+                            }
+                        }
+                        for (const h of cleanHistory) {
+                            const row = latest[`${h.type}_${String(h.id)}`];
+                            if (!row) continue;
+                            const rs = Number(row.season) || 0;
+                            const re = Number(row.episode) || 0;
+                            const hs = Number(h.season) || 0;
+                            const he = Number(h.episode) || 0;
+                            if ((!h.season && !h.episode) || (hs === rs && he === re)) {
+                                h.season = rs;
+                                h.episode = re;
+                                h.progress = Math.max(Number(h.progress) || 0, Number(row.seconds) || 0);
+                            }
+                        }
                     }
 
                     // Push local-only episode marks up so per-episode progress
@@ -187,7 +217,10 @@ export const storage = {
                 content_id: Number(item.id),
                 type: item.type,
                 title: item.title,
-                poster_path: item.poster_path
+                poster_path: item.poster_path,
+                // Refresh recency on conflict so re-watches float back to
+                // the top of Continue Watching on every device.
+                created_at: new Date().toISOString()
             }, { onConflict: 'user_id, content_id, type' }).then();
         }
 

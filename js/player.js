@@ -563,6 +563,16 @@ export const player = {
         this._lastPlayhead = t;
         this._lastProgressWrite = Date.now();
         this.writeLocalList('alexandria_history', this.state.history);
+        if (this.supabase && this.state.authUser && String(id).match(/^\d+$/) && (type === 'movie' || type === 'tv')) {
+            this.supabase.from('watch_progress').upsert({
+                user_id: this.state.authUser.id,
+                content_id: Number(id),
+                content_type: type,
+                season: Number(season) || 0,
+                episode: Number(episode) || 0,
+                seconds: Math.max(0, Math.floor(t) || 0)
+            }, { onConflict: 'user_id,content_id,content_type,season,episode' }).then(() => {}, () => {});
+        }
     },
 
     kbSeek(delta) {

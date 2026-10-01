@@ -54,6 +54,17 @@ export const auth = {
     // not an archive.
     CHANGELOG: [
         {
+            key: 'v1.14.1',
+            date: 'Oct 1, 2026',
+            title: 'Continue Watching Syncs Across Devices',
+            items: [
+                'Resume positions now follow you — pause on your phone, pick up at the exact timestamp on your PC',
+                'The current season and episode carries over too, so the next device opens the right episode ready to resume',
+                'Re-watched titles jump back to the front of the Continue Watching row on every device',
+                'Mobile home matches the desktop rows with a compact hero that fits phone screens'
+            ]
+        },
+        {
             key: 'v1.14.0',
             date: 'Sep 30, 2026',
             title: 'Badge Quests & Rating Helper',
@@ -113,15 +124,6 @@ export const auth = {
                 'SHARE buttons rebuilt — instant clipboard copy with confirmation, native share sheet on phones',
                 'Faster boots (no more fake loading gate), batched imports, parallel cloud sync',
                 'Alexandria is now installable — manifest added for home-screen / app use'
-            ]
-        },
-        {
-            key: 'v1.9.7',
-            date: 'Aug 21, 2026',
-            title: 'Party Play/Pause Control',
-            items: [
-                'Hosts get a PAUSE/PLAY button in the watch party bar — one click pauses or resumes the whole room, since the embed never reports its own play/pause events to us',
-                'Guests follow the host toggle automatically, with the sync clock holding the right timestamp'
             ]
         }
     ],
