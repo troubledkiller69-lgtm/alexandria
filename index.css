@@ -8930,14 +8930,15 @@ h1, h2, h3, h4 {
     top: 0; left: 0; right: 0;
     z-index: 100;
 }
-.mobile-brand {
-    font-family: var(--font-display);
-    font-size: 1.15rem;
-    font-weight: 700;
-    letter-spacing: -0.02em;
-    color: #8a0303;
-    margin: 0;
-    line-height: 1;
+.mobile-brand-logo {
+    display: flex;
+    align-items: center;
+    text-decoration: none;
+    line-height: 0;
+}
+.mobile-logo {
+    height: 26px;
+    max-width: 180px;
 }
 .mobile-header .icon-btn {
     color: #f8fafc;
@@ -8963,6 +8964,7 @@ h1, h2, h3, h4 {
     padding: 12px 8px;
     background: transparent;
     border: none;
+    text-decoration: none;
     color: #94a3b8;
     font-family: var(--font-body);
     font-size: 0.85rem;
@@ -9203,6 +9205,7 @@ h1, h2, h3, h4 {
     padding: 6px 8px;
     background: transparent;
     border: none;
+    text-decoration: none;
     color: #64748b;
     font-family: var(--font-body);
     font-size: 0.65rem;

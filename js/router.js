@@ -341,6 +341,25 @@ export const router = {
         this.state.partyRoomId = null;
     },
 
+    navigate(view) {
+        if (view === 'profile') {
+            const uid = this.state.authUser?.id;
+            if (uid) {
+                window.location.hash = '#profile/' + encodeURIComponent(uid);
+            } else if (typeof this.toggleAuthModal === 'function') {
+                this.toggleAuthModal(true);
+            } else {
+                window.location.hash = '#community';
+            }
+            return;
+        }
+        if (view === 'roulette') {
+            this.openRouletteModal();
+            return;
+        }
+        window.location.hash = '#' + view;
+    },
+
     setView(view) {
         if (this.state.view === 'party' && view !== 'party') {
             this.teardownParty();
