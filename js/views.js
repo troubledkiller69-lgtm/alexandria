@@ -3,12 +3,30 @@ export const views = {
         if (!this.main) this.main = document.getElementById('content');
         if (!this.main) return;
         
-        // Update Nav Link Active States
+        // Update Nav Link Active States (desktop sidebar)
         document.querySelectorAll('.nav-link').forEach(link => {
             const isActive = link.getAttribute('href') === `#${this.state.view}`;
             link.classList.toggle('active', isActive);
             if (isActive) link.setAttribute('aria-current', 'page');
             else link.removeAttribute('aria-current');
+        });
+
+        // Update Category Tabs Active State (mobile)
+        const catTabMap = { home: 'home', movies: 'movies', tv: 'tv', anime: 'anime', roulette: 'roulette' };
+        const activeCat = catTabMap[this.state.view] || 'home';
+        document.querySelectorAll('.category-tab').forEach(btn => {
+            const isActive = btn.dataset.view === activeCat;
+            btn.classList.toggle('active', isActive);
+            btn.setAttribute('aria-selected', String(isActive));
+        });
+
+        // Update Bottom Tab Bar Active State (mobile)
+        const bottomTabMap = { home: 'home', watchlist: 'watchlist', community: 'community', profile: 'profile' };
+        const activeBottom = bottomTabMap[this.state.view] || 'home';
+        document.querySelectorAll('.tab-btn').forEach(btn => {
+            const isActive = btn.dataset.view === activeBottom;
+            btn.classList.toggle('active', isActive);
+            btn.setAttribute('aria-selected', String(isActive));
         });
 
         // Main View Routing. Views render asynchronously; return the promise

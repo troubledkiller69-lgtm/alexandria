@@ -57,22 +57,8 @@ export const home = {
         this.main.innerHTML = '<div class="placeholder-msg"><span class="pulse-dot"></span> LOADING SECTORS...</div>';
         
         try {
-            const currentGenre = this.GENRES.find(g => g.id === (this.state.activeGenreId || 35)) || this.GENRES[0];
-
-            // Sector 1: Core Content Scans
-            const [mData, tData, genreData] = await Promise.all([
-                this.getJson('trending/movie/day'),
-                this.getJson('trending/tv/day'),
-                this.getJson(`discover/movie?with_genres=${currentGenre.id}&sort_by=popularity.desc`).catch(() => ({ results: [] }))
-            ]);
-            
-            // Sector 2: Alexandria's specials, using verified TMDB IDs.
-            const chronicleIds = [1402, 62286, 94305, 194583, 211684, 206586];
-            const specialsData = await Promise.all(chronicleIds.map(id => 
-                this.getJson('tv/' + id)
-                .catch(() => null)
-            )).then(results => results.filter(Boolean));
-
+            // Fetch hero pool (trending movies with backdrops)
+            const mData = await this.getJson('trending/movie/day');
             if (token !== this._renderToken) return;
 
             const heroPool = (mData.results || []).filter(m => m && m.id && m.backdrop_path).slice(0, 5);
@@ -86,6 +72,9 @@ export const home = {
             this._heroSlides = heroPool.map((m, i) => ({ ...m, runtime: heroRuntimes[i] || null }));
             this._heroIndex = 0;
 
+            // Fetch "Releasing This Week" data in parallel
+            const airingPromise = this.fetchAiringThisWeek();
+
             this.main.innerHTML = `
                 <section class="home-view">
                     <div class="hero-featured" id="hero-featured" style="--hero-image: url('${this.imageUrl(this._heroSlides[0].backdrop_path, 'w1280')}')">
@@ -96,44 +85,15 @@ export const home = {
                             ${this._heroSlides.map((s, i) => `<button type="button" role="tab" aria-label="${this.escapeHtml(s.title || 'Featured title ' + (i + 1))}" class="${i === 0 ? 'active' : ''}" onclick="Alexandria.heroGo(${i})"></button>`).join('')}
                         </div>
                     </div>
-                    <div id="continue-watching-section"></div>
                     <div id="because-you-watched-section"></div>
-                    <div id="priority-archive-section"></div>
-                    <div class="view-section">
-                        <div class="genre-dropdown-wrapper" id="genre-dropdown-wrapper">
-                            <button type="button" class="genre-dropdown-trigger" onclick="Alexandria.toggleGenreMenu(event)">
-                                <span class="genre-red-bar">|</span>
-                                <span id="current-genre-title">${this.escapeHtml(currentGenre.name)}</span>
-                                <svg class="genre-arrow-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"></polyline></svg>
-                            </button>
-                            <div class="genre-dropdown-popover">
-                                ${this.GENRES.map(g => `
-                                    <div class="genre-popover-item ${g.id === currentGenre.id ? 'active' : ''}" data-genre-id="${g.id}" onclick="Alexandria.selectGenre(${g.id})">
-                                        <span class="genre-popover-text">${this.escapeHtml(g.name)}</span>
-                                    </div>
-                                `).join('')}
-                            </div>
-                        </div>
-                        <div class="carousel-container">
-                            <button class="carousel-arrow left" onclick="Alexandria.scrollCarousel(this, -800)">&#10094;</button>
-                            <div class="carousel-wrapper"><div class="carousel-grid" id="genre-explorer-grid"></div></div>
-                            <button class="carousel-arrow right" onclick="Alexandria.scrollCarousel(this, 800)">&#10095;</button>
-                        </div>
-                    </div>
-                    <div class="view-section"><h3>ALEXANDRIA'S SPECIALS</h3><div class="carousel-container"><button class="carousel-arrow left" onclick="Alexandria.scrollCarousel(this, -800)">&#10094;</button><div class="carousel-wrapper"><div class="carousel-grid" id="alexandria-specials"></div></div><button class="carousel-arrow right" onclick="Alexandria.scrollCarousel(this, 800)">&#10095;</button></div></div>
-                    <div class="view-section"><h3>Trending Movies</h3><div class="carousel-container"><button class="carousel-arrow left" onclick="Alexandria.scrollCarousel(this, -800)">&#10094;</button><div class="carousel-wrapper"><div class="carousel-grid" id="trending-movies"></div></div><button class="carousel-arrow right" onclick="Alexandria.scrollCarousel(this, 800)">&#10095;</button></div></div>
-                    <div class="view-section"><h3>Trending TV Shows</h3><div class="carousel-container"><button class="carousel-arrow left" onclick="Alexandria.scrollCarousel(this, -800)">&#10094;</button><div class="carousel-wrapper"><div class="carousel-grid" id="trending-tv"></div></div><button class="carousel-arrow right" onclick="Alexandria.scrollCarousel(this, 800)">&#10095;</button></div></div>
-                    <div class="view-section"><h3>RELEASING THIS WEEK</h3><div class="carousel-container"><button class="carousel-arrow left" onclick="Alexandria.scrollCarousel(this, -800)">&#10094;</button><div class="carousel-wrapper"><div class="carousel-grid" id="airing-week-grid"><div class="placeholder-msg"><span class="pulse-dot"></span> SCANNING AIRTIMES...</div></div></div><button class="carousel-arrow right" onclick="Alexandria.scrollCarousel(this, 800)">&#10095;</button></div></div>
+                    <div id="airing-week-section"></div>
                 </section>`;
             
-            this.renderHistory();
+            // Render sections in parallel
             this.renderBecauseYouWatched();
-            this.renderWatchlist();
-            this.renderResults(genreData.results, 'genre-explorer-grid');
-            this.renderResults(specialsData, 'alexandria-specials');
-            this.renderResults(mData.results, 'trending-movies');
-            this.renderResults(tData.results, 'trending-tv');
-            this.renderAiringThisWeek();
+            const airingRows = await airingPromise;
+            if (token !== this._renderToken) return;
+            this.renderAiringThisWeek(airingRows);
             this.heroAutoplay();
         } catch (error) {
             console.error("Alexandria Protocol: Home Scout Failed -", error);
@@ -303,14 +263,14 @@ export const home = {
         }
     },
 
-    async renderAiringThisWeek() {
+    async renderAiringThisWeek(prefetchedRows) {
         const token = this._renderToken;
-        const grid = document.getElementById('airing-week-grid');
-        if (!grid) return;
-        const rows = await this.fetchAiringThisWeek();
-        if (token !== this._renderToken || !grid.isConnected) return;
+        const container = document.getElementById('airing-week-section');
+        if (!container) return;
+        const rows = prefetchedRows ?? await this.fetchAiringThisWeek();
+        if (token !== this._renderToken) return;
         if (!rows.length) {
-            grid.innerHTML = '<div class="placeholder-msg">No confirmed airings this week.</div>';
+            container.innerHTML = '';
             return;
         }
         const fmt = iso => {
@@ -318,6 +278,9 @@ export const home = {
             return ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'][d.getDay()] + ' ' + ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'][d.getMonth()] + ' ' + d.getDate();
         };
         const todayIso = this.localISODate(new Date());
+        container.innerHTML = `<div class="view-section"><h3>RELEASING THIS WEEK</h3><div class="carousel-container"><div class="carousel-wrapper"><div class="carousel-grid" id="airing-week-grid"></div></div></div></div>`;
+        const grid = document.getElementById('airing-week-grid');
+        if (!grid) return;
         grid.innerHTML = rows.map(r => {
             const safeId = this.escapeHtml(String(r.id));
             const safeTitle = this.escapeHtml(r.name);

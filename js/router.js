@@ -195,7 +195,7 @@ export const router = {
         // Global click listener
         document.addEventListener('click', async (e) => {
             const logBtn = e.target.classList.contains('log-btn') ? e.target : e.target.closest('.log-btn');
-            const searchTrigger = e.target.id === 'search-trigger' || e.target.closest('#search-trigger');
+            const searchTrigger = e.target.id === 'search-trigger' || e.target.id === 'search-trigger-desktop' || e.target.closest('#search-trigger') || e.target.closest('#search-trigger-desktop');
             const retryButton = e.target.closest('[data-retry-view]');
             const searchRetry = e.target.closest('[data-search-retry]');
 

@@ -24,7 +24,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="preconnect" href="https://image.tmdb.org" crossorigin>
-    <link rel="stylesheet" href="index.css?v=20260930d">
+    <link rel="stylesheet" href="index.css?v=20261001a">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Oswald:wght@500;600;700&display=swap" rel="stylesheet">
     <script defer src="js/vendor/supabase-js.js"></script>
     <script defer src="/_vercel/insights/script.js"></script>
@@ -40,6 +40,24 @@
     </div>
 
     <div id="app" class="hidden layout-wrapper">
+        <!-- Mobile Header: ALEXANDRIA wordmark + search -->
+        <header class="mobile-header" role="banner">
+            <h1 class="mobile-brand">ALEXANDRIA</h1>
+            <button id="search-trigger" class="icon-btn" type="button" aria-label="Search the archive" title="Search">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+            </button>
+        </header>
+
+        <!-- Horizontal Category Tabs -->
+        <nav class="category-tabs" role="tablist" aria-label="Content categories">
+            <button class="category-tab active" role="tab" aria-selected="true" data-view="home" onclick="Alexandria.navigate('home')">Home</button>
+            <button class="category-tab" role="tab" aria-selected="false" data-view="movies" onclick="Alexandria.navigate('movies')">Movies</button>
+            <button class="category-tab" role="tab" aria-selected="false" data-view="tv" onclick="Alexandria.navigate('tv')">TV</button>
+            <button class="category-tab" role="tab" aria-selected="false" data-view="anime" onclick="Alexandria.navigate('anime')">Anime</button>
+            <button class="category-tab" role="tab" aria-selected="false" data-view="roulette" onclick="Alexandria.navigate('roulette')">Roulette</button>
+        </nav>
+
+        <!-- Desktop Top Nav (hidden on mobile) -->
         <header class="top-nav">
             <div style="display: flex; align-items: center; gap: 1rem;">
                 <button id="sidebar-toggle" class="icon-btn" type="button" aria-label="Open navigation" aria-controls="primary-sidebar" aria-expanded="false">
@@ -61,7 +79,7 @@
                 <img src="logo.png" class="brand-logo" alt="Alexandria">
             </button>
             <div class="top-nav-actions">
-                <button id="search-trigger" class="icon-btn" type="button" aria-label="Search the archive" title="Search">
+                <button id="search-trigger-desktop" class="icon-btn" type="button" aria-label="Search the archive" title="Search">
                     <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
                 </button>
                 <button id="changelog-trigger" class="icon-btn changelog-trigger" type="button" aria-label="What's new" title="What's new" aria-haspopup="true" onclick="Alexandria.toggleChangelogMenu()">
@@ -114,6 +132,26 @@
             <div class="placeholder-msg">CONNECTING...</div>
         </main>
 
+        <!-- Bottom Tab Bar (Mobile) -->
+        <nav class="bottom-tab-bar" role="tablist" aria-label="Primary navigation">
+            <button class="tab-btn active" role="tab" aria-selected="true" data-view="home" onclick="Alexandria.navigate('home')">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg>
+                <span>Home</span>
+            </button>
+            <button class="tab-btn" role="tab" aria-selected="false" data-view="watchlist" onclick="Alexandria.navigate('watchlist')">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"></path></svg>
+                <span>Library</span>
+            </button>
+            <button class="tab-btn" role="tab" aria-selected="false" data-view="community" onclick="Alexandria.navigate('community')">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
+                <span>Community</span>
+            </button>
+            <button class="tab-btn" role="tab" aria-selected="false" data-view="profile" onclick="Alexandria.navigate('profile')">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+                <span>Profile</span>
+            </button>
+        </nav>
+
         <button id="back-to-top" type="button" title="Return to top" aria-label="Return to top" aria-hidden="true" tabindex="-1">↑</button>
     </div>
 
@@ -126,6 +164,6 @@
     </div>
 
     <noscript><p class="noscript-message">Alexandria needs JavaScript enabled to load the archive.</p></noscript>
-    <script type="module" src="js/app.js?v=20260930d"></script>
+    <script type="module" src="js/app.js?v=20261001a"></script>
 </body>
 </html>
