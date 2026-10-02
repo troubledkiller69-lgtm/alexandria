@@ -18,6 +18,9 @@ export const views = {
             const isActive = btn.dataset.view === activeCat;
             btn.classList.toggle('active', isActive);
             btn.setAttribute('aria-selected', String(isActive));
+            if (isActive && btn.scrollIntoView) {
+                try { btn.scrollIntoView({ block: 'nearest', inline: 'center', behavior: 'smooth' }); } catch {}
+            }
         });
 
         // Update Bottom Tab Bar Active State (mobile)

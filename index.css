@@ -9123,6 +9123,8 @@ h1, h2, h3, h4 {
     position: fixed;
     top: 0; left: 0; right: 0;
     z-index: 100;
+    touch-action: none;
+    overscroll-behavior: none;
 }
 .mobile-brand-logo {
     display: flex;
@@ -9143,6 +9145,7 @@ h1, h2, h3, h4 {
 .category-tabs {
     display: none;
     overflow-x: auto;
+    overflow-y: hidden;
     scrollbar-width: none;
     -ms-overflow-style: none;
     padding: 0 16px;
@@ -9151,6 +9154,10 @@ h1, h2, h3, h4 {
     position: fixed;
     top: 56px; left: 0; right: 0;
     z-index: 99;
+    touch-action: pan-x;
+    overscroll-behavior-x: contain;
+    overscroll-behavior-y: none;
+    -webkit-overflow-scrolling: touch;
 }
 .category-tabs::-webkit-scrollbar { display: none; }
 .category-tab {
@@ -9242,10 +9249,10 @@ h1, h2, h3, h4 {
     aspect-ratio: 2/3;
     background: #050505;
 }
-.poster-wrapper::after { display: none; }
 .poster-wrapper img { transition: none; }
-.card-overlay { display: none; }
 .play-overlay { display: none; }
+/* card-overlay stays mounted on all inputs: hover devices use the
+   opacity fade from the base rules; touch gets corner buttons below */
 .anime-badge {
     position: absolute;
     top: 6px; left: 6px; z-index: 5;
@@ -9370,7 +9377,7 @@ h1, h2, h3, h4 {
     .category-tabs { display: flex; }
     .bottom-tab-bar { display: flex; }
     .top-nav { display: none; }
-    .main-view { padding-top: 112px; } /* header 56 + tabs 56 */
+    .main-view { padding-top: 104px; } /* header 56 + tabs ~48 */
     /* Mobile hero - compact banner: trimmed title, 2-line overview, dots clear */
     .hero-featured {
         height: auto;
@@ -9419,6 +9426,34 @@ h1, h2, h3, h4 {
     .view-section { padding: 16px; }
     .view-section > h3 { font-size: 0.85rem; }
     .movie-card { min-width: 112px; width: 112px; }
+    .search-header-sticky, .view-header { top: 102px; }
+    .main-view > section, .view-section { scroll-margin-top: 110px; }
+    /* Touch: no hover, so show badges + corner action buttons, hide the
+       full-cover open link (tap the poster goes to details anyway) */
+    .card-overlay {
+        display: block;
+        opacity: 1;
+        background: none;
+        pointer-events: none;
+        padding: 0;
+    }
+    .card-overlay .card-open { display: none; }
+    .card-overlay .log-btn,
+    .card-overlay .remove-history-btn {
+        display: grid;
+        pointer-events: auto;
+        position: absolute;
+        top: 6px;
+        right: 6px;
+        width: 32px;
+        height: 32px;
+        font-size: 1.05rem;
+        background: rgba(10,10,15,0.78);
+        z-index: 16;
+    }
+    .card-overlay .mark-btn,
+    .card-overlay .ep-toggle-btn { display: none; }
+    .poster-wrapper::after { display: none; }
 }
 
 /* Search trigger desktop -> hook to same handler */
