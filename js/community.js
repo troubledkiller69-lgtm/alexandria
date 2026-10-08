@@ -304,7 +304,7 @@ export const community = {
                 const body = p.img
                     ? `<img src="${p.local ? p.img : this.imageUrl(p.img, 'w185')}" alt="" loading="lazy" decoding="async">`
                     : p.emoji;
-                return `${label}<button type="button" class="avatar-picker-btn ${profile.avatar_id === p.id ? 'selected' : ''}" data-avatar="${p.id}" aria-label="${p.id}" onclick="Alexandria.selectProfileAvatar('${p.id}', this)">${body}</button>`;
+                return `${label}<button type="button" class="avatar-picker-btn ${profile.avatar_id === p.id ? 'selected' : ''}" data-avatar="${p.id}" aria-label="${p.id}" onclick="Alexandria.selectProfileAvatar(${this.escapeJsArg(p.id)}, this)">${body}</button>`;
             }).join('');
         }
         this.state.profileGenreSelection = new Set(
@@ -367,7 +367,7 @@ export const community = {
         const genres = this.state.profileGenreSelection ? [...this.state.profileGenreSelection] : [];
         const avatarId = this.state.profileAvatarSelection || 'python';
         try {
-            await this.supabase.from('profiles').update({
+            const { error } = await this.supabase.from('profiles').update({
                 username,
                 username_lower: usernameLower,
                 nickname,
@@ -375,6 +375,7 @@ export const community = {
                 fav_genres: genres.join(','),
                 avatar_id: avatarId
             }).eq('id', me);
+            if (error) throw error;
             if (usernameChanged) {
                 try {
                     await this.supabase.auth.updateUser({ data: { username } });

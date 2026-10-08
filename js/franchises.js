@@ -28,6 +28,26 @@ export const franchises = {
         return FALLBACK_FRANCHISES.map(f => ({ ...f }));
     },
 
+    // Resolves to null for a title that no longer exists (404). Rate limits and
+    // 5xx get up to three tries with a short wait; a failure that remains throws.
+    async fetchFranchiseJson(endpoint, attempt = 0) {
+        const response = await fetch(`/api/proxy?endpoint=${encodeURIComponent(endpoint)}`);
+        if (response.status === 404) return null;
+        if (!response.ok) {
+            const retryAfter = Number.parseInt(response.headers.get('Retry-After') || '', 10);
+            const waitMs = Number.isFinite(retryAfter) ? retryAfter * 1000 : 500 * (attempt + 1);
+            const retryable = response.status === 429 || response.status >= 500;
+            if (retryable && attempt < 2 && waitMs <= 8000) {
+                await new Promise(resolve => setTimeout(resolve, waitMs));
+                return this.fetchFranchiseJson(endpoint, attempt + 1);
+            }
+            throw new Error(`Archive request failed (${response.status}).`);
+        }
+        const data = await response.json();
+        if (data?.error) throw new Error(data.error);
+        return data;
+    },
+
     async renderFranchises() {
         const token = this._renderToken;
         this.main.innerHTML = '<div class="placeholder-msg"><span class="pulse-dot"></span> LOADING FRANCHISE ARCHIVES...</div>';
@@ -43,53 +63,62 @@ export const franchises = {
                 cached = null;
             }
 
-            const fetchCollection = async (franchise) => {
-                if (franchise.tvIds || franchise.isTv) {
-                    const results = await this.mapWithConcurrency(franchise.tvIds || [], 6, async (id) => {
-                        try {
-                            const data = await this.getJson('tv/' + id);
-                            return { ...data, media_type: 'tv' };
-                        } catch { return null; }
-                    });
-                    return { ...franchise, items: results.filter(Boolean) };
-                }
-                if (franchise.movieIds) {
-                    const results = await this.mapWithConcurrency(franchise.movieIds, 6, async (id) => {
-                        try {
-                            const data = await this.getJson('movie/' + id);
-                            return { ...data, media_type: 'movie' };
-                        } catch { return null; }
-                    });
-                    const sorted = results.filter(Boolean).sort(
-                        (a, b) => new Date(a.release_date || '9999') - new Date(b.release_date || '9999')
-                    );
-                    return { ...franchise, items: sorted };
-                }
+            // At most 4 proxy calls in flight for the whole page.
+            let slots = 4;
+            const slotWaiters = [];
+            const withSlot = async (task) => {
+                if (slots > 0) slots -= 1;
+                else await new Promise(resolve => slotWaiters.push(resolve));
                 try {
-                    const data = await this.getJson('collection/' + franchise.collectionId);
-                    const sorted = (data.parts || []).sort(
-                        (a, b) => new Date(a.release_date || '9999') - new Date(b.release_date || '9999')
-                    );
-                    return { ...franchise, items: sorted };
-                } catch {
-                    return { ...franchise, items: [] };
+                    return await task();
+                } finally {
+                    const next = slotWaiters.shift();
+                    if (next) next();
+                    else slots += 1;
                 }
             };
 
-            const cacheValid = cached?.at && Date.now() - cached.at < 15 * 60 * 1000 && Array.isArray(cached.results) && cached.results.length;
+            const fetchCollection = async (franchise) => {
+                // A title that still fails after retries is counted in `missing`, never dropped silently.
+                const fetchTitle = (endpoint) => withSlot(() => token === this._renderToken ? this.fetchFranchiseJson(endpoint) : null).then(
+                    data => ({ data }),
+                    () => ({ failed: true })
+                );
+                if (franchise.tvIds || franchise.isTv) {
+                    const outcomes = await Promise.all((franchise.tvIds || []).map(id => fetchTitle('tv/' + id)));
+                    return {
+                        ...franchise,
+                        items: outcomes.filter(o => o.data).map(o => ({ ...o.data, media_type: 'tv' })),
+                        missing: outcomes.filter(o => o.failed).length
+                    };
+                }
+                if (franchise.movieIds) {
+                    const outcomes = await Promise.all(franchise.movieIds.map(id => fetchTitle('movie/' + id)));
+                    const sorted = outcomes.filter(o => o.data).map(o => ({ ...o.data, media_type: 'movie' })).sort(
+                        (a, b) => new Date(a.release_date || '9999') - new Date(b.release_date || '9999')
+                    );
+                    return { ...franchise, items: sorted, missing: outcomes.filter(o => o.failed).length };
+                }
+                const outcome = await fetchTitle('collection/' + franchise.collectionId);
+                const sorted = (outcome.data?.parts || []).sort(
+                    (a, b) => new Date(a.release_date || '9999') - new Date(b.release_date || '9999')
+                );
+                return { ...franchise, items: sorted, missing: outcome.failed ? 1 : 0 };
+            };
+
+            const cacheValid = cached?.at && Date.now() - cached.at < 15 * 60 * 1000 && Array.isArray(cached.results) && cached.results.some(f => f.items.length);
             let results;
             if (cacheValid) {
                 results = cached.results;
             } else {
-                results = [];
-                for (let i = 0; i < franchises.length; i += 6) {
-                    const wave = await Promise.all(franchises.slice(i, i + 6).map(fetchCollection));
-                    results.push(...wave);
-                    if (token !== this._renderToken) return;
+                results = await Promise.all(franchises.map(fetchCollection));
+                if (token !== this._renderToken) return;
+                // Only a complete load is cached; a partial one is retried on the next visit.
+                if (results.every(f => !f.missing)) {
+                    try {
+                        sessionStorage.setItem(FRANCHISE_CACHE_KEY, JSON.stringify({ at: Date.now(), results }));
+                    } catch { /* quota */ }
                 }
-                try {
-                    sessionStorage.setItem(FRANCHISE_CACHE_KEY, JSON.stringify({ at: Date.now(), results }));
-                } catch { /* quota */ }
             }
 
             if (token !== this._renderToken) return;
@@ -164,6 +193,7 @@ export const franchises = {
         const universes = results.filter(f => f.items.length);
         const mosaic = universes.slice(0, 6);
         const titleCount = universes.reduce((s, f) => s + f.items.length, 0);
+        const incomplete = results.filter(f => f.missing).length;
 
         this.main.innerHTML = `
                 <section class="filtered-view franchise-section">
@@ -178,12 +208,12 @@ export const franchises = {
                         <div class="franchise-hero-content">
                             <p class="eyebrow">CINEMATIC UNIVERSES & LEGENDARY SAGAS</p>
                             <h1>FRANCHISE ARCHIVES</h1>
-                            <p class="franchise-hero-sub">${universes.length} universes · ${titleCount} titles on file</p>
+                            <p class="franchise-hero-sub">${universes.length} universes · ${titleCount} titles on file${incomplete ? ` · ${incomplete} ${incomplete === 1 ? 'universe' : 'universes'} incomplete <button type="button" class="btn-quiet" onclick="Alexandria.renderFranchises()">RETRY</button>` : ''}</p>
                         </div>
                     </div>
                     <div class="franchise-toolbar">
                         <div class="franchise-chips" role="group" aria-label="Filter franchises by genre">
-                            ${genres.map(g => `<button type="button" class="franchise-chip${g === genre ? ' active' : ''}" onclick="Alexandria.setFranchiseGenre('${this.escapeHtml(g)}')">${this.escapeHtml(g)}</button>`).join('')}
+                            ${genres.map(g => `<button type="button" class="franchise-chip${g === genre ? ' active' : ''}" onclick="Alexandria.setFranchiseGenre(${this.escapeJsArg(g)})">${this.escapeHtml(g)}</button>`).join('')}
                         </div>
                         <input type="search" class="franchise-search" placeholder="Search franchises..." aria-label="Search franchises" value="${this.escapeHtml(this.state.franchiseSearch || '')}" oninput="Alexandria.setFranchiseSearch(this.value)">
                         <label class="franchise-sort">

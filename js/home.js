@@ -42,6 +42,8 @@ export const home = {
 
     heroAutoplay() {
         clearInterval(this._heroTimer);
+        // Auto-rotation is motion the user did not start; respect the OS setting.
+        if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return;
         this._heroTimer = setInterval(() => {
             if (this.state.view !== 'home' || !document.getElementById('hero-featured')) {
                 clearInterval(this._heroTimer);

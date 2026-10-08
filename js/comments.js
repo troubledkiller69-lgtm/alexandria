@@ -127,7 +127,8 @@ export const comments = {
                         parent_id: commentObj.parentId || null
                     })
                     .select();
-                if (!error && data && data.length) {
+                if (error) throw error;
+                if (data && data.length) {
                     const row = data[0];
                     return {
                         id: row.id,
@@ -142,8 +143,9 @@ export const comments = {
                     };
                 }
             } catch (e) {
-                console.warn("Alexandria: Cloud comment insert failed, using local", e);
+                console.warn("Alexandria: Cloud comment insert failed", e);
             }
+            return null;
         }
         try {
             const allComments = this.readStorageJson(localStorage, 'alexandria_comments', {}) || {};
@@ -154,6 +156,18 @@ export const comments = {
             console.error("Alexandria: Failed to save comment", e);
         }
         return commentObj;
+    },
+
+    async countCommentReplies(commentId) {
+        let total = 0;
+        let frontier = [String(commentId)];
+        for (let depth = 0; depth < 20 && frontier.length; depth++) {
+            const { data, error } = await this.supabase.from('comments').select('id').in('parent_id', frontier);
+            if (error) return null;
+            frontier = (data || []).map(r => String(r.id));
+            total += frontier.length;
+        }
+        return total;
     },
 
     async deleteComment(commentKey, commentId) {
@@ -175,6 +189,9 @@ export const comments = {
             }
         } else {
             try {
+                const replies = await this.countCommentReplies(cid);
+                if (replies === null) throw new Error('reply count unavailable');
+                if (replies && !confirm(`Deleting this comment also deletes its ${replies} ${replies === 1 ? 'reply' : 'replies'}. Delete anyway?`)) return;
                 const { error } = await this.supabase.from('comments').delete().eq('id', commentId);
                 if (error) throw error;
             } catch (e) {
@@ -255,25 +272,32 @@ export const comments = {
         const me = this.state.authUser.id;
         const key = this.getCommentKey(this.state.activeContent);
         try {
-            const { data: existing } = await this.supabase
+            const { data: existing, error: readErr } = await this.supabase
                 .from('comment_reactions')
                 .select('emoji')
                 .eq('comment_id', commentId)
                 .eq('user_id', me)
                 .maybeSingle();
+            if (readErr) throw readErr;
             if (existing) {
-                if (existing.emoji === emoji) {
-                    await this.supabase.from('comment_reactions').delete().eq('comment_id', commentId).eq('user_id', me);
-                } else {
-                    await this.supabase.from('comment_reactions').update({ emoji }).eq('comment_id', commentId).eq('user_id', me);
+                const { error: delErr } = await this.supabase.from('comment_reactions').delete().eq('comment_id', commentId).eq('user_id', me);
+                if (delErr) throw delErr;
+            }
+            if (!existing || existing.emoji !== emoji) {
+                const { error: insErr } = await this.supabase.from('comment_reactions').insert({ comment_id: commentId, user_id: me, emoji, comment_key: key || '' });
+                if (insErr) {
+                    if (existing) {
+                        const { error: restoreErr } = await this.supabase.from('comment_reactions').insert({ comment_id: commentId, user_id: me, emoji: existing.emoji, comment_key: key || '' });
+                        if (restoreErr) console.warn("Alexandria: Reaction restore failed", restoreErr);
+                    }
+                    throw insErr;
                 }
-            } else {
-                await this.supabase.from('comment_reactions').insert({ comment_id: commentId, user_id: me, emoji, comment_key: key || '' });
             }
             this.refreshCommunityQuiet();
         } catch (e) {
             console.warn("Alexandria: Reaction toggle failed", e);
             this.showToast('Could not save reaction');
+            this.refreshCommunityQuiet();
         }
     },
 
@@ -456,21 +480,21 @@ export const comments = {
             parentId: replyTo ? replyTo.id : null
         };
 
-        let cloudPosted = false;
-        let savedLocally = false;
+        let saved = null;
         try {
             if (this.supabase) {
                 await this.migrateLocalComments(key);
                 const profile = await this.fetchProfile(u.id);
-                const saved = await this.saveComment(key, { ...commentObj, author: profile?.nickname || nickname });
-                cloudPosted = !!(saved && saved.cloud);
-                savedLocally = !cloudPosted; // saveComment already fell back to localStorage
+                saved = await this.saveComment(key, { ...commentObj, author: profile?.nickname || nickname });
+            } else {
+                saved = await this.saveComment(key, commentObj);
             }
         } catch (e) {
-            console.warn("Alexandria: Cloud comment post failed", e);
+            console.warn("Alexandria: Comment post failed", e);
         }
-        if (!cloudPosted && !savedLocally) {
-            this.saveComment(key, commentObj);
+        if (!saved) {
+            this.showToast(replyTo ? 'Could not post your reply. Try again.' : 'Could not post your comment. Try again.');
+            return;
         }
 
         input.value = '';
@@ -479,7 +503,7 @@ export const comments = {
         this.refreshCommunity();
         this.showToast(replyTo ? 'Reply posted!' : 'Comment posted!');
 
-        if (cloudPosted) {
+        if (saved.cloud) {
             const tvMatch = /^tv_([0-9]+)/.exec(key);
             const movieMatch = /^movie_([0-9]+)/.exec(key);
             const match = tvMatch || movieMatch;
@@ -704,6 +728,23 @@ export const comments = {
         if (draft.focused) input.focus();
     },
 
+    // Every rating value for a title, read in pages of 1000 so the average
+    // and count do not depend on the newest-50 window. Null on any error.
+    async fetchRatingValues(type, id) {
+        const values = [];
+        for (let from = 0; ; from += 1000) {
+            const { data, error } = await this.supabase.from('ratings')
+                .select('id, rating')
+                .eq('content_id', Number(id))
+                .eq('content_type', type)
+                .order('id', { ascending: true })
+                .range(from, from + 999);
+            if (error) return null;
+            values.push(...(data || []));
+            if (!data || data.length < 1000) return values;
+        }
+    },
+
     // Community Ratings & Reviews Engine
     async renderCommunitySection(type, id, opts = {}) {
         const container = document.getElementById('community-section');
@@ -716,23 +757,31 @@ export const comments = {
 
         let rows = [];
         let ownRow = null;
+        let ratingValues = null;
         if (this.supabase) {
             try {
-                const { data } = await this.supabase
-                    .from('ratings')
-                    .select('*')
+                const me = this.state.authUser?.id;
+                const scoped = () => this.supabase.from('ratings').select('*')
                     .eq('content_id', Number(id))
-                    .eq('content_type', type)
-                    .order('created_at', { ascending: false })
-                    .limit(50);
+                    .eq('content_type', type);
+                const [recentRes, mineRes, values] = await Promise.all([
+                    scoped().order('created_at', { ascending: false }).limit(50),
+                    me ? scoped().eq('user_id', me).maybeSingle() : Promise.resolve({ data: null }),
+                    this.fetchRatingValues(type, id)
+                ]);
                 if (token !== this._renderToken) return;
-                rows = data || [];
-                ownRow = rows.find(r => r.user_id === this.state.authUser?.id) || null;
-                this.state._ownRatingRow = ownRow || null;
+                rows = recentRes.data || [];
+                ownRow = mineRes.data || null;
+                if (ownRow && !rows.some(r => r.id === ownRow.id)) rows = [ownRow, ...rows];
+                ratingValues = values;
+                this.state._ownRatingRow = ownRow;
             } catch (e) {
                 console.warn("Alexandria: Ratings fetch failed", e);
             }
         }
+        const ratingCount = ratingValues ? ratingValues.length : 0;
+        const ratingsUnavailable = Boolean(this.supabase) && ratingValues === null;
+        const avg = ratingCount ? ratingValues.reduce((sum, r) => sum + (Number(r.rating) || 0), 0) / ratingCount : 0;
         if (token !== this._renderToken) return;
 
         const key = this.getCommentKey(this.state.activeContent, true);
@@ -752,11 +801,9 @@ export const comments = {
         }
         if (token !== this._renderToken) return;
 
-        const avg = rows.length ? rows.reduce((sum, r) => sum + (Number(r.rating) || 0), 0) / rows.length : 0;
-
         const badge = document.getElementById('details-avg-badge');
         if (badge) {
-            if (rows.length) {
+            if (ratingCount) {
                 badge.textContent = 'COMMUNITY ★ ' + avg.toFixed(1);
                 badge.removeAttribute('hidden');
             } else {
@@ -778,8 +825,7 @@ export const comments = {
         if (!opts.quiet) {
             this.state._ratingDraft = Math.max(0, Math.min(5, Math.round(Number(ownRow?.rating) || 0)));
         }
-        const ownReview = this.state._suppressReviewPrefill ? '' : (ownRow?.review || '');
-        if (this.state._suppressReviewPrefill) this.state._suppressReviewPrefill = false;
+        const ownReview = ownRow?.review || '';
 
         const composer = this.state.authUser ? `
             <div class="ratings-composer" id="ratings-composer">
@@ -860,7 +906,7 @@ export const comments = {
             <div class="community-section">
                 <div class="ratings-header">
                     <h3>COMMUNITY <span class="comments-scope-badge">${scopeBadge}</span></h3>
-                    <span class="ratings-average">${rows.length ? `★ ${avg.toFixed(1)} · ${rows.length} RATING${rows.length === 1 ? '' : 'S'}` : 'NO RATINGS YET — be the first'}</span>
+                    <span class="ratings-average">${ratingsUnavailable ? 'RATINGS UNAVAILABLE' : ratingCount ? `★ ${avg.toFixed(1)} · ${ratingCount} RATING${ratingCount === 1 ? '' : 'S'}` : 'NO RATINGS YET — be the first'}</span>
                 </div>
                 ${composer}
                 <div class="community-list">
@@ -904,22 +950,31 @@ export const comments = {
         const review = (input?.value || '').trim();
         const spoilerBox = document.getElementById('review-spoiler');
         const spoiler = spoilerBox ? spoilerBox.checked : false;
-        const existing = this.state._ownRatingRow;
+        const me = this.state.authUser.id;
+        let stored = null;
         try {
-            const { error } = await this.supabase.from('ratings').upsert({
-                user_id: this.state.authUser.id,
-                content_id: Number(id),
+            const { data, error: readErr } = await this.supabase.from('ratings')
+                .select('review, created_at')
+                .eq('user_id', me)
+                .eq('content_id', nid)
+                .eq('content_type', type)
+                .maybeSingle();
+            if (readErr) throw readErr;
+            stored = data || null;
+            const now = new Date().toISOString();
+            const payload = {
+                user_id: me,
+                content_id: nid,
                 content_type: type,
                 rating,
-                review,
                 spoiler,
-                created_at: existing ? existing.created_at : new Date().toISOString(),
-                updated_at: new Date().toISOString()
-            }, { onConflict: 'user_id,content_id,content_type' });
-            if (error) {
-                this.showToast('Could not save your rating.');
-                return;
-            }
+                created_at: stored ? stored.created_at : now,
+                updated_at: now
+            };
+            // An empty box on a rating-only save keeps the stored review.
+            if (review || !stored?.review) payload.review = review;
+            const { error } = await this.supabase.from('ratings').upsert(payload, { onConflict: 'user_id,content_id,content_type' });
+            if (error) throw error;
         } catch {
             this.showToast('Could not save your rating.');
             return;
@@ -930,13 +985,11 @@ export const comments = {
         // same review twice. Legacy versions did post that mirror — sweep up
         // the old comment when an existing review is edited (old text) so it
         // doesn't resurface as an orphan.
-        if (existing && existing.review) {
-            await this.deleteAutoReviewComment(type, id, existing.review);
+        if (stored?.review && review && review !== stored.review) {
+            await this.deleteAutoReviewComment(type, id, stored.review);
         }
 
         this.showToast(review ? 'Review posted!' : 'Rating saved!');
-        if (input) input.value = '';
-        this.state._suppressReviewPrefill = true;
         this.renderCommunitySection(type, id);
         this.logActivity(review ? 'reviewed' : 'rated', {
             contentId: id,
@@ -978,10 +1031,11 @@ export const comments = {
         if (!this.supabase || !this.state.authUser || !text) return;
         const key = type === 'tv' ? 'tv_' + id : 'movie_' + id;
         try {
-            await this.supabase.from('comments').delete()
+            const { error } = await this.supabase.from('comments').delete()
                 .eq('comment_key', key)
                 .eq('user_id', this.state.authUser.id)
                 .eq('content', text);
+            if (error) console.warn('Alexandria: Auto-comment cleanup failed', error);
         } catch (e) {
             console.warn('Alexandria: Auto-comment cleanup failed', e);
         }

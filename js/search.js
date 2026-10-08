@@ -160,9 +160,9 @@ export const search = {
         container.innerHTML = `
             <span class="search-history-title">RECENT SEARCHES</span>
             ${h.slice(0, 5).map(t => `
-                <button type="button" class="search-history-chip" onclick="Alexandria.runSearchFromHistory('${this.escapeHtml(t)}')">
+                <button type="button" class="search-history-chip" onclick="Alexandria.runSearchFromHistory(${this.escapeJsArg(t)})">
                     <span>${this.escapeHtml(t)}</span>
-                    <span class="search-history-x" onclick="event.stopPropagation(); Alexandria.removeSearchHistory('${this.escapeHtml(t)}')" aria-label="Remove ${this.escapeHtml(t)}">✕</span>
+                    <span class="search-history-x" onclick="event.stopPropagation(); Alexandria.removeSearchHistory(${this.escapeJsArg(t)})" aria-label="Remove ${this.escapeHtml(t)}">✕</span>
                 </button>
             `).join('')}
             <button type="button" class="search-history-clear" onclick="Alexandria.clearSearchHistory()">CLEAR</button>`;
@@ -390,6 +390,7 @@ export const search = {
     setRouletteSource(source) {
         const r = this.state.roulette = this.state.roulette || { type: 'movie', genre: '', rating: 0, votes: 0, runtime: '', yearFrom: '', yearTo: '', source: 'movie' };
         r.source = ['movie', 'tv', 'watchlist'].includes(source) ? source : 'movie';
+        r.type = r.source === 'tv' ? 'tv' : 'movie';
         this._rouletteSpinId = (this._rouletteSpinId || 0) + 1;
         this.renderRouletteModal();
     },
@@ -414,7 +415,7 @@ export const search = {
                         <span class="roulette-rating-badge">${statusLabel} · ${String(pick.type || 'movie').toUpperCase()}</span>
                         <h3>${this.escapeHtml(title)}</h3>
                         <div class="roulette-result-btns">
-                            <button type="button" class="btn-primary" onclick="Alexandria.closeRouletteModal(); window.location.hash = '#details/${this.escapeHtml(pick.type)}/${Number(pick.id)}'">OPEN TITLE</button>
+                            <button type="button" class="btn-primary" onclick="Alexandria.closeRouletteModal(); window.location.hash = ${this.escapeJsArg('#details/' + (pick.type || '') + '/' + Number(pick.id))}">OPEN TITLE</button>
                             <button type="button" class="btn-gold" onclick="Alexandria.spinRoulette()">SPIN AGAIN</button>
                         </div>
                     </div>
@@ -439,7 +440,7 @@ export const search = {
         r.runtime = read('roulette-runtime');
         r.yearFrom = read('roulette-year-from');
         r.yearTo = read('roulette-year-to');
-        const type = r.type;
+        const type = r.source === 'tv' ? 'tv' : 'movie';
 
         const result = document.getElementById('roulette-result');
         if (result) result.innerHTML = '<div class="placeholder-msg"><span class="pulse-dot"></span>SPINNING THE WHEEL...</div>';
@@ -479,7 +480,7 @@ export const search = {
                         ${year ? `<p class="roulette-result-meta">${this.escapeHtml(year)}</p>` : ''}
                         <p class="roulette-result-overview">${this.escapeHtml(overview)}</p>
                         <div class="roulette-result-btns">
-                            <button type="button" class="btn-primary btn-play" onclick="Alexandria.closeRouletteModal(); window.location.hash = '#details/${type}/${pick.id}'">PLAY NOW</button>
+                            <button type="button" class="btn-primary btn-play" onclick="Alexandria.closeRouletteModal(); window.location.hash = ${this.escapeJsArg('#details/' + type + '/' + Number(pick.id))}">PLAY NOW</button>
                             <button type="button" class="btn-gold" onclick="Alexandria.toggleWatchlist(${this.escapeHtml(JSON.stringify(watchItem))})">WATCHLIST</button>
                             <button type="button" class="btn-gold" onclick="Alexandria.spinRoulette()">SPIN AGAIN</button>
                         </div>
@@ -693,7 +694,7 @@ export const search = {
                         <div class="card-overlay">
                             ${badgeHtml}
                             ${isHistoryRow ? `
-                                <button class="remove-history-btn" type="button" aria-label="Remove from continue watching" title="Remove from continue watching" onclick="event.stopPropagation(); event.preventDefault(); Alexandria.removeFromHistory('${safeItemId}', '${type}')">
+                                <button class="remove-history-btn" type="button" aria-label="Remove from continue watching" title="Remove from continue watching" onclick="event.stopPropagation(); event.preventDefault(); Alexandria.removeFromHistory(${this.escapeJsArg(itemIdStr)}, ${this.escapeJsArg(type)})">
                                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
                                 </button>
                             ` : ''}
@@ -705,10 +706,10 @@ export const search = {
                             </button>
                             ${wlMode ? `
                                 <button class="mark-btn" type="button" aria-label="${wlStatus === 'watched' ? 'Back to queue' : wlStatus === 'watching' ? 'Mark complete' : 'Mark watched'}" title="${wlStatus === 'watched' ? 'Back to queue' : wlStatus === 'watching' ? 'Mark complete' : 'Mark watched'}"
-                                    onclick="event.stopPropagation(); event.preventDefault(); Alexandria.setWatchStatus('${safeItemId}', '${type}', '${wlStatus === 'watched' ? 'want' : 'watched'}')">${wlStatus === 'watched' ? '↩' : wlStatus === 'watching' ? '★' : '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>'}</button>
+                                    onclick="event.stopPropagation(); event.preventDefault(); Alexandria.setWatchStatus(${this.escapeJsArg(itemIdStr)}, ${this.escapeJsArg(type)}, ${this.escapeJsArg(wlStatus === 'watched' ? 'want' : 'watched')})">${wlStatus === 'watched' ? '↩' : wlStatus === 'watching' ? '★' : '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>'}</button>
                             ` : ''}
                             ${wlMode && type === 'tv' ? `
-                                <button class="ep-toggle-btn" type="button" aria-expanded="false" onclick="event.stopPropagation(); event.preventDefault(); Alexandria.toggleEpPanel('${safeItemId}', this)">EPISODES ▾</button>
+                                <button class="ep-toggle-btn" type="button" aria-expanded="false" onclick="event.stopPropagation(); event.preventDefault(); Alexandria.toggleEpPanel(${this.escapeJsArg(itemIdStr)}, this)">EPISODES ▾</button>
                             ` : ''}
                         </div>
                         ${isHistoryRow && Number(item.progress) >= 5 ? `
@@ -721,7 +722,7 @@ export const search = {
                             ${(itemYear || itemScore) ? `<div class="wl-card-meta">${itemYear ? `<span>${this.escapeHtml(itemYear)}</span>` : ''}${itemYear && itemScore ? '<span aria-hidden="true">·</span>' : ''}${itemScore ? `<span class="wl-tmdb-score" title="TMDB score">★ ${itemScore.toFixed(1)}</span>` : ''}</div>` : ''}
                             <div class="wl-card-rate">
                                 ${this.starsHtml(itemIdStr, type, item.userRating, itemScore)}
-                                <button class="wl-log-btn ${item.userReview ? 'has-review' : ''}" type="button" aria-label="${item.userReview ? 'Edit diary entry' : 'Log to diary'}" title="${item.userReview ? 'Edit diary entry' : 'Log to diary'}" onclick="event.stopPropagation(); event.preventDefault(); Alexandria.openLogModal('${safeItemId}', '${type}')">✎</button>
+                                <button class="wl-log-btn ${item.userReview ? 'has-review' : ''}" type="button" aria-label="${item.userReview ? 'Edit diary entry' : 'Log to diary'}" title="${item.userReview ? 'Edit diary entry' : 'Log to diary'}" onclick="event.stopPropagation(); event.preventDefault(); Alexandria.openLogModal(${this.escapeJsArg(itemIdStr)}, ${this.escapeJsArg(type)})">✎</button>
                             </div>
                         ` : ''}
                     </div>
@@ -755,7 +756,7 @@ export const search = {
         }).catch(() => { this._trailerInflight--; });
 
         function trailerFrame(key) {
-            return '<iframe class="trailer-preview" src="https://www.youtube-nocookie.com/embed/' + key + '?autoplay=1&mute=1&controls=0&modestbranding=1&rel=0&playsinline=1" allow="autoplay; encrypted-media" loading="lazy" tabindex="-1" sandbox="allow-scripts allow-same-origin allow-presentation allow-fullscreen"></iframe>';
+            return '<iframe class="trailer-preview" src="https://www.youtube-nocookie.com/embed/' + key + '?autoplay=1&mute=1&controls=0&modestbranding=1&rel=0&playsinline=1" allow="autoplay; encrypted-media" loading="lazy" tabindex="-1"></iframe>';
         }
     },
 

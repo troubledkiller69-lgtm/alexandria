@@ -14,8 +14,7 @@ export const autopsy = {
         const canon = [...rated]
             .filter(w => Number(w.userRating) >= 4.5)
             .sort((a, b) => (Number(b.userRating) || 0) - (Number(a.userRating) || 0)
-                || (Number(b.score) || 0) - (Number(a.score) || 0))
-            .slice(0, 12);
+                || (Number(b.score) || 0) - (Number(a.score) || 0));
         const avg = rated.length
             ? (rated.reduce((s, w) => s + (Number(w.userRating) || 0), 0) / rated.length).toFixed(1)
             : null;
@@ -36,7 +35,7 @@ export const autopsy = {
         // Enrich the canon in one call per title, then re-render. getJson caches 10min.
         let enriched = null;
         try {
-            enriched = await this.mapWithConcurrency(canon, 4, async entry => {
+            enriched = await this.mapWithConcurrency(canon.slice(0, 40), 4, async entry => {
                 try {
                     const type = entry.type === 'tv' ? 'tv' : 'movie';
                     const data = await this.getJson(`${type}/${entry.id}?append_to_response=credits`);
@@ -83,7 +82,7 @@ export const autopsy = {
             </div>
             <div class="view-section">
                 <h3>Favorites — ★4.5 and above</h3>
-                ${this.autopsyCanonHtml(canon)}
+                ${this.autopsyCanonHtml(canon.slice(0, 12))}
             </div>
             <div class="view-section">
                 <h3>Decades</h3>
@@ -258,7 +257,7 @@ export const autopsy = {
                 const top = directors[0];
                 const safeName = this.escapeHtml(top.name);
                 if (top.count >= 3) lines.push(`${safeName} has a wing in your church — ${top.count} favorite titles.`);
-                else lines.push(`${safeName} leads your favorites with ${top.count} of ${canonN} — no single auteur runs the morgue.`);
+                else lines.push(`${safeName} leads your favorites with ${top.count} of ${enriched.length} — no single auteur runs the morgue.`);
             }
             const genres = this.autopsyCanonGenres(enriched);
             if (genres.length && canonN > 0) {
@@ -266,7 +265,7 @@ export const autopsy = {
                 const safeGenre = this.escapeHtml(top.name);
                 if (top.name === 'Horror') lines.push(`Horror sits at #1 with ${top.count} favorite titles. You come here to be scared.`);
                 else if (top.name === 'Comedy') lines.push(`Comedy sits at #1 with ${top.count} favorite titles. You come here to feel better.`);
-                else lines.push(`${safeGenre} sits at #1 with ${top.count} of ${canonN} favorite titles. That's your blood type.`);
+                else lines.push(`${safeGenre} sits at #1 with ${top.count} of ${enriched.length} favorite titles. That's your blood type.`);
             }
         }
 

@@ -18,6 +18,7 @@ import { settings } from './settings.js';
 import { ui } from './ui.js';
 import { halloween } from './halloween.js';
 import { autopsy } from './autopsy.js';
+import { sync } from './sync.js';
 
 const Alexandria = Object.assign(
     {},
@@ -40,8 +41,13 @@ const Alexandria = Object.assign(
     settings,
     ui,
     halloween,
-    autopsy
+    autopsy,
+    sync
 );
 
 window.Alexandria = Alexandria;
+// Another tab wrote the library: take its version without losing this tab's pending changes.
+window.addEventListener('storage', event => {
+    if (event.storageArea === localStorage && event.key) Alexandria.applyStorageEvent(event.key);
+});
 Alexandria.init();

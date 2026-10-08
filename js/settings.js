@@ -252,6 +252,7 @@ export const settings = {
     },
 
     clearContinueWatching() {
+        if (!window.confirm('Clear Continue Watching? It is emptied on every device.')) return;
         this.state.history = [];
         this.writeLocalList('alexandria_history', []);
         this.showToast('Continue watching cleared.');

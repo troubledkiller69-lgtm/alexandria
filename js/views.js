@@ -144,7 +144,7 @@ export const views = {
                         <p>${this.escapeHtml(featured?.overview || 'Your playback history across movies and television series.')}</p>
                         <div class="category-hero-actions">
                             ${featured ? `
-                                <button class="btn-primary btn-play" onclick="Alexandria.playContent(${featured.id}, '${featured.type || 'movie'}', ${featured.season || 1}, ${featured.episode || 1})">
+                                <button class="btn-primary btn-play" onclick="Alexandria.playContent(${featured.id}, ${this.escapeJsArg(featured.type || 'movie')}, ${featured.season || 1}, ${featured.episode || 1})">
                                     <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg> RESUME PLAYBACK
                                 </button>
                             ` : ''}
@@ -177,6 +177,7 @@ export const views = {
     },
 
     clearWatchHistory() {
+        if (!window.confirm('Clear your watch history? Continue Watching is emptied on every device.')) return;
         this.state.history = [];
         this.writeLocalList('alexandria_history', []);
         this.renderHistoryPage();
@@ -189,18 +190,6 @@ export const views = {
         item.status = status;
         item.watched_at = status === 'watched' ? new Date().toISOString() : null;
         this.writeLocalList('alexandria_watchlist', this.state.watchlist);
-
-        if (this.supabase && this.state.authUser && String(id).match(/^\d+$/)) {
-            this.supabase.from('survival_cache').upsert({
-                user_id: this.state.authUser.id,
-                tmdb_id: Number(id),
-                media_type: type,
-                title: item.title,
-                poster_path: item.poster_path,
-                status: status,
-                watched_at: item.watched_at
-            }, { onConflict: 'user_id, tmdb_id, media_type' }).then();
-        }
 
         this.showToast(status === 'watched' ? 'Marked as watched.' : status === 'watching' ? 'Moved to watching.' : 'Back in the queue.');
         if (this.state.view === 'watchlist') {
@@ -219,25 +208,6 @@ export const views = {
         }
         this.writeLocalList('alexandria_watched_episodes', this.state.watchedEpisodes);
 
-        if (this.supabase && this.state.authUser && String(id).match(/^\d+$/)) {
-            if (watched) {
-                this.supabase.from('watched_episodes').upsert({
-                    user_id: this.state.authUser.id,
-                    tmdb_id: Number(id),
-                    season: Number(season),
-                    episode: Number(episode)
-                }, { onConflict: 'user_id, tmdb_id, season, episode' }).then();
-            } else {
-                this.supabase.from('watched_episodes')
-                    .delete()
-                    .eq('user_id', this.state.authUser.id)
-                    .eq('tmdb_id', Number(id))
-                    .eq('season', Number(season))
-                    .eq('episode', Number(episode))
-                    .then();
-            }
-        }
-
         // Sync every toggle for this episode across the page (sidebar rows + watchlist panels).
         document.querySelectorAll(`[data-show="${id}"][data-season="${season}"][data-episode="${episode}"]`).forEach(btn => {
             btn.classList.toggle('active', watched);
@@ -250,16 +220,6 @@ export const views = {
             if (item && item.status === 'want') {
                 item.status = 'watching';
                 this.writeLocalList('alexandria_watchlist', this.state.watchlist);
-                if (this.supabase && this.state.authUser) {
-                    this.supabase.from('survival_cache').upsert({
-                        user_id: this.state.authUser.id,
-                        tmdb_id: Number(id),
-                        media_type: 'tv',
-                        title: item.title,
-                        poster_path: item.poster_path,
-                        status: 'watching'
-                    }, { onConflict: 'user_id, tmdb_id, media_type' }).then();
-                }
             }
         }
         if (this.state.view === 'watchlist') {
@@ -271,11 +231,10 @@ export const views = {
     },
 
     clearWatchlistPage() {
+        const count = (this.state.watchlist || []).length;
+        if (!window.confirm(`Clear all ${count} titles from your watchlist on every device? Their ratings and reviews are deleted too. Episode progress is kept.`)) return;
         this.state.watchlist = [];
         this.writeLocalList('alexandria_watchlist', []);
-        if (this.supabase && this.state.authUser) {
-            this.supabase.from('survival_cache').delete().eq('user_id', this.state.authUser.id).then();
-        }
         this.renderWatchlistPage();
         this.showToast('Watchlist cleared. Episode progress is kept.');
     },
@@ -388,7 +347,7 @@ export const views = {
                         <p>${this.escapeHtml(featured?.overview || 'Your saved collection of movies and television series.')}</p>
                         <div class="category-hero-actions">
                             ${featured ? `
-                                <button class="btn-primary btn-play" onclick="Alexandria.playContent(${featured.id}, '${featured.type || 'movie'}')">
+                                <button class="btn-primary btn-play" onclick="Alexandria.playContent(${featured.id}, ${this.escapeJsArg(featured.type || 'movie')})">
                                     <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg> WATCH NOW
                                 </button>
                                 <button class="btn-quiet wl-details-btn" onclick="window.location.hash = '#details/${featured.type || 'movie'}/${featured.id}'">DETAILS</button>
@@ -417,7 +376,7 @@ export const views = {
                             </button>
                             <div class="filter-dropdown-popover" role="listbox" aria-label="Watchlist filters">
                                 ${filterOptions.map(val => `
-                                    <button class="filter-popover-item ${filter === val ? 'active' : ''}" type="button" role="option" aria-selected="${filter === val}" data-filter="${val}" onclick="Alexandria.setWatchlistFilter('${val}')">
+                                    <button class="filter-popover-item ${filter === val ? 'active' : ''}" type="button" role="option" aria-selected="${filter === val}" data-filter="${val}" onclick="Alexandria.setWatchlistFilter(${this.escapeJsArg(val)})">
                                         <span class="filter-popover-text">${filterLabels[val]}</span>
                                     </button>
                                 `).join('')}
@@ -531,10 +490,10 @@ export const views = {
                         ${review ? `<p class="wl-row-review">“${this.escapeHtml(review.length > 220 ? review.slice(0, 220) + '…' : review)}”</p>` : ''}
                     </div>
                     <div class="wl-row-side">
-                        <button class="wl-status-pill wl-status-${status}" type="button" title="Advance status" onclick="Alexandria.setWatchStatus('${safeItemId}', '${type}', '${nextStatus}')">${statusLabel}</button>
+                        <button class="wl-status-pill wl-status-${status}" type="button" title="Advance status" onclick="Alexandria.setWatchStatus(${this.escapeJsArg(itemIdStr)}, ${this.escapeJsArg(type)}, ${this.escapeJsArg(nextStatus)})">${statusLabel}</button>
                         <div class="wl-row-actions">
-                            <button class="wl-log-btn ${review ? 'has-review' : ''}" type="button" aria-label="Log to diary" title="Log to diary" onclick="Alexandria.openLogModal('${safeItemId}', '${type}')">✎</button>
-                            <button class="wl-remove-btn" type="button" aria-label="Remove from watchlist" title="Remove from watchlist" onclick="Alexandria.toggleWatchlist({ id: '${safeItemId}', type: '${type}' })">×</button>
+                            <button class="wl-log-btn ${review ? 'has-review' : ''}" type="button" aria-label="Log to diary" title="Log to diary" onclick="Alexandria.openLogModal(${this.escapeJsArg(itemIdStr)}, ${this.escapeJsArg(type)})">✎</button>
+                            <button class="wl-remove-btn" type="button" aria-label="Remove from watchlist" title="Remove from watchlist" onclick="Alexandria.toggleWatchlist({ id: ${this.escapeJsArg(itemIdStr)}, type: ${this.escapeJsArg(type)} })">×</button>
                         </div>
                     </div>
                 </div>`;
@@ -595,7 +554,9 @@ export const views = {
         this._diaryStatus = item.status || 'want';
         const title = item.title || item.name || 'Untitled';
         const poster = item.poster_path ? this.imageUrl(item.poster_path, 'w185') : '';
-        const dateVal = (item.watched_at || '').slice(0, 10) || new Date().toISOString().slice(0, 10);
+        const when = item.watched_at ? new Date(item.watched_at) : new Date();
+        const pad = n => String(n).padStart(2, '0');
+        const dateVal = `${when.getFullYear()}-${pad(when.getMonth() + 1)}-${pad(when.getDate())}`;
         const statusBtn = (val, label) => `<button class="setting-opt diary-status-btn ${this._diaryStatus === val ? 'active' : ''}" type="button" data-status="${val}" onclick="Alexandria.setDiaryStatus('${val}')">${label}</button>`;
         const modal = document.createElement('div');
         modal.id = 'diary-modal';
@@ -632,7 +593,7 @@ export const views = {
                 </div>
                 <div class="diary-actions">
                     <button class="btn-quiet" type="button" onclick="Alexandria.closeLogModal()">CANCEL</button>
-                    <button class="btn-gold" type="button" onclick="Alexandria.saveLogEntry('${this.escapeHtml(String(item.id))}', '${this.escapeHtml(item.type)}')">SAVE ENTRY</button>
+                    <button class="btn-gold" type="button" onclick="Alexandria.saveLogEntry(${this.escapeJsArg(String(item.id))}, ${this.escapeJsArg(item.type)})">SAVE ENTRY</button>
                 </div>
             </div>`;
         modal.addEventListener('click', e => { if (e.target === modal) this.closeLogModal(); });
@@ -669,18 +630,6 @@ export const views = {
             item.watched_at = null;
         }
         this.writeLocalList('alexandria_watchlist', this.state.watchlist);
-        // Ratings are local-only; statuses still sync to the cloud cache.
-        if (this.supabase && this.state.authUser && String(id).match(/^\d+$/)) {
-            this.supabase.from('survival_cache').upsert({
-                user_id: this.state.authUser.id,
-                tmdb_id: Number(id),
-                media_type: type,
-                title: item.title,
-                poster_path: item.poster_path,
-                status: status,
-                watched_at: item.watched_at
-            }, { onConflict: 'user_id, tmdb_id, media_type' }).then();
-        }
         this.closeLogModal();
         this.renderWatchlistPage();
         this.showToast('Diary entry saved.');

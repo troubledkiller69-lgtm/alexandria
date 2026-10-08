@@ -24,6 +24,100 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="preconnect" href="https://image.tmdb.org" crossorigin>
+    <script>
+    (function () {
+        var STALL_MS = 15000;   // generic stall check
+        var FAIL_MS = 1500;     // quick check after a hard failure
+        var failure = null;     // 'module' | 'syntax' | null
+        var shown = false;
+    
+        function isAppModule(src) {
+            return typeof src === 'string' && src.indexOf('/js/') !== -1 && src.indexOf('/js/vendor/') === -1;
+        }
+        function storageOk() {
+            try { return !!window.localStorage; } catch (e) { return false; }
+        }
+        function appStuck() {
+            if (!window.Alexandria) return true;                                   // module graph never evaluated
+            var loader = document.getElementById('loading-screen');
+            if (loader && !loader.classList.contains('hidden')) return true;       // loader never handed over
+            var ph = document.querySelector('#content > .placeholder-msg');
+            return !!ph && ph.textContent.replace(/\s+/g, ' ').trim() === 'CONNECTING...';   // booted but never routed
+        }
+        function show() {
+            if (shown) return;
+            shown = true;
+            var kind = !storageOk() ? 'storage' : failure === 'syntax' ? 'syntax' : failure === 'module' ? 'module' : 'stall';
+            var text = {
+                storage: 'Alexandria cannot use this browser’s site storage, so it cannot start. Allow site data for this site, then reload.',
+                syntax: 'Alexandria failed to start because a script could not run. Reload first. If it keeps happening, update your browser (Chrome or Edge 80+, Firefox 74+, Safari 13.1+ / iOS 13.4+, Samsung Internet 13+).',
+                module: 'Alexandria could not load part of the app. Check your connection and reload. If it keeps happening, close the tab and open the site again.',
+                stall: 'Alexandria is taking unusually long to start. Check your connection and reload.'
+            }[kind];
+            try { console.error('Alexandria boot failure:', kind); } catch (e) { /* ignore */ }
+    
+            var box = document.createElement('div');
+            box.id = 'boot-failure';
+            box.setAttribute('role', 'alert');
+            box.style.cssText = 'position:fixed;left:12px;right:12px;bottom:12px;max-width:520px;margin:0 auto;z-index:10000;'
+                + 'padding:14px 16px 12px;border-radius:10px;background:#0a0a0c;color:#f8fafc;'
+                + 'border:1px solid rgba(255,255,255,.18);box-shadow:0 8px 32px rgba(0,0,0,.5);'
+                + 'font:14px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;';
+    
+            var p = document.createElement('p');
+            p.textContent = text;
+            p.style.cssText = 'margin:0 0 10px;';
+    
+            var row = document.createElement('div');
+            row.style.cssText = 'display:flex;gap:10px;align-items:center;justify-content:flex-end;flex-wrap:wrap;';
+    
+            var hint = document.createElement('span');
+            hint.textContent = 'Hard refresh: Ctrl/Cmd+Shift+R';
+            hint.style.cssText = 'font-size:12px;color:#94a3b8;margin-right:auto;';
+    
+            var retry = document.createElement('button');
+            retry.type = 'button';
+            retry.textContent = 'Reload';
+            retry.style.cssText = 'padding:8px 14px;border:0;border-radius:6px;background:#f8fafc;color:#050607;'
+                + 'font:600 13px system-ui,sans-serif;cursor:pointer;';
+            retry.addEventListener('click', function () { window.location.reload(); });
+    
+            var close = document.createElement('button');
+            close.type = 'button';
+            close.setAttribute('aria-label', 'Dismiss');
+            close.textContent = '×';
+            close.style.cssText = 'padding:4px 10px;border:0;background:transparent;color:#94a3b8;font:18px/1 sans-serif;cursor:pointer;';
+            close.addEventListener('click', function () { box.parentNode && box.parentNode.removeChild(box); });
+    
+            row.appendChild(hint);
+            row.appendChild(retry);
+            row.appendChild(close);
+            box.appendChild(p);
+            box.appendChild(row);
+            (document.body || document.documentElement).appendChild(box);
+        }
+    
+        // Hard failures: a js/ module script errored, or a SyntaxError came from a js/ file (vendor excluded).
+        window.addEventListener('error', function (e) {
+            var t = e.target;
+            if (t && t !== window && t.tagName === 'SCRIPT') {
+                if (isAppModule(t.src)) {
+                    failure = failure || 'module';
+                    setTimeout(function () { if (appStuck()) show(); }, FAIL_MS);
+                }
+                return;
+            }
+            var msg = String(e.message || '');
+            var file = String(e.filename || '');
+            if (/SyntaxError/.test(msg) && file.indexOf('/js/vendor/') === -1) {
+                failure = 'syntax';
+                setTimeout(function () { if (appStuck()) show(); }, FAIL_MS);
+            }
+        }, true);
+    
+        setTimeout(function () { if (appStuck()) show(); }, STALL_MS);
+    })();
+    </script>
     <link rel="stylesheet" href="index.css?v=20261001d">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Oswald:wght@500;600;700&display=swap" rel="stylesheet">
     <script defer src="js/vendor/supabase-js.js"></script>

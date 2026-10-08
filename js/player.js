@@ -355,6 +355,7 @@ export const player = {
         const frame = document.getElementById('embedmaster_iframe');
         this._suppressHostBroadcastUntil = Date.now() + 2800;
         this._partyTimeStallCount = 0;
+        this._guestPlayhead = null;
         this._partyFrameReloading = true;
         this._partyEmbedHealthy = false;
         if (!this.isHost) this._partyGuestUnlocked = false;
@@ -440,7 +441,7 @@ export const player = {
             const action = this.isPartyPaused()
                 ? 'pause'
                 : (this._partyLastAction === 'pause' ? 'pause' : 'play');
-            this.sendPlayerSync(action, time, { force: true, noSeek: time < 5 });
+            this.sendPlayerSync(action, time, { force: true, noSeek: time < 5, polled: true });
             this.tickPartyClock();
         }, ms));
     },
@@ -563,15 +564,12 @@ export const player = {
         this._lastPlayhead = t;
         this._lastProgressWrite = Date.now();
         this.writeLocalList('alexandria_history', this.state.history);
-        if (this.supabase && this.state.authUser && String(id).match(/^\d+$/) && (type === 'movie' || type === 'tv')) {
-            this.supabase.from('watch_progress').upsert({
-                user_id: this.state.authUser.id,
-                content_id: Number(id),
-                content_type: type,
-                season: Number(season) || 0,
-                episode: Number(episode) || 0,
-                seconds: Math.max(0, Math.floor(t) || 0)
-            }, { onConflict: 'user_id,content_id,content_type,season,episode' }).then(() => {}, () => {});
+        // Resume position syncs with the Continue Watching entry. Progress is not part of
+        // the change diff (it moves every few seconds), so push it on pause, seek and leave,
+        // and at most once a minute during playback.
+        if (force || Date.now() - (this._lastProgressSync || 0) > 60000) {
+            this._lastProgressSync = Date.now();
+            this.markSyncDirty('history', `${type}_${Number(id)}`);
         }
     },
 

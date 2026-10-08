@@ -258,6 +258,7 @@ export const party = {
         if (changed) {
             this._partyGuestUnlocked = false;
             this._partyFrameReloading = true;
+            this._guestPlayhead = null;
             this._partyEmbedHealthy = false;
             const frame = document.getElementById('embedmaster_iframe');
             if (frame) {
@@ -394,7 +395,7 @@ export const party = {
             } else if (action === 'pause') {
                 this.postToEmbed(frame, 'pause');
                 this.setPartyPaused(true);
-                if (canSeekRoom) this.notePartyTime(safeTime);
+                if (canSeekRoom) this.notePartyTime(safeTime, { force: true });
                 this.sendPlayerSync('pause', canSeekRoom ? safeTime : this.getHostPlaybackTime(), {
                     force: true,
                     noSeek: !canSeekRoom
@@ -847,17 +848,21 @@ export const party = {
                     return;
                 }
                 this.applyRemotePlayerAction(pending.action, pending.time, {
-                    force: true,
+                    force: pending.action !== 'sync',
                     clock: pending.clock
                 });
             }, 800);
         };
 
         const seekTo = Math.max(0, Math.floor(t));
+        // A heartbeat corrects only when this guest's own playhead has drifted.
+        const playhead = this._guestPlayhead;
+        if (action === 'sync' && !Number.isFinite(playhead)) this.requestPlayerTime(frame);
+        const drifted = Number.isFinite(playhead) && Math.abs(playhead - t) > 2.5;
         // Never seek to ~0 on a bad stamp — that yeets guests back to the intro.
         const shouldSeek = !noSeek
             && seekTo >= 5
-            && (force || !last || Math.abs((last.time || 0) - t) >= 1.25);
+            && (force || (action === 'sync' ? drifted : (!last || Math.abs((last.time || 0) - t) >= 1.25)));
 
         const run = (cmd) => {
             if (shouldSeek) {
@@ -961,7 +966,8 @@ export const party = {
         this.setPartyPaused(action === 'pause');
         // Store the real host time (without lead) for the local clock.
         const raw = this.normalizePlayerTime(typeof time === 'number' ? time : this.getHostPlaybackTime());
-        if (raw >= 1) this.notePartyTime(raw);
+        // A polled time is an estimate of the player, so it keeps the duration guard.
+        if (raw >= 1) this.notePartyTime(raw, { force: action !== 'sync' && !opts.polled });
         if (action === 'play') this._partyLastTimeAt = Date.now();
 
         this.partyChannel.send({
@@ -1008,6 +1014,7 @@ export const party = {
         this._partyGuestUnlocked = isCreator;
         this._pendingPartySync = null;
         this._lastAppliedPartySync = null;
+        this._guestPlayhead = null;
         this._lastSentPartySync = null;
         this._suppressHostBroadcastUntil = 0;
         this._partyFrameReloading = false;
@@ -1143,7 +1150,7 @@ export const party = {
                 this.broadcastPartyContent();
                 const action = this._partyLastAction || 'play';
                 const time = await this.resolveHostTime();
-                this.sendPlayerSync(action, time, { force: true });
+                this.sendPlayerSync(action, time, { force: true, polled: true });
             })
             .on('broadcast', { event: 'content_sync' }, (payload) => {
                 if (this.isHost) return;
@@ -1241,6 +1248,9 @@ export const party = {
 
         // Guests: unlock + flush queued host sync when the player actually starts talking.
         if (!this.isHost) {
+            if ((ev === 'time' || ev === 'timeupdate') && typeof time === 'number' && Number.isFinite(time)) {
+                this._guestPlayhead = this.normalizePlayerTime(time);
+            }
             if (this._applyingRemoteSync) return;
             if (ev === 'ready' || ev === 'play' || ev === 'time' || ev === 'timeupdate' || ev === 'click') {
                 this.markPartyEmbedHealthy();
@@ -1277,7 +1287,7 @@ export const party = {
         if (Date.now() < (this._suppressHostBroadcastUntil || 0)) return;
 
         if (typeof time === 'number' && time >= 1) {
-            this.notePartyTime(time);
+            this.notePartyTime(time, { force: ev === 'seek' || ev === 'play' || ev === 'pause' });
         }
 
         if (ev === 'play' || ev === 'pause') {

@@ -4,6 +4,8 @@ export const ui = {
         if (existing) existing.remove();
         const toast = document.createElement('div');
         toast.className = 'alexandria-toast';
+        toast.setAttribute('role', 'status');
+        toast.setAttribute('aria-live', 'polite');
         toast.textContent = message;
         document.body.appendChild(toast);
         setTimeout(() => toast.classList.add('show'), 10);

@@ -130,7 +130,7 @@ export const sharedlists = {
                                 · ${this.timeago(item.created_at)}
                             </span>
                         </div>
-                        ${canRemove ? `<button type="button" class="list-item-remove" aria-label="Remove from list" onclick="Alexandria.removeListItem('${this.escapeHtml(item.id)}')">✕</button>` : ''}
+                        ${canRemove ? `<button type="button" class="list-item-remove" aria-label="Remove from list" onclick="Alexandria.removeListItem(${this.escapeJsArg(item.id)})">✕</button>` : ''}
                     </article>`;
                 }).join('');
             })
@@ -220,7 +220,7 @@ export const sharedlists = {
                 this.showToast('Already on this list');
                 return;
             }
-            await this.supabase.from('movie_night_items').insert({
+            const { error } = await this.supabase.from('movie_night_items').insert({
                 list_id: listId,
                 content_id: numId,
                 content_type: type,
@@ -228,6 +228,10 @@ export const sharedlists = {
                 poster_path: poster || null,
                 added_by: this.state.authUser.id
             });
+            if (error) {
+                this.showToast(error.code === '23505' ? 'Already on this list' : 'Could not add that title');
+                return;
+            }
             const input = document.getElementById('list-add-search');
             if (input) input.value = '';
             const box = document.getElementById('list-add-results');
@@ -249,7 +253,11 @@ export const sharedlists = {
     async removeListItem(itemId) {
         if (!this.supabase || !this.state.authUser || !itemId) return;
         try {
-            await this.supabase.from('movie_night_items').delete().eq('id', itemId);
+            const { error } = await this.supabase.from('movie_night_items').delete().eq('id', itemId);
+            if (error) {
+                this.showToast('Could not remove that title');
+                return;
+            }
             this.showToast('Removed from list');
             this.renderListItems();
         } catch {
@@ -298,13 +306,17 @@ export const sharedlists = {
         }
         const descInput = document.getElementById('list-edit-desc');
         try {
-            await this.supabase.from('movie_night_lists')
+            const { error } = await this.supabase.from('movie_night_lists')
                 .update({
                     title,
                     description: descInput ? descInput.value.trim() : '',
                     updated_at: new Date().toISOString()
                 })
                 .eq('id', this.state.activeListId);
+            if (error) {
+                this.showToast('Could not save changes');
+                return;
+            }
             this.showToast('List updated');
             this.renderList();
         } catch {
@@ -316,7 +328,22 @@ export const sharedlists = {
         const listId = this.state.activeListId;
         if (!this.supabase || !listId) return;
         try {
-            await this.supabase.from('movie_night_lists').delete().eq('id', listId);
+            const { count, error: countErr } = await this.supabase.from('movie_night_items')
+                .select('id', { count: 'exact', head: true })
+                .eq('list_id', listId);
+            if (countErr) {
+                this.showToast('Could not delete the list');
+                return;
+            }
+            const n = Number(count) || 0;
+            const name = this._listRow?.title || 'this list';
+            const removed = n ? ` Its ${n} title${n === 1 ? '' : 's'} will be removed for everyone, including titles other people added.` : '';
+            if (!confirm(`Delete "${name}"?${removed} This cannot be undone.`)) return;
+            const { error } = await this.supabase.from('movie_night_lists').delete().eq('id', listId);
+            if (error) {
+                this.showToast('Could not delete the list');
+                return;
+            }
             this.showToast('List deleted');
             window.location.hash = '#home';
         } catch {
@@ -371,7 +398,7 @@ export const sharedlists = {
                             <span class="list-picker-row-title">${this.escapeHtml(l.title || 'Untitled list')}</span>
                             ${l.description ? `<span class="list-picker-row-desc">${this.escapeHtml(l.description)}</span>` : ''}
                         </div>
-                        <button type="button" class="btn-gold btn-sm" onclick="Alexandria.pickListAdd('${this.escapeHtml(l.id)}')">ADD</button>
+                        <button type="button" class="btn-gold btn-sm" onclick="Alexandria.pickListAdd(${this.escapeJsArg(l.id)})">ADD</button>
                     </div>`).join('')
                 : '<div class="list-picker-empty">No lists yet</div>';
         } catch {
@@ -403,11 +430,11 @@ export const sharedlists = {
             return;
         }
         try {
-            const { data: list } = await this.supabase.from('movie_night_lists')
+            const { data: list, error } = await this.supabase.from('movie_night_lists')
                 .insert({ owner_id: this.state.authUser.id, title, description: '' })
                 .select()
                 .maybeSingle();
-            if (!list) {
+            if (error || !list) {
                 this.showToast('Could not create the list');
                 return;
             }
