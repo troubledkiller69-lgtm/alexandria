@@ -355,6 +355,7 @@ export const player = {
         const frame = document.getElementById('embedmaster_iframe');
         this._suppressHostBroadcastUntil = Date.now() + 2800;
         this._partyTimeStallCount = 0;
+        this._guestPlayhead = null;
         this._partyFrameReloading = true;
         this._partyEmbedHealthy = false;
         if (!this.isHost) this._partyGuestUnlocked = false;
@@ -440,7 +441,7 @@ export const player = {
             const action = this.isPartyPaused()
                 ? 'pause'
                 : (this._partyLastAction === 'pause' ? 'pause' : 'play');
-            this.sendPlayerSync(action, time, { force: true, noSeek: time < 5 });
+            this.sendPlayerSync(action, time, { force: true, noSeek: time < 5, polled: true });
             this.tickPartyClock();
         }, ms));
     },

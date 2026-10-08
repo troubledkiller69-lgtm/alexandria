@@ -966,7 +966,8 @@ export const party = {
         this.setPartyPaused(action === 'pause');
         // Store the real host time (without lead) for the local clock.
         const raw = this.normalizePlayerTime(typeof time === 'number' ? time : this.getHostPlaybackTime());
-        if (raw >= 1) this.notePartyTime(raw, { force: action !== 'sync' });
+        // A polled time is an estimate of the player, so it keeps the duration guard.
+        if (raw >= 1) this.notePartyTime(raw, { force: action !== 'sync' && !opts.polled });
         if (action === 'play') this._partyLastTimeAt = Date.now();
 
         this.partyChannel.send({
@@ -1149,7 +1150,7 @@ export const party = {
                 this.broadcastPartyContent();
                 const action = this._partyLastAction || 'play';
                 const time = await this.resolveHostTime();
-                this.sendPlayerSync(action, time, { force: true });
+                this.sendPlayerSync(action, time, { force: true, polled: true });
             })
             .on('broadcast', { event: 'content_sync' }, (payload) => {
                 if (this.isHost) return;
