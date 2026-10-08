@@ -154,7 +154,8 @@ export const auth = {
         const dot = document.getElementById('changelog-dot');
         if (!dot) return;
         const latest = this.CHANGELOG[0];
-        const seen = localStorage.getItem('alexandria_changelog_seen');
+        let seen = null;
+        try { seen = localStorage.getItem('alexandria_changelog_seen'); } catch { /* storage blocked */ }
         dot.hidden = !(latest && seen !== latest.key);
     },
 

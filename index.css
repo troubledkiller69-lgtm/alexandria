@@ -395,7 +395,6 @@ h1, h2, h3, h4 {
     min-height: calc(100dvh - 70px);
     padding-bottom: 4rem;
     position: relative;
-    overflow-x: hidden;
 }
 
 /* Hero Section */
@@ -9468,4 +9467,9 @@ h1, h2, h3, h4 {
 @media (min-width: 769px) {
     #search-trigger-desktop { display: flex; }
     #search-trigger { display: none; }
+}
+
+/* iOS zooms the page when a focused input is under 16px; keep compact controls at 16px on phones. */
+@media (max-width: 768px) {
+    .compact-select, .compact-input { font-size: 16px; }
 }
