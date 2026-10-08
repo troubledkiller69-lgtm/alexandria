@@ -264,7 +264,6 @@ export const halloween = {
                         await this.toggleWatchlist({ id: String(id), type, title, poster_path: poster, year: String(movie.release_date || '').slice(0, 4), score: Number(movie.vote_average) || 0 });
                     }
                     await this.setWatchStatus(id, type, 'watched');
-                    await this.addToHistory({ id, type, title, poster_path: poster });
                     btn.classList.add('watched');
                     const card = btn.closest('.halloween-card');
                     card.classList.add('watched');
