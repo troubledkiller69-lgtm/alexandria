@@ -9160,7 +9160,7 @@ h1, h2, h3, h4 {
     position: fixed;
     top: 56px; left: 0; right: 0;
     z-index: 99;
-    touch-action: pan-x;
+    touch-action: pan-x pan-y;
     overscroll-behavior-x: contain;
     overscroll-behavior-y: none;
     -webkit-overflow-scrolling: touch;
@@ -9201,62 +9201,64 @@ h1, h2, h3, h4 {
 }
 .category-tab:hover { color: #f8fafc; }
 
-/* Main View - Account for fixed header + tabs */
-.main-view {
-    padding-top: 0;
-    padding-bottom: 92px; /* space for bottom tab bar */
-}
+@media (max-width: 768px) {
+    /* Main View - Account for fixed header + tabs */
+    .main-view {
+        padding-top: 0;
+        padding-bottom: 92px; /* space for bottom tab bar */
+    }
 
-/* Hero - desktop untouched; mobile hero lives in the max-width:768 block below */
+    /* Hero - desktop untouched; mobile hero lives in the max-width:768 block below */
 
-/* View Sections - Dense, flat, no cards */
-.view-section {
-    padding: 20px 16px 8px;
-}
-.view-section > h3 {
-    font-family: var(--font-display);
-    font-size: 0.95rem;
-    font-weight: 700;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    color: #f8fafc;
-    margin-bottom: 14px;
-    padding: 0 4px;
-}
-.view-section > h3::before { content: none; }
+    /* View Sections - Dense, flat, no cards */
+    .view-section {
+        padding: 20px 16px 8px;
+    }
+    .view-section > h3 {
+        font-family: var(--font-display);
+        font-size: 0.95rem;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: #f8fafc;
+        margin-bottom: 14px;
+        padding: 0 4px;
+    }
+    .view-section > h3::before { content: none; }
 
-/* Carousel - Flat, no arrows on mobile, no shadows */
-.carousel-container { position: relative; width: 100%; padding-top: 0; margin-top: 0; }
-.carousel-arrow { display: none; }
-.carousel-wrapper {
-    overflow-x: auto;
-    overflow-y: hidden;
-    padding-bottom: 16px;
-    scrollbar-width: none;
-    scroll-snap-type: x mandatory;
+    /* Carousel - Flat, no arrows on mobile, no shadows */
+    .carousel-container { position: relative; width: 100%; padding-top: 0; margin-top: 0; }
+    .carousel-arrow { display: none; }
+    .carousel-wrapper {
+        overflow-x: auto;
+        overflow-y: hidden;
+        padding-bottom: 16px;
+        scrollbar-width: none;
+        scroll-snap-type: x mandatory;
+    }
+    .carousel-wrapper::-webkit-scrollbar { display: none; }
+    .carousel-grid {
+        display: flex;
+        gap: 12px;
+        padding: 0 4px 4px;
+    }
+    .movie-card {
+        min-width: 120px;
+        width: 120px;
+        flex-shrink: 0;
+        scroll-snap-align: start;
+        transition: transform 0.2s;
+    }
+    .movie-card:hover { transform: scale(1.02); z-index: 10; }
+    .poster-wrapper {
+        border-radius: 4px;
+        overflow: hidden;
+        aspect-ratio: 2/3;
+        background: #050505;
+    }
+    .poster-wrapper img { transition: none; }
+    .play-overlay { display: none; }
 }
-.carousel-wrapper::-webkit-scrollbar { display: none; }
-.carousel-grid {
-    display: flex;
-    gap: 12px;
-    padding: 0 4px 4px;
-}
-.movie-card {
-    min-width: 120px;
-    width: 120px;
-    flex-shrink: 0;
-    scroll-snap-align: start;
-    transition: transform 0.2s;
-}
-.movie-card:hover { transform: scale(1.02); z-index: 10; }
-.poster-wrapper {
-    border-radius: 4px;
-    overflow: hidden;
-    aspect-ratio: 2/3;
-    background: #050505;
-}
-.poster-wrapper img { transition: none; }
-.play-overlay { display: none; }
 /* card-overlay stays mounted on all inputs: hover devices use the
    opacity fade from the base rules; touch gets corner buttons below */
 .anime-badge {
@@ -9472,4 +9474,9 @@ h1, h2, h3, h4 {
 /* iOS zooms the page when a focused input is under 16px; keep compact controls at 16px on phones. */
 @media (max-width: 768px) {
     .compact-select, .compact-input { font-size: 16px; }
+}
+
+/* iOS zooms the page when a focused control is under 16px; keep phone form controls at 16px. */
+@media (max-width: 768px) {
+    input:not([type="checkbox"]):not([type="radio"]):not([type="range"]), select, textarea { font-size: 16px; }
 }
