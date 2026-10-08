@@ -208,7 +208,7 @@ export const franchises = {
                         <div class="franchise-hero-content">
                             <p class="eyebrow">CINEMATIC UNIVERSES & LEGENDARY SAGAS</p>
                             <h1>FRANCHISE ARCHIVES</h1>
-                            <p class="franchise-hero-sub">${universes.length} universes · ${titleCount} titles on file${incomplete ? ` · ${incomplete} incomplete <button type="button" class="btn-quiet" onclick="Alexandria.renderFranchises()">RETRY</button>` : ''}</p>
+                            <p class="franchise-hero-sub">${universes.length} universes · ${titleCount} titles on file${incomplete ? ` · ${incomplete} ${incomplete === 1 ? 'universe' : 'universes'} incomplete <button type="button" class="btn-quiet" onclick="Alexandria.renderFranchises()">RETRY</button>` : ''}</p>
                         </div>
                     </div>
                     <div class="franchise-toolbar">
