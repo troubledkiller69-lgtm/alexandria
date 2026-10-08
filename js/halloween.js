@@ -84,6 +84,7 @@ export const halloween = {
             { id: 41437, name: 'Evil Dead' },            // Evil Dead
         ];
 
+        const seen = new Set();
         try {
             // Fetch all movies from each franchise collection
             const franchiseMovies = await this.mapWithConcurrency(franchiseCollections, 3, async (fc) => {
@@ -107,7 +108,6 @@ export const halloween = {
 
             // Round-robin pick one from each franchise to get variety across the month
             const picks = [];
-            const seen = new Set();
             for (let round = 0; round < 5 && picks.length < 31; round++) {
                 for (const fm of franchiseMovies) {
                     const m = fm.movies[round];
@@ -201,7 +201,7 @@ export const halloween = {
         const today = now.getDate();
         // Monday-first offset so Oct 1 lands on its real weekday.
         const lead = (new Date(now.getFullYear(), 9, 1).getDay() + 6) % 7;
-        const watched = new Set((this.state.history || []).filter(h => h.type === 'movie').map(h => String(h.id)));
+        const watched = this.halloweenWatchedIds();
 
         const blanks = '<span class="cal-blank" aria-hidden="true"></span>'.repeat(lead);
 
@@ -229,7 +229,7 @@ export const halloween = {
                     </div>
                     <div class="cal-shade" aria-hidden="true"></div>
                     <span class="cal-date">${m.day}</span>
-                    <button type="button" class="cal-check${isWatched ? ' watched' : ''}" data-id="${m.id}" data-type="movie" data-title="${this.escapeHtml(m.title)}" data-poster="${m.poster_path || ''}" aria-label="${isWatched ? 'Mark Oct ' + m.day + ' as unwatched' : 'Log Oct ' + m.day + ' as watched'}">✓</button>
+                    <button type="button" class="cal-check${isWatched ? ' watched' : ''}" data-id="${m.id}" data-type="movie" data-title="${this.escapeHtml(m.title)}" data-poster="${this.escapeHtml(m.poster_path || '')}" aria-label="${isWatched ? 'Mark Oct ' + m.day + ' as unwatched' : 'Log Oct ' + m.day + ' as watched'}">✓</button>
                     ${isWatched ? '<div class="halloween-watched-overlay"><span class="halloween-watched-icon">✓</span><span>WATCHED</span></div>' : ''}
                     ${finale ? '<span class="cal-finale">Halloween night</span>' : ''}
                     <div class="cal-meta">
@@ -249,6 +249,7 @@ export const halloween = {
                 const poster = btn.dataset.poster;
                 const already = btn.classList.contains('watched');
                 if (already) {
+                    await this.setWatchStatus(id, type, 'want');
                     this.state.history = (this.state.history || []).filter(h => !(String(h.id) === String(id) && h.type === type));
                     this.writeLocalList('alexandria_history', this.state.history);
                     btn.classList.remove('watched');
@@ -257,6 +258,12 @@ export const halloween = {
                     const overlay = card.querySelector('.halloween-watched-overlay');
                     if (overlay) overlay.remove();
                 } else {
+                    const inLibrary = (this.state.watchlist || []).some(w => String(w.id) === String(id) && w.type === type);
+                    if (!inLibrary) {
+                        const movie = movies.find(m => String(m.id) === String(id)) || {};
+                        await this.toggleWatchlist({ id: String(id), type, title, poster_path: poster, year: String(movie.release_date || '').slice(0, 4), score: Number(movie.vote_average) || 0 });
+                    }
+                    await this.setWatchStatus(id, type, 'watched');
                     await this.addToHistory({ id, type, title, poster_path: poster });
                     btn.classList.add('watched');
                     const card = btn.closest('.halloween-card');
@@ -280,6 +287,10 @@ export const halloween = {
         });
     },
 
+    halloweenWatchedIds() {
+        return new Set((this.state.watchlist || []).filter(w => w.type === 'movie' && w.status === 'watched').map(w => String(w.id)));
+    },
+
     getHalloweenMovies() {
         const grid = document.getElementById('halloween-grid');
         if (!grid) return [];
@@ -295,7 +306,8 @@ export const halloween = {
         const fill = document.querySelector('.halloween-progress-fill');
         if (!text || !fill) return;
         const movies = this.getHalloweenMovies();
-        const watched = movies.filter(m => m.watched).length;
+        const watchedIds = this.halloweenWatchedIds();
+        const watched = movies.filter(m => watchedIds.has(String(m.id))).length;
         const total = movies.length || 31;
         text.textContent = `${watched} / ${total} watched`;
         fill.style.width = `${Math.round((watched / total) * 100)}%`;

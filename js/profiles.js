@@ -58,7 +58,9 @@ export const profiles = {
             title: title ?? null,
             poster_path: posterPath ?? null,
             meta: meta ?? null
-        }).then().catch(() => {});
+        }).then(({ error }) => {
+            if (error) console.warn('Alexandria Protocol: Activity log failed', error);
+        }).catch(() => {});
     },
 
     pruneOldActivity() {
@@ -151,7 +153,7 @@ async renderProfile(uid) {
                     .filter(w => w && (w.status || 'want') === 'watched')
                     .map(w => ({ ...w, status: 'watched' }));
             } else if (this.supabase) {
-                const wRes = await safeQuery(this.supabase.from('survival_cache').select('*').eq('user_id', targetUid));
+                const wRes = await safeQuery(this.supabase.from('survival_cache').select('*').eq('user_id', targetUid).is('deleted_at', null));
                 watched = (wRes.data || [])
                     .filter(w => w && (w.status || 'want') === 'watched')
                     .map(w => ({ id: w.tmdb_id, type: w.media_type, title: w.title, poster_path: w.poster_path, status: 'watched' }))
@@ -165,10 +167,13 @@ async renderProfile(uid) {
             const displayName = profile.nickname || profile.username || 'Member';
             const isMe = Boolean(me && me === targetUid);
             const followBtn = (me && !isMe)
-                ? `<button type="button" id="profile-follow-btn" class="follow-btn ${isFollowing ? 'following' : ''}" onclick="Alexandria.toggleFollow('${this.escapeHtml(targetUid)}')">${isFollowing ? 'FOLLOWING' : 'FOLLOW'}</button>`
+                ? `<button type="button" id="profile-follow-btn" class="follow-btn ${isFollowing ? 'following' : ''}" onclick="Alexandria.toggleFollow(${this.escapeJsArg(targetUid)})">${isFollowing ? 'FOLLOWING' : 'FOLLOW'}</button>`
                 : '';
             const editBtn = isMe
                 ? '<button type="button" class="btn-secondary" onclick="Alexandria.editProfileModal(true)">EDIT PROFILE</button>'
+                : '';
+            const ownNavBtns = isMe
+                ? '<a class="btn-quiet" href="#settings">SETTINGS</a><button type="button" class="btn-quiet" onclick="Alexandria.signOut()">SIGN OUT</button>'
                 : '';
             const genreChips = (profile.fav_genres || '')
                 .split(',').map(s => s.trim()).filter(Boolean)
@@ -191,8 +196,9 @@ async renderProfile(uid) {
                         </div>
                         <div class="account-actions">
                             ${followBtn}
-                            <button type="button" class="btn-quiet" onclick="Alexandria.shareCurrent('${this.escapeHtml(displayName)} on Alexandria')">SHARE</button>
+                            <button type="button" class="btn-quiet" onclick="Alexandria.shareCurrent(${this.escapeJsArg(displayName + ' on Alexandria')})">SHARE</button>
                             ${editBtn}
+                            ${ownNavBtns}
                         </div>
                     </header>
                     <div class="account-stats" id="profile-stats">
@@ -253,7 +259,7 @@ async renderProfile(uid) {
             if (me && me === uid) {
                 const seen = new Set(activity
                     .filter(a => a.kind === 'watching')
-                    .map(a => ['watching', a.content_type, String(a.content_id), (a.created_at || '').slice(0, 10)].join('|')));
+                    .map(a => ['watching', a.content_type, String(a.content_id), this.localDayKey(a.created_at)].join('|')));
                 const pushLocal = (id, type, ts) => {
                     const d = ts instanceof Date ? ts : new Date(ts);
                     if (id == null || !type || isNaN(d.getTime())) return;
@@ -798,19 +804,24 @@ async renderProfile(uid) {
         const me = this.state.authUser.id;
         if (me === uid) return;
         try {
-            const { data: existing } = await this.supabase
+            const { data: existing, error: readErr } = await this.supabase
                 .from('follows')
                 .select('follower_id')
                 .eq('follower_id', me)
                 .eq('followee_id', uid)
                 .maybeSingle();
+            if (readErr) throw readErr;
             const nowFollowing = !existing;
+            let wrote = true;
             if (existing) {
-                await this.supabase.from('follows').delete().eq('follower_id', me).eq('followee_id', uid);
+                const { error } = await this.supabase.from('follows').delete().eq('follower_id', me).eq('followee_id', uid);
+                if (error) throw error;
             } else {
-                await this.supabase.from('follows').insert({ follower_id: me, followee_id: uid });
+                const { error } = await this.supabase.from('follows').insert({ follower_id: me, followee_id: uid });
+                if (error && error.code === '23505') wrote = false;
+                else if (error) throw error;
             }
-            if (nowFollowing) {
+            if (wrote && nowFollowing) {
                 this.logActivity('followed', { meta: JSON.stringify({ followee: uid }) });
             }
             const btn = document.getElementById('profile-follow-btn');
@@ -819,7 +830,7 @@ async renderProfile(uid) {
                 btn.classList.toggle('following', nowFollowing);
             }
             const countEl = document.getElementById('profile-followers-count');
-            if (countEl) {
+            if (countEl && wrote) {
                 const current = Number(countEl.textContent) || 0;
                 countEl.textContent = String(current + (nowFollowing ? 1 : -1));
             }

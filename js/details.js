@@ -100,19 +100,19 @@ export const details = {
                                 </div>
                                 <p class="details-overview">${this.escapeHtml(data.overview || 'No overview is available yet.')}</p>
                                 <div class="details-actions">
-                                    <button class="btn-primary btn-play" onclick="Alexandria.playContent(${id}, '${type}')">
+                                    <button class="btn-primary btn-play" onclick="Alexandria.playContent(${Number(id)}, ${this.escapeJsArg(type)})">
                                         <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg> WATCH NOW
                                     </button>
-                                    <button class="btn-secondary" onclick="Alexandria.createWatchParty(${id}, '${type}')">
+                                    <button class="btn-secondary" onclick="Alexandria.createWatchParty(${Number(id)}, ${this.escapeJsArg(type)})">
                                         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg> WATCH PARTY
                                     </button>
                                     <button class="btn-quiet" type="button" data-share-title="${this.escapeHtml(title)}" onclick="Alexandria.shareCurrent(this.dataset.shareTitle)">SHARE</button>
-                                    <button class="btn-gold" type="button" onclick="Alexandria.addToListModal(${Number(id)}, '${type}')">ADD TO LIST</button>
+                                    <button class="btn-gold" type="button" onclick="Alexandria.addToListModal(${Number(id)}, ${this.escapeJsArg(type)})">ADD TO LIST</button>
                                     <button class="icon-btn log-btn ${inWatchlist ? 'active' : ''}" type="button" aria-label="${inWatchlist ? 'Remove from' : 'Add to'} watchlist" aria-pressed="${inWatchlist}" data-id="${Number(id)}" data-type="${type}" data-title="${this.escapeHtml(title)}" data-poster="${this.escapeHtml(data.poster_path || '')}" data-year="${this.escapeHtml(year || '')}" data-score="${Number(tmdbScore) || 0}">
                                         ${inWatchlist ? '✓' : '+'}
                                     </button>
                                     ${inWatchlist ? `
-                                    <button id="watch-status-btn" class="btn-gold" type="button" onclick="Alexandria.setWatchStatus(${id}, '${type}', '${wlStatus === 'watched' ? 'want' : 'watched'}')">${wlStatus === 'watched' ? 'BACK TO QUEUE' : wlStatus === 'watching' ? 'MARK COMPLETE' : 'MARK WATCHED'}</button>
+                                    <button id="watch-status-btn" class="btn-gold" type="button" onclick="Alexandria.setWatchStatus(${Number(id)}, ${this.escapeJsArg(type)}, ${this.escapeJsArg(wlStatus === 'watched' ? 'want' : 'watched')})">${wlStatus === 'watched' ? 'BACK TO QUEUE' : wlStatus === 'watching' ? 'MARK COMPLETE' : 'MARK WATCHED'}</button>
                                     ` : ''}
                                 </div>
                                 ${this.detailsTakeHtml(id, type, wlEntry, Number(tmdbScore) || 0)}
@@ -133,7 +133,7 @@ export const details = {
                     <div class="view-section details-trailer-section">
                         <h3>OFFICIAL TRAILER</h3>
                         <div class="trailer-container">
-                            <iframe src="https://www.youtube-nocookie.com/embed/${trailer.key}?controls=1&modestbranding=1&rel=0" title="${this.escapeHtml(title)} official trailer" loading="lazy" allow="autoplay; encrypted-media; picture-in-picture; fullscreen" referrerpolicy="strict-origin-when-cross-origin" sandbox="allow-scripts allow-same-origin allow-presentation allow-fullscreen"></iframe>
+                            <iframe src="https://www.youtube-nocookie.com/embed/${trailer.key}?controls=1&modestbranding=1&rel=0" title="${this.escapeHtml(title)} official trailer" loading="lazy" allow="autoplay; encrypted-media; picture-in-picture; fullscreen" referrerpolicy="strict-origin-when-cross-origin"></iframe>
                         </div>
                     </div>` : ''}
 
@@ -380,7 +380,7 @@ export const details = {
                 <span class="details-take-label">YOUR TAKE</span>
                 <div class="details-take-row">
                     ${this.starsHtml(String(id), type, wlEntry.userRating, Number(score) || 0)}
-                    <button class="wl-log-btn ${review ? 'has-review' : ''}" type="button" aria-label="Open diary entry" title="Open diary entry" onclick="Alexandria.openLogModal('${this.escapeHtml(String(id))}', '${this.escapeHtml(type)}')">✎</button>
+                    <button class="wl-log-btn ${review ? 'has-review' : ''}" type="button" aria-label="Open diary entry" title="Open diary entry" onclick="Alexandria.openLogModal(${this.escapeJsArg(String(id))}, ${this.escapeJsArg(type)})">✎</button>
                 </div>
                 ${review ? `<p class="details-take-review">“${this.escapeHtml(review.length > 280 ? review.slice(0, 280) + '…' : review)}”</p>` : `<p class="details-take-prompt">No review yet — tap ✎ to write one.</p>`}
             </div>`;

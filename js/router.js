@@ -82,6 +82,7 @@ export const router = {
             this.state.activeListId = listId;
             this.setView('list');
         } else if (path === 'roulette') {
+            this.setView('home');
             this.openRouletteModal();
             return;
         } else if (path === 'halloween') {
