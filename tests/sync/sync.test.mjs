@@ -263,5 +263,20 @@ const U1 = 'user-1', U2 = 'user-2';
   check('T14c other device receives the legacy rating', find(libOf(L2), 970, 'movie')?.userRating === 4);
 }
 
+{ // T15 a device with an empty library (fresh install, corrupt storage) must not tombstone live cloud rows
+  const cloud = makeCloud();
+  const seed = makeDevice('seed', cloud);
+  await signIn(seed, U1);
+  await edit(seed, LIB, [{ id: 980, type: 'movie', title: 'Watched elsewhere', poster_path: null, status: 'watched', watched_at: '2026-10-05T10:00:00.000Z' }]);
+  await sync(seed);
+  const fresh = makeDevice('fresh', cloud);
+  await signIn(fresh, U1);
+  await sync(fresh);
+  const row = cloud.tables.survival_cache.find(r => String(r.tmdb_id) === '980');
+  check('T15 empty device pulls the cloud title, not a tombstone', !!find(libOf(fresh), 980, 'movie') && row && !row.deleted_at);
+  check('T15b live cloud row keeps its status', row?.status === 'watched', JSON.stringify(row));
+  check('T15c empty device pushes nothing', outboxSize(fresh) === 0);
+}
+
 console.log(`\n${passed} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);

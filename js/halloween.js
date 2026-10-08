@@ -48,13 +48,16 @@ export const halloween = {
         if (!el) return;
         const now = new Date();
         const year = now.getFullYear();
-        let target = new Date(year, 9, 31, 23, 59, 59);
-        if (now > target) target = new Date(year + 1, 9, 31, 23, 59, 59);
+        const dayStart = new Date(year, 9, 31);
+        const dayEnd = new Date(year, 9, 31, 23, 59, 59);
+        if (now >= dayStart && now <= dayEnd) {
+            el.textContent = 'It\'s Halloween night. No excuses.';
+            return;
+        }
+        // Count to the next 31 October: this year's if it has not started, otherwise next year's.
+        const target = now < dayStart ? dayStart : new Date(year + 1, 9, 31);
         const days = Math.ceil((target - now) / 86400000);
-        el.textContent =
-            days <= 0 ? 'It\'s Halloween night. No excuses.' :
-            days === 1 ? '1 night until Halloween.' :
-            `${days} nights until Halloween.`;
+        el.textContent = days === 1 ? '1 night until Halloween.' : `${days} nights until Halloween.`;
     },
 
     async fetchHalloweenMovies() {

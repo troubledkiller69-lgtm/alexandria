@@ -75,7 +75,7 @@ self.addEventListener('fetch', event => {
                 const cached = await cache.match(request);
                 const network = fetch(request)
                     .then(response => {
-                        if (response && (response.ok || response.type === 'opaque')) {
+                        if (response && response.ok) {
                             cache.put(request, response.clone()).then(() => trimPosterCache(cache));
                         }
                         return response;

@@ -423,7 +423,7 @@ export const auth = {
         if (this.state.view === 'details' || this.state.view === 'player') {
             this.refreshCommunity();
         }
-        this.showToast("Logged out successfully.");
+        this.showToast("Signed out. Your library stays in your account; unsynced changes wait for your next sign-in.");
     },
 
     updateAuthUI() {
