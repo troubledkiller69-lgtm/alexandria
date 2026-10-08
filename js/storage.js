@@ -1,167 +1,68 @@
 export const storage = {
+    // Loads the library from this device, then reconciles it with the cloud when
+    // signed in. Cloud reconciliation lives in js/sync.js.
     async syncFromCloud() {
         try {
-            let localWatchlist = this.readStorageJson(localStorage, 'alexandria_watchlist', []) || [];
-            let rawHistory = this.readStorageJson(localStorage, 'alexandria_history', []) || [];
-            let cleanHistory = Array.isArray(rawHistory)
-                ? rawHistory.filter(i => i && i.id != null && i.type !== 'sports' && String(i.id).match(/^\d+$/))
-                : [];
-            let localEpisodes = this.readStorageJson(localStorage, 'alexandria_watched_episodes', {}) || {};
+            const watchlist = this.loadLocalList('alexandria_watchlist', [], Array.isArray);
+            const rawHistory = this.loadLocalList('alexandria_history', [], Array.isArray);
+            const episodes = this.loadLocalList('alexandria_watched_episodes', {}, v => v && typeof v === 'object' && !Array.isArray(v));
 
-            localWatchlist = this.dedupeItems(localWatchlist);
+            const cleanHistory = rawHistory.filter(i => i && i.id != null && i.type !== 'sports' && String(i.id).match(/^\d+$/));
             // One entry per title (newest first). Collapses old per-episode
             // duplicates from before into a single card carrying the latest episode.
-            const collapsed = this.dedupeItems(cleanHistory);
-            if (collapsed.length !== cleanHistory.length) {
-                this.writeLocalList('alexandria_history', collapsed);
-                cleanHistory = collapsed;
-            }
-            this.state.history = cleanHistory;
-            this.writeLocalList('alexandria_history', this.state.history);
+            this.state.watchlist = this.dedupeItems(watchlist).map(w => this.normalizeLibraryItem(w));
+            this.state.history = this.dedupeItems(cleanHistory, { forHistory: true }).slice(0, 20);
+            this.state.watchedEpisodes = episodes;
+            this.writeSynced('alexandria_watchlist', this.state.watchlist);
+            this.writeSynced('alexandria_history', this.state.history);
+            this.writeSynced('alexandria_watched_episodes', this.state.watchedEpisodes);
 
-            if (this.supabase && this.state.authUser) {
-                const uid = this.state.authUser.id;
-                try {
-                    // Four independent reads — fetch them concurrently.
-                const [wlRes, epRes, histRes, progRes] = await Promise.all([
-                    this.supabase.from('survival_cache').select('*').eq('user_id', uid),
-                    this.supabase.from('watched_episodes').select('tmdb_id, season, episode').eq('user_id', uid),
-                    this.supabase.from('history').select('*').eq('user_id', uid).order('created_at', { ascending: false }),
-                    this.supabase.from('watch_progress').select('content_id, content_type, season, episode, seconds, updated_at').eq('user_id', uid)
-                ]);
-                const dbWatchlist = wlRes.data;
-                const dbEpisodes = epRes.data;
-                const dbHistory = histRes.data;
-
-                if (Array.isArray(dbWatchlist) && dbWatchlist.length > 0) {
-                    const cloudList = dbWatchlist.map(w => ({
-                        id: w.tmdb_id,
-                        type: w.media_type,
-                        title: w.title,
-                        poster_path: w.poster_path,
-                        status: w.status || 'want',
-                        watched_at: w.watched_at || null
-                    }));
-                    // Local first: changes made on this device (even signed out)
-                    // win over the cloud copy; fresh devices still inherit the cloud.
-                    localWatchlist = this.dedupeItems([...localWatchlist, ...cloudList]);
-                }
-
-                if (Array.isArray(dbEpisodes)) {
-                    dbEpisodes.forEach(ep => {
-                        localEpisodes[`${ep.tmdb_id}_s${ep.season}e${ep.episode}`] = true;
-                    });
-                }
-
-                if (Array.isArray(dbHistory) && dbHistory.length > 0) {
-                        const cloudHist = dbHistory.map(h => ({
-                            id: h.content_id,
-                            type: h.type,
-                            title: h.title,
-                            poster_path: h.poster_path
-                        }));
-                        // Local first: new watches on this device win over cloud
-                        cleanHistory = this.dedupeItems([...cleanHistory, ...cloudHist]);
-                    }
-
-                    // Stamp per-episode resume positions from watch_progress
-                    // (the history table is title-level only). Local first:
-                    // keep this device's episode; take the furthest position
-                    // when the episode matches, so fresh devices inherit the
-                    // exact resume point from wherever you last watched.
-                    if (Array.isArray(progRes?.data)) {
-                        const latest = {};
-                        for (const row of progRes.data) {
-                            if (row == null) continue;
-                            const key = `${row.content_type}_${String(row.content_id)}`;
-                            if (!latest[key] || String(row.updated_at || '') > String(latest[key].updated_at || '')) {
-                                latest[key] = row;
-                            }
-                        }
-                        for (const h of cleanHistory) {
-                            const row = latest[`${h.type}_${String(h.id)}`];
-                            if (!row) continue;
-                            const rs = Number(row.season) || 0;
-                            const re = Number(row.episode) || 0;
-                            const hs = Number(h.season) || 0;
-                            const he = Number(h.episode) || 0;
-                            if ((!h.season && !h.episode) || (hs === rs && he === re)) {
-                                h.season = rs;
-                                h.episode = re;
-                                h.progress = Math.max(Number(h.progress) || 0, Number(row.seconds) || 0);
-                            }
-                        }
-                    }
-
-                    // Push local-only episode marks up so per-episode progress
-                    // transfers too (same pull-only gap as the watchlist).
-                    const cloudEpKeys = new Set((dbEpisodes || []).map(ep => `${ep.tmdb_id}_s${ep.season}e${ep.episode}`));
-                    const epToPush = [];
-                    for (const [key, val] of Object.entries(localEpisodes)) {
-                        if (!val || cloudEpKeys.has(key)) continue;
-                        const m = key.match(/^(\d+)_s(\d+)e(\d+)$/);
-                        if (!m) continue;
-                        epToPush.push({ user_id: uid, tmdb_id: Number(m[1]), season: Number(m[2]), episode: Number(m[3]) });
-                    }
-                    if (epToPush.length > 0) {
-                        await this.supabase.from('watched_episodes').upsert(epToPush, { onConflict: 'user_id, tmdb_id, season, episode' });
-                    }
-
-                    // Push local-only items and status differences up so the
-                    // watchlist transfers across devices even for titles added
-                    // while signed out (they never reached the cloud before).
-                    const cloudKeys = new Set((dbWatchlist || []).map(w => `${w.media_type}_${String(w.tmdb_id)}`));
-                    const toPush = localWatchlist
-                        .filter(i => {
-                            const key = `${i.type}_${String(i.id)}`;
-                            const cloudRow = (dbWatchlist || []).find(w => `${w.media_type}_${String(w.tmdb_id)}` === key);
-                            return !cloudRow || cloudRow.status !== (i.status || 'want');
-                        })
-                        .map(i => ({
-                            user_id: uid,
-                            tmdb_id: Number(i.id),
-                            media_type: i.type,
-                            title: i.title || null,
-                            poster_path: i.poster_path || null,
-                            status: i.status || 'want',
-                            watched_at: i.watched_at || null
-                        }));
-                    if (toPush.length > 0) {
-                        await this.supabase.from('survival_cache').upsert(toPush, { onConflict: 'user_id, tmdb_id, media_type' });
-                    }
-                } catch (err) {
-                    console.warn("Alexandria: Cloud sync warning:", err);
-                }
-            }
-
-            this.state.watchlist = this.dedupeItems(localWatchlist);
-            this.state.watchlist.forEach(w => {
-                w.status = w.status || 'want';
-                w.watched_at = w.watched_at || null;
-                // Personal layer (Letterboxd-style): backfill defaults so
-                // items saved before ratings/reviews existed still render.
-                // NOTE: ratings + reviews stay local-only — survival_cache
-                // has no columns for them and a migration isn't worth it.
-                const r = Number(w.userRating);
-                w.userRating = Number.isFinite(r) ? Math.min(5, Math.max(0, Math.round(r * 2) / 2)) : 0;
-                w.userReview = typeof w.userReview === 'string' ? w.userReview : '';
-                w.year = w.year || '';
-                w.score = Number.isFinite(Number(w.score)) ? Number(w.score) : 0;
-            });
-            this.state.history = this.dedupeItems(cleanHistory, { forHistory: true });
-            this.state.watchedEpisodes = localEpisodes;
-            this.writeLocalList('alexandria_watchlist', this.state.watchlist);
-            this.writeLocalList('alexandria_history', this.state.history);
-            this.writeLocalList('alexandria_watched_episodes', this.state.watchedEpisodes);
+            if (this.supabase && this.state.authUser) await this.syncNow({ pull: true });
         } catch (e) {
-            // Never wipe in-memory state on a sync error — keep what we have.
-            console.warn("Alexandria: Sync failed, keeping in-memory lists", e);
+            // Never wipe in-memory state on a load error — keep what we have.
+            console.warn('Alexandria: could not load your library, keeping in-memory lists', e);
         }
+    },
+
+    // Reads a saved list. If the stored text cannot be parsed or has the wrong
+    // shape, the original text is kept under a backup key before falling back.
+    loadLocalList(key, fallback, isValid) {
+        const raw = this.readStorage(localStorage, key, null);
+        if (raw == null || raw === '') return fallback;
+        try {
+            const parsed = JSON.parse(raw);
+            if (parsed != null && isValid(parsed)) return parsed;
+        } catch { /* handled below */ }
+        try { localStorage.setItem(`${key}.bak-${Date.now()}`, raw); } catch { /* storage full */ }
+        this.showToast('Part of your saved library could not be read. A copy was kept.');
+        return fallback;
+    },
+
+    // Personal layer (Letterboxd-style): backfill defaults so items saved before
+    // ratings and reviews existed still render.
+    normalizeLibraryItem(w) {
+        const r = Number(w.userRating);
+        return {
+            ...w,
+            status: w.status || 'want',
+            watched_at: w.watched_at || null,
+            userRating: Number.isFinite(r) ? Math.min(5, Math.max(0, Math.round(r * 2) / 2)) : 0,
+            userReview: typeof w.userReview === 'string' ? w.userReview : '',
+            year: w.year || '',
+            score: Number.isFinite(Number(w.score)) ? Number(w.score) : 0
+        };
     },
 
     async toggleWatchlist(item) {
         const itemId = String(item.id);
         const index = this.state.watchlist.findIndex(i => String(i.id) === itemId && i.type === item.type);
+
+        // Removing a title also deletes its rating and review, so confirm first.
+        if (index !== -1) {
+            const existing = this.state.watchlist[index];
+            const hasPersonal = Number(existing.userRating) > 0 || String(existing.userReview || '').trim() !== '';
+            if (hasPersonal && !window.confirm('Remove this title? Its rating and review will be deleted too.')) return;
+        }
 
         document.querySelectorAll(`.log-btn[data-id="${itemId}"][data-type="${item.type}"]`).forEach(btn => {
             const isActive = btn.classList.contains('active');
@@ -180,49 +81,16 @@ export const storage = {
         this.writeLocalList('alexandria_watchlist', this.state.watchlist);
         this.showToast(index === -1 ? 'Added to your watchlist.' : 'Removed from your watchlist.');
 
-        if (this.supabase && this.state.authUser && String(item.id).match(/^\d+$/)) {
-            const uid = this.state.authUser.id;
-            if (index === -1) {
-                this.supabase.from('survival_cache').upsert({
-                    user_id: uid,
-                    tmdb_id: Number(item.id),
-                    media_type: item.type,
-                    title: item.title,
-                    poster_path: item.poster_path,
-                    status: 'want'
-                }, { onConflict: 'user_id, tmdb_id, media_type' }).then();
-            } else {
-                this.supabase.from('survival_cache')
-                    .delete()
-                    .eq('user_id', uid)
-                    .eq('tmdb_id', Number(item.id))
-                    .eq('media_type', item.type)
-                    .then();
-            }
-        }
-
         if (this.state.view === 'home') this.renderWatchlist();
         else if (this.state.view === 'watchlist') this.renderWatchlistPage();
     },
 
     async addToHistory(item) {
         if (!item || item.id == null || !item.type) return;
-        this.state.history = this.dedupeItems([item, ...this.state.history]);
+        const entry = { ...item, watchedAt: new Date().toISOString() };
+        this.state.history = this.dedupeItems([entry, ...this.state.history]);
         if (this.state.history.length > 20) this.state.history.pop();
         this.writeLocalList('alexandria_history', this.state.history);
-
-        if (this.supabase && this.state.authUser && String(item.id).match(/^\d+$/)) {
-            this.supabase.from('history').upsert({
-                user_id: this.state.authUser.id,
-                content_id: Number(item.id),
-                type: item.type,
-                title: item.title,
-                poster_path: item.poster_path,
-                // Refresh recency on conflict so re-watches float back to
-                // the top of Continue Watching on every device.
-                created_at: new Date().toISOString()
-            }, { onConflict: 'user_id, content_id, type' }).then();
-        }
 
         // Refresh the Continue Watching section on home page if visible
         if (this.state.view === 'home' && typeof this.renderHistory === 'function') {

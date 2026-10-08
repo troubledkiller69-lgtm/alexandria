@@ -563,15 +563,12 @@ export const player = {
         this._lastPlayhead = t;
         this._lastProgressWrite = Date.now();
         this.writeLocalList('alexandria_history', this.state.history);
-        if (this.supabase && this.state.authUser && String(id).match(/^\d+$/) && (type === 'movie' || type === 'tv')) {
-            this.supabase.from('watch_progress').upsert({
-                user_id: this.state.authUser.id,
-                content_id: Number(id),
-                content_type: type,
-                season: Number(season) || 0,
-                episode: Number(episode) || 0,
-                seconds: Math.max(0, Math.floor(t) || 0)
-            }, { onConflict: 'user_id,content_id,content_type,season,episode' }).then(() => {}, () => {});
+        // Resume position syncs with the Continue Watching entry. Progress is not part of
+        // the change diff (it moves every few seconds), so push it on pause, seek and leave,
+        // and at most once a minute during playback.
+        if (force || Date.now() - (this._lastProgressSync || 0) > 60000) {
+            this._lastProgressSync = Date.now();
+            this.markSyncDirty('history', `${type}_${Number(id)}`);
         }
     },
 

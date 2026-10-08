@@ -26,7 +26,7 @@ export const auth = {
                 Community
             </a>
             ${signedIn ? `
-                <button type="button" class="account-menu-item" onclick="Alexandria.closeAccountMenu(); window.location.hash = '#profile/${this.escapeHtml(this.state.authUser.id)}'">
+                <button type="button" class="account-menu-item" onclick="Alexandria.closeAccountMenu(); window.location.hash = ${this.escapeJsArg('#profile/' + this.state.authUser.id)}">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
                     My Profile
                 </button>
@@ -401,6 +401,8 @@ export const auth = {
     },
 
     async handleSignOut() {
+        // Push pending changes while the session that authorises them still exists.
+        await this.syncNow({ pull: false });
         if (this.supabase) {
             await this.supabase.auth.signOut();
         }
@@ -450,25 +452,20 @@ export const auth = {
         const base = preferredUsername || user.user_metadata?.username || user.email?.split('@')[0] || 'User';
         for (let attempt = 0; attempt < 3; attempt++) {
             const username = attempt === 0 ? base : `${base}${attempt + 1}`;
-            try {
-                await this.supabase.from('profiles').upsert({
-                    id: user.id,
-                    username,
-                    username_lower: username.toLowerCase(),
-                    nickname: username,
-                    created_at: new Date().toISOString()
-                }, { onConflict: 'id' });
-                return;
-            } catch (err) {
-                // 23505 = unique_violation: this @ is taken (someone raced the
-                // signup). Retry with a numbered suffix rather than silently
-                // failing to create the profile.
-                const isDuplicate = err && (err.code === '23505' || /duplicate key/.test(err.message || ''));
-                if (!isDuplicate) {
-                    console.warn("Profile sync note:", err);
-                    return;
-                }
-            }
+            // Insert-only (ignoreDuplicates): an existing profile keeps its nickname and
+            // created_at. supabase-js reports failures in `error` rather than throwing.
+            const { error } = await this.supabase.from('profiles').upsert({
+                id: user.id,
+                username,
+                username_lower: username.toLowerCase(),
+                nickname: username
+            }, { onConflict: 'id', ignoreDuplicates: true });
+            if (!error) return;
+            // 23505 = unique_violation: this handle is taken (someone raced the
+            // signup). Try the next numbered suffix.
+            if (error.code === '23505') continue;
+            console.warn('Profile sync note:', error);
+            return;
         }
     },
 
@@ -511,6 +508,8 @@ export const auth = {
                 try { sessionStorage.removeItem('alexandria_nickname'); } catch { /* ignore */ }
                 try { localStorage.removeItem('alexandria_username'); } catch { /* ignore */ }
             }
+            // Decide which account owns this device's library before loading it.
+            await this.reconcileAccount(session?.user?.id || null);
             this.updateAuthUI();
             await this.syncFromCloud();
             if (this.state.view === 'details' || this.state.view === 'player') {

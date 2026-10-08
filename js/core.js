@@ -188,6 +188,15 @@ export const core = {
         })[character]);
     },
 
+    // For a value passed as a JavaScript string argument inside an inline handler,
+    // e.g. onclick="Alexandria.f(${this.escapeJsArg(x)})". HTML escaping alone is not
+    // enough there: the browser decodes entities before the JS is parsed, so a quote
+    // in the value would close the string. JSON encoding first makes it a valid JS
+    // literal, and escaping the result keeps it inside the attribute.
+    escapeJsArg(value = '') {
+        return this.escapeHtml(JSON.stringify(String(value ?? '')));
+    },
+
     isTrustedEmbedOrigin(origin) {
         try {
             const host = new URL(origin).hostname;
@@ -303,7 +312,14 @@ export const core = {
         return results;
     },
 
+    // Every user-driven list write goes through here. noteLocalWrite records what
+    // changed so the sync engine can push it (see js/sync.js).
     writeLocalList(key, value) {
+        this.noteLocalWrite(key, value);
+        this.writeListRaw(key, value);
+    },
+
+    writeListRaw(key, value) {
         try {
             localStorage.setItem(key, JSON.stringify(value));
         } catch (error) {
@@ -554,10 +570,11 @@ export const core = {
 
     exportLists() {
         const payload = {
-            version: 1,
+            version: 2,
             exportedAt: new Date().toISOString(),
             watchlist: this.state.watchlist,
-            history: this.state.history
+            history: this.state.history,
+            watchedEpisodes: this.state.watchedEpisodes
         };
         const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
         const url = URL.createObjectURL(blob);
@@ -596,14 +613,27 @@ export const core = {
                 .map(i => {
                     const id = Number.parseInt(i.id, 10);
                     if (!Number.isInteger(id) || id < 1) return null;
+                    const rating = Number(i.userRating);
                     return {
                         id,
                         type: i.type,
                         title: String(i.title || 'Untitled').slice(0, 200),
-                        poster_path: typeof i.poster_path === 'string' ? i.poster_path : ''
+                        poster_path: typeof i.poster_path === 'string' ? i.poster_path : '',
+                        status: ['want', 'watching', 'watched'].includes(i.status) ? i.status : 'want',
+                        watched_at: typeof i.watched_at === 'string' ? i.watched_at : null,
+                        userRating: Number.isFinite(rating) ? Math.min(5, Math.max(0, Math.round(rating * 2) / 2)) : 0,
+                        userReview: typeof i.userReview === 'string' ? i.userReview.slice(0, 2000) : '',
+                        year: i.year != null ? String(i.year).slice(0, 4) : '',
+                        score: Number.isFinite(Number(i.score)) ? Number(i.score) : 0
                     };
                 })
                 .filter(Boolean);
+            const cleanEpisodes = {};
+            if (data.watchedEpisodes && typeof data.watchedEpisodes === 'object' && !Array.isArray(data.watchedEpisodes)) {
+                for (const [key, on] of Object.entries(data.watchedEpisodes)) {
+                    if (on && /^\d+_s\d+e\d+$/.test(key)) cleanEpisodes[key] = true;
+                }
+            }
             const cleanHistory = data.history
                 .filter(i => i && i.id != null && i.type && (i.type === 'movie' || i.type === 'tv'))
                 .map(i => {
@@ -621,11 +651,20 @@ export const core = {
                     };
                 })
                 .filter(Boolean);
-            this.state.watchlist = cleanWatchlist;
-            this.state.history = cleanHistory;
+            // Merge, never replace: titles in the file update matching titles here,
+            // and everything else already in the library is kept.
+            const keyOf = i => `${i.type}_${i.id}`;
+            const library = new Map((this.state.watchlist || []).map(i => [keyOf(i), i]));
+            for (const item of cleanWatchlist) library.set(keyOf(item), { ...(library.get(keyOf(item)) || {}), ...item });
+            this.state.watchlist = [...library.values()];
+            const recent = new Map((this.state.history || []).map(i => [keyOf(i), i]));
+            for (const item of cleanHistory) if (!recent.has(keyOf(item))) recent.set(keyOf(item), item);
+            this.state.history = [...recent.values()].slice(0, 20);
+            this.state.watchedEpisodes = { ...(this.state.watchedEpisodes || {}), ...cleanEpisodes };
             this.writeLocalList('alexandria_watchlist', this.state.watchlist);
             this.writeLocalList('alexandria_history', this.state.history);
-            this.showToast('Lists imported.');
+            this.writeLocalList('alexandria_watched_episodes', this.state.watchedEpisodes);
+            this.showToast('Lists merged into your library.');
             if (this.state.view === 'home') {
                 this.renderWatchlist();
                 this.renderHistory();
@@ -710,11 +749,15 @@ export const core = {
         const now = new Date().toISOString();
         matched.forEach(m => {
             const exists = this.state.watchlist.find(i => String(i.id) === String(m.id) && i.type === m.type);
+            const rating = Math.min(5, Math.max(0, Math.round((Number(m.rating) || 0) * 2) / 2));
+            const review = (m.review || '').slice(0, 2000);
             if (exists) {
                 if (m.watched) {
                     exists.status = 'watched';
                     exists.watched_at = now;
                 }
+                if (rating) exists.userRating = rating;
+                if (review) exists.userReview = review;
             } else {
                 this.state.watchlist.push({
                     id: m.id,
@@ -722,47 +765,13 @@ export const core = {
                     title: m.title,
                     poster_path: m.poster_path,
                     status: m.watched ? 'watched' : 'want',
-                    watched_at: m.watched ? now : null
+                    watched_at: m.watched ? now : null,
+                    userRating: rating,
+                    userReview: review
                 });
             }
         });
         this.writeLocalList('alexandria_watchlist', this.state.watchlist);
-
-        let cloudCount = 0;
-        if (this.supabase && this.state.authUser) {
-            const uid = this.state.authUser.id;
-            const rowsToUpsert = matched.map(m => ({
-                user_id: uid,
-                tmdb_id: String(m.id),
-                media_type: m.type,
-                title: m.title,
-                poster_path: m.poster_path,
-                status: m.watched ? 'watched' : 'want',
-                watched_at: m.watched ? now : null
-            }));
-            // Batched upserts — one round trip per slice instead of per row.
-            for (let i = 0; i < rowsToUpsert.length; i += 50) {
-                const slice = rowsToUpsert.slice(i, i + 50);
-                try {
-                    const { error } = await this.supabase.from('survival_cache')
-                        .upsert(slice, { onConflict: 'user_id,tmdb_id,media_type' });
-                    if (!error) cloudCount += slice.length;
-                } catch { /* keep going */ }
-            }
-            for (const m of matched) {
-                if (!m.rating) continue;
-                try {
-                    const { error } = await this.supabase.from('ratings').upsert({
-                        user_id: uid,
-                        content_id: Number(m.id),
-                        content_type: m.type,
-                        rating: Math.max(1, Math.min(5, Math.round(m.rating))),
-                        review: m.review || '',
-                        spoiler: false
-                    }, { onConflict: 'user_id,content_id,content_type' });
-                } catch { /* keep going */ }
-            }
-        }
 
         this.showImportResultModal(matched.length, notFound);
         this.showToast(matched.length ? `Letterboxd: ${matched.length} title${matched.length === 1 ? '' : 's'} imported.` : 'Letterboxd: nothing matched.');
@@ -904,14 +913,15 @@ export const core = {
 
     async persistAniListMatches(matched) {
         if (!matched.length) return;
-        const uid = this.state.authUser?.id;
         const now = new Date().toISOString();
 
         for (const m of matched) {
             const exists = this.state.watchlist.find(i => String(i.id) === String(m.id) && i.type === m.type);
+            const score = Number(m.score) ? Math.min(5, Math.max(0.5, Math.round(m.score / 20 * 2) / 2)) : 0;
             if (exists) {
                 exists.status = m.status;
                 if (m.status === 'watched') exists.watched_at = now;
+                if (score && !exists.userRating) exists.userRating = score;
             } else {
                 this.state.watchlist.push({
                     id: m.id,
@@ -919,43 +929,15 @@ export const core = {
                     title: m.title,
                     poster_path: m.poster_path,
                     status: m.status,
-                    watched_at: m.status === 'watched' ? now : null
+                    watched_at: m.status === 'watched' ? now : null,
+                    userRating: score,
+                    userReview: ''
                 });
             }
         }
         this.writeLocalList('alexandria_watchlist', this.state.watchlist);
-
-        if (!this.supabase || !uid) return;
-
-        const rowsToUpsert = matched.map(m => ({
-            user_id: uid,
-            tmdb_id: String(m.id),
-            media_type: m.type,
-            title: m.title,
-            poster_path: m.poster_path || null,
-            status: m.status,
-            watched_at: m.status === 'watched' ? now : null
-        }));
-        for (let i = 0; i < rowsToUpsert.length; i += 50) {
-            try {
-                await this.supabase.from('survival_cache')
-                    .upsert(rowsToUpsert.slice(i, i + 50), { onConflict: 'user_id,tmdb_id,media_type' });
-            } catch { /* keep going */ }
-        }
-
-        for (const m of matched) {
-            if (!m.score || m.score < 1) continue;
-            try {
-                await this.supabase.from('ratings').upsert({
-                    user_id: uid,
-                    content_id: m.id,
-                    content_type: m.type,
-                    rating: Math.max(1, Math.min(5, Math.round(m.score / 20))),
-                    review: '',
-                    spoiler: false
-                }, { onConflict: 'user_id,content_id,content_type' });
-            } catch { /* keep going */ }
-        }
+        this.showToast(matched.length ? `AniList: ${matched.length} title${matched.length === 1 ? '' : 's'} imported.` : 'AniList: nothing matched.');
+        if (this.state.view === 'watchlist' || this.state.view === 'home') this.renderWatchlist();
     },
 
     async matchTmdb(title, year) {
@@ -1034,14 +1016,15 @@ export const core = {
 
     // Canonical link for whatever the user is looking at right now.
     buildShareUrl() {
-        const { id, type } = this.state.activeContent || {};
-        if (id != null && (type === 'movie' || type === 'tv')) return this.shareUrlFor(type, id);
+        // The current view decides what Share means; a title only counts on title views.
         if (this.state.view === 'profile' && this.state.activeProfileId) {
             return this.shareUrlFor('profile', this.state.activeProfileId);
         }
         if (this.state.view === 'list' && this.state.activeListId) {
             return this.shareUrlFor('list', this.state.activeListId);
         }
+        const { id, type } = this.state.activeContent || {};
+        if (id != null && (type === 'movie' || type === 'tv')) return this.shareUrlFor(type, id);
         return location.origin + '/';
     },
 
