@@ -165,7 +165,7 @@ async renderProfile(uid) {
             const displayName = profile.nickname || profile.username || 'Member';
             const isMe = Boolean(me && me === targetUid);
             const followBtn = (me && !isMe)
-                ? `<button type="button" id="profile-follow-btn" class="follow-btn ${isFollowing ? 'following' : ''}" onclick="Alexandria.toggleFollow('${this.escapeHtml(targetUid)}')">${isFollowing ? 'FOLLOWING' : 'FOLLOW'}</button>`
+                ? `<button type="button" id="profile-follow-btn" class="follow-btn ${isFollowing ? 'following' : ''}" onclick="Alexandria.toggleFollow(${this.escapeJsArg(targetUid)})">${isFollowing ? 'FOLLOWING' : 'FOLLOW'}</button>`
                 : '';
             const editBtn = isMe
                 ? '<button type="button" class="btn-secondary" onclick="Alexandria.editProfileModal(true)">EDIT PROFILE</button>'
@@ -191,7 +191,7 @@ async renderProfile(uid) {
                         </div>
                         <div class="account-actions">
                             ${followBtn}
-                            <button type="button" class="btn-quiet" onclick="Alexandria.shareCurrent('${this.escapeHtml(displayName)} on Alexandria')">SHARE</button>
+                            <button type="button" class="btn-quiet" onclick="Alexandria.shareCurrent(${this.escapeJsArg(displayName + ' on Alexandria')})">SHARE</button>
                             ${editBtn}
                         </div>
                     </header>

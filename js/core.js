@@ -195,6 +195,14 @@ export const core = {
         })[character]);
     },
 
+    // For values passed as arguments inside inline handlers. escapeHtml alone
+    // is not enough there: the HTML parser decodes &#39; back to ' before the
+    // handler runs, so a crafted nickname or id could break out of the string.
+    // Use unquoted: onclick="Alexandria.fn(${this.escapeJsArg(value)})".
+    escapeJsArg(value = '') {
+        return this.escapeHtml(JSON.stringify(String(value ?? '')));
+    },
+
     isTrustedEmbedOrigin(origin) {
         try {
             const host = new URL(origin).hostname;

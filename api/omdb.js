@@ -17,21 +17,20 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: 'A valid IMDb id is required (tt…).' });
   }
 
+  const target = new URL('https://www.omdbapi.com/');
+  target.searchParams.set('i', imdbId);
+  target.searchParams.set('apikey', apiKey);
+  target.searchParams.set('plot', 'short');
+
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 8000);
   try {
-    const target = new URL('https://www.omdbapi.com/');
-    target.searchParams.set('i', imdbId);
-    target.searchParams.set('apikey', apiKey);
-    target.searchParams.set('plot', 'short');
+    const response = await fetch(target, {
+      signal: controller.signal,
+      headers: { Accept: 'application/json' }
+    });
 
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 8000);
-    try {
-      const response = await fetch(target, {
-        signal: controller.signal,
-        headers: { Accept: 'application/json' }
-      });
-
-      const data = await response.json().catch(() => ({ Response: 'False', Error: 'Unreadable OMDb response.' }));
+    const data = await response.json().catch(() => ({ Response: 'False', Error: 'Unreadable OMDb response.' }));
     res.setHeader(
       'Cache-Control',
       data.Response === 'True' ? 's-maxage=86400, stale-while-revalidate=604800' : 'no-store'

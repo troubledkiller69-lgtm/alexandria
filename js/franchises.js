@@ -183,7 +183,7 @@ export const franchises = {
                     </div>
                     <div class="franchise-toolbar">
                         <div class="franchise-chips" role="group" aria-label="Filter franchises by genre">
-                            ${genres.map(g => `<button type="button" class="franchise-chip${g === genre ? ' active' : ''}" onclick="Alexandria.setFranchiseGenre('${this.escapeHtml(g)}')">${this.escapeHtml(g)}</button>`).join('')}
+                            ${genres.map(g => `<button type="button" class="franchise-chip${g === genre ? ' active' : ''}" onclick="Alexandria.setFranchiseGenre(${this.escapeJsArg(g)})">${this.escapeHtml(g)}</button>`).join('')}
                         </div>
                         <input type="search" class="franchise-search" placeholder="Search franchises..." aria-label="Search franchises" value="${this.escapeHtml(this.state.franchiseSearch || '')}" oninput="Alexandria.setFranchiseSearch(this.value)">
                         <label class="franchise-sort">
