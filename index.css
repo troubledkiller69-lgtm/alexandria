@@ -4950,6 +4950,16 @@ h1, h2, h3, h4 {
     margin-bottom: 0.22rem;
 }
 
+.changelog-credit {
+    margin: 0.35rem 0 0;
+    text-align: right;
+    font-family: var(--font-body);
+    font-size: 0.66rem;
+    font-style: italic;
+    letter-spacing: 0.04em;
+    color: rgba(255, 255, 255, 0.45);
+}
+
 .auth-modal-overlay {
     position: fixed;
     inset: 0;

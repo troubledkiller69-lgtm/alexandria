@@ -60,7 +60,8 @@ export const auth = {
             items: [
                 'Fixed general bugs',
                 'Improved security'
-            ]
+            ],
+            credit: 'Changes made by Yuntoe'
         },
         {
             key: 'v1.14.2',
@@ -181,6 +182,7 @@ export const auth = {
                 <ul class="changelog-items">
                     ${entry.items.map(item => `<li>${this.escapeHtml(item)}</li>`).join('')}
                 </ul>
+                ${entry.credit ? `<p class="changelog-credit">${this.escapeHtml(entry.credit)}</p>` : ''}
             </div>
         `).join('');
         menu.removeAttribute('hidden');
