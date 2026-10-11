@@ -54,6 +54,15 @@ export const auth = {
     // not an archive.
     CHANGELOG: [
         {
+            key: 'v1.14.3',
+            date: 'Oct 11, 2026',
+            title: 'Bug Fixes & Security',
+            items: [
+                'Fixed general bugs',
+                'Improved security'
+            ]
+        },
+        {
             key: 'v1.14.2',
             date: 'Oct 1, 2026',
             title: 'Halloween Becomes a Real Calendar',
@@ -135,17 +144,6 @@ export const auth = {
                 'SHARE buttons rebuilt — instant clipboard copy with confirmation, native share sheet on phones',
                 'Faster boots (no more fake loading gate), batched imports, parallel cloud sync',
                 'Alexandria is now installable — manifest added for home-screen / app use'
-            ]
-        },
-        {
-            key: 'v1.11.0',
-            date: 'Sep 3, 2026',
-            title: 'Mirror Watch & Live Archives',
-            items: [
-                'Server picker now prefers mirrors that answered a health check, so you spend less time staring at blank players',
-                'Franchise archives moved into a live database — new universes and fixes roll out without a redeploy',
-                'Continue watching posters show a red RESUME strip with your exact timestamp',
-                'Under the hood: comments and feeds load in one batch query instead of one per person, the home airing row fetches only shows that actually air this week, and TV episodes no longer double-fetch their comments'
             ]
         }
     ],
