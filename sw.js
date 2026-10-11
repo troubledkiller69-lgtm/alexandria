@@ -1,5 +1,9 @@
-const CACHE = 'alexandria-shell-v1';
-const APP_VERSION = '20260930d';
+// The version comes from the registration URL (core.js registers
+// /sw.js?v=<app.js version>), so it can never drift from index.html again.
+// A hand-synced constant drifted on Oct 1 and the version check below then
+// wiped every cache and force-reloaded visitors on each page load.
+const APP_VERSION = new URL(self.location.href).searchParams.get('v') || 'dev';
+const CACHE = `alexandria-shell-${APP_VERSION}`;
 
 const SHELL = [
     '/',
@@ -12,18 +16,6 @@ const SHELL = [
 ];
 
 const POSTER_CACHE_MAX = 60;
-
-async function checkVersionAndReload() {
-    try {
-        const resp = await fetch('/index.html', { cache: 'no-store' });
-        const html = await resp.text();
-        const match = html.match(/js\/app\.js\?v=([^"']+)/);
-        if (match && match[1] !== APP_VERSION) {
-            await caches.keys().then(keys => Promise.all(keys.map(k => caches.delete(k))));
-            self.clients.matchAll().then(clients => clients.forEach(c => c.navigate(c.url)));
-        }
-    } catch { /* ignore */ }
-}
 
 async function trimPosterCache(cache) {
     const keys = await cache.keys();
@@ -45,7 +37,6 @@ self.addEventListener('activate', event => {
         caches.keys()
             .then(keys => Promise.all(keys.filter(k => k !== CACHE).map(k => caches.delete(k))))
             .then(() => self.clients.claim())
-            .then(() => checkVersionAndReload())
     );
 });
 
@@ -74,9 +65,8 @@ self.addEventListener('fetch', event => {
     }
 
     // Navigations: network-first, fall back to the cached shell offline.
+    // Network-first already serves each new deploy, so no forced reload.
     if (request.mode === 'navigate') {
-        // Fire version check in background
-        checkVersionAndReload();
         event.respondWith(
             fetch(request)
                 .then(response => {

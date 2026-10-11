@@ -104,8 +104,15 @@ export const core = {
     supabase: null,
     _renderToken: 0,
     _apiCache: new Map(),
+    _apiInflight: new Map(),
     _CACHE_TTL_MS: 10 * 60 * 1000,
     _CACHE_MAX: 120,
+    _NETWORK_GRACE_MS: 2500,
+    _NETWORK_GRACE_CLOUD_MS: 8000,
+    _API_TIMEOUT_MS: 12000,
+    // No 429 here: our own per-IP limiter answers with Retry-After: 60, so a
+    // quick retry would only spend another slot.
+    _API_RETRY_STATUSES: new Set([500, 502, 503, 504]),
     _EMBED_ORIGIN: 'https://embedmaster.link',
     _FAILOVER_MS: 15000,
     _FAILOVER_GRACE_MS: 12000,
@@ -236,13 +243,51 @@ export const core = {
     async getJson(endpoint, options = {}) {
         const { noCache, ...fetchOptions } = options;
         const useCache = !noCache;
-        const now = Date.now();
         if (useCache && this._apiCache.has(endpoint)) {
             const hit = this._apiCache.get(endpoint);
-            if (now - hit.at < this._CACHE_TTL_MS) return hit.data;
+            if (Date.now() - hit.at < this._CACHE_TTL_MS) return hit.data;
         }
+        // Different rows often ask for the same tv/{id} at the same time;
+        // share one in-flight request instead of firing duplicates.
+        if (useCache && this._apiInflight.has(endpoint)) return this._apiInflight.get(endpoint);
 
-        const response = await fetch(`/api/proxy?endpoint=${encodeURIComponent(endpoint)}`, fetchOptions);
+        const request = this.requestProxyJson(endpoint, fetchOptions).then(data => {
+            if (useCache) {
+                if (this._apiCache.size >= this._CACHE_MAX) {
+                    const firstKey = this._apiCache.keys().next().value;
+                    this._apiCache.delete(firstKey);
+                }
+                this._apiCache.set(endpoint, { data, at: Date.now() });
+            }
+            return data;
+        });
+        if (useCache) {
+            this._apiInflight.set(endpoint, request);
+            request.finally(() => this._apiInflight.delete(endpoint)).catch(() => {});
+        }
+        return request;
+    },
+
+    // A cold serverless start can hang or 5xx on the first hit of a visit.
+    // One quiet retry turns that into a short delay instead of an error page.
+    async requestProxyJson(endpoint, fetchOptions, attempt = 0) {
+        const retry = async () => {
+            await new Promise(resolve => setTimeout(resolve, 600 + Math.random() * 600));
+            return this.requestProxyJson(endpoint, fetchOptions, attempt + 1);
+        };
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), this._API_TIMEOUT_MS);
+        let response;
+        try {
+            response = await fetch(`/api/proxy?endpoint=${encodeURIComponent(endpoint)}`, { ...fetchOptions, signal: controller.signal });
+        } catch {
+            if (attempt < 1) return retry();
+            throw new Error(controller.signal.aborted ? 'The archive took too long to respond.' : 'Could not reach the archive.');
+        } finally {
+            clearTimeout(timeoutId);
+        }
+        if (this._API_RETRY_STATUSES.has(response.status) && attempt < 1) return retry();
+
         let data;
         try {
             data = await response.json();
@@ -251,13 +296,6 @@ export const core = {
         }
         if (!response.ok || data?.success === false || data?.error) {
             throw new Error(data?.status_message || data?.error || `Archive request failed (${response.status}).`);
-        }
-        if (useCache) {
-            if (this._apiCache.size >= this._CACHE_MAX) {
-                const firstKey = this._apiCache.keys().next().value;
-                this._apiCache.delete(firstKey);
-            }
-            this._apiCache.set(endpoint, { data, at: now });
         }
         return data;
     },
@@ -454,7 +492,10 @@ export const core = {
         this.bindSecurityGuard();
         this.bindPopupGuard();
         if ('serviceWorker' in navigator && location.protocol === 'https:') {
-            navigator.serviceWorker.register('/sw.js').catch(() => {});
+            // Hand the worker the same version index.html loads app.js with.
+            const appSrc = document.querySelector('script[src*="js/app.js"]')?.src;
+            const version = appSrc ? new URL(appSrc).searchParams.get('v') : null;
+            navigator.serviceWorker.register(version ? `/sw.js?v=${encodeURIComponent(version)}` : '/sw.js').catch(() => {});
         }
         this.main = document.getElementById('content');
         
@@ -477,13 +518,16 @@ export const core = {
             }
         } catch { /* ignore */ }
 
-        // Supabase is optional; used only for Watch Party Realtime.
-        // Await alongside the loading screen so deep-linked #party/... never races ahead.
+        // Supabase is optional. Give it a short head start so signed-in users
+        // usually land with their session restored, but never hold the whole
+        // app on it: session restore has no timeout, so a slow Supabase left
+        // visitors stuck on the loader. Views that need Supabase wait longer.
         const networkPromise = this.initNetwork().catch(e => {
             console.error("Alexandria Protocol: Background Init Failed -", e);
         });
-
-        await networkPromise;
+        const needsCloud = /^#(party|profile|list)\/|^#community$/.test(window.location.hash || '');
+        const graceMs = needsCloud ? this._NETWORK_GRACE_CLOUD_MS : this._NETWORK_GRACE_MS;
+        await Promise.race([networkPromise, new Promise(resolve => setTimeout(resolve, graceMs))]);
         this.revealApp();
 
         // Once a session, clear stale community noise (comments, follows, list

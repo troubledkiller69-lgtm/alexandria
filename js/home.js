@@ -59,29 +59,31 @@ export const home = {
         try {
             const currentGenre = this.GENRES.find(g => g.id === (this.state.activeGenreId || 35)) || this.GENRES[0];
 
+            // Alexandria's specials use verified TMDB IDs and don't depend on
+            // anything else, so they load alongside the core rows instead of
+            // adding their own round trip before first paint.
+            const chronicleIds = [1402, 62286, 94305, 194583, 211684, 206586];
+            const specialsPromise = Promise.all(chronicleIds.map(id =>
+                this.getJson('tv/' + id)
+                .catch(() => null)
+            )).then(results => results.filter(Boolean));
+
             // Sector 1: Core Content Scans
             const [mData, tData, genreData] = await Promise.all([
                 this.getJson('trending/movie/day'),
                 this.getJson('trending/tv/day'),
                 this.getJson(`discover/movie?with_genres=${currentGenre.id}&sort_by=popularity.desc`).catch(() => ({ results: [] }))
             ]);
-            
-            // Sector 2: Alexandria's specials, using verified TMDB IDs.
-            const chronicleIds = [1402, 62286, 94305, 194583, 211684, 206586];
-            const specialsData = await Promise.all(chronicleIds.map(id => 
-                this.getJson('tv/' + id)
-                .catch(() => null)
-            )).then(results => results.filter(Boolean));
-
             if (token !== this._renderToken) return;
 
             const heroPool = (mData.results || []).filter(m => m && m.id && m.backdrop_path).slice(0, 5);
             if (!heroPool.length) throw new Error("No featured content found.");
 
             // Runtime isn't in trending payloads — one cached detail call each.
-            const heroRuntimes = await Promise.all(
-                heroPool.map(m => this.getJson('movie/' + m.id).then(d => d?.runtime || null).catch(() => null))
-            );
+            const [heroRuntimes, specialsData] = await Promise.all([
+                Promise.all(heroPool.map(m => this.getJson('movie/' + m.id).then(d => d?.runtime || null).catch(() => null))),
+                specialsPromise
+            ]);
             if (token !== this._renderToken) return;
             this._heroSlides = heroPool.map((m, i) => ({ ...m, runtime: heroRuntimes[i] || null }));
             this._heroIndex = 0;
@@ -133,7 +135,7 @@ export const home = {
             this.renderResults(specialsData, 'alexandria-specials');
             this.renderResults(mData.results, 'trending-movies');
             this.renderResults(tData.results, 'trending-tv');
-            this.renderAiringThisWeek();
+            this.whenNearViewport('airing-week-grid', () => this.renderAiringThisWeek());
             this.heroAutoplay();
         } catch (error) {
             console.error("Alexandria Protocol: Home Scout Failed -", error);
@@ -243,6 +245,25 @@ export const home = {
 
     localISODate(d) {
         return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+    },
+
+    // The airing row costs ~20 TMDB lookups, so it waits until it's about to
+    // scroll into view instead of competing with the first paint.
+    whenNearViewport(elementId, callback) {
+        this._nearViewportObserver?.disconnect();
+        const el = document.getElementById(elementId);
+        if (!el) return;
+        if (!('IntersectionObserver' in window)) {
+            callback();
+            return;
+        }
+        const observer = new IntersectionObserver(entries => {
+            if (!entries.some(entry => entry.isIntersecting)) return;
+            observer.disconnect();
+            callback();
+        }, { rootMargin: '600px 0px' });
+        observer.observe(el);
+        this._nearViewportObserver = observer;
     },
 
     // One discover/tv call filtered to the air-date window returns only shows

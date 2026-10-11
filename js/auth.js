@@ -445,30 +445,46 @@ export const auth = {
         }
     },
 
+    // The on_auth_user_created trigger inserts every new profile with only
+    // (id, email), so the handle has to be filled in here. The old upsert
+    // also rewrote id and created_at, which the column grants don't allow,
+    // so it failed silently and new accounts were left with no @ handle.
+    // supabase-js returns errors rather than throwing, so check `error`.
     async ensureUserProfile(user, preferredUsername) {
         if (!this.supabase || !user) return;
-        const base = preferredUsername || user.user_metadata?.username || user.email?.split('@')[0] || 'User';
-        for (let attempt = 0; attempt < 3; attempt++) {
-            const username = attempt === 0 ? base : `${base}${attempt + 1}`;
-            try {
-                await this.supabase.from('profiles').upsert({
-                    id: user.id,
-                    username,
-                    username_lower: username.toLowerCase(),
-                    nickname: username,
-                    created_at: new Date().toISOString()
-                }, { onConflict: 'id' });
+        try {
+            const { data: existing, error: readError } = await this.supabase
+                .from('profiles')
+                .select('id, username')
+                .eq('id', user.id)
+                .maybeSingle();
+            if (readError) {
+                console.warn("Profile sync note:", readError);
                 return;
-            } catch (err) {
+            }
+            // Never touch a handle that's already set (users can edit theirs).
+            if (existing?.username) return;
+
+            const base = preferredUsername || user.user_metadata?.username || user.email?.split('@')[0] || 'User';
+            for (let attempt = 0; attempt < 3; attempt++) {
+                const username = attempt === 0 ? base : `${base}${attempt + 1}`;
+                const fields = { username, username_lower: username.toLowerCase(), nickname: username };
+                // Bare trigger row: fill it in. No row at all (accounts from
+                // before the trigger): insert one, ignoring a racing insert.
+                const { error } = existing
+                    ? await this.supabase.from('profiles').update(fields).eq('id', user.id).is('username', null)
+                    : await this.supabase.from('profiles').upsert({ id: user.id, ...fields }, { onConflict: 'id', ignoreDuplicates: true });
+                if (!error) return;
                 // 23505 = unique_violation: this @ is taken (someone raced the
-                // signup). Retry with a numbered suffix rather than silently
-                // failing to create the profile.
-                const isDuplicate = err && (err.code === '23505' || /duplicate key/.test(err.message || ''));
+                // signup). Retry with a numbered suffix.
+                const isDuplicate = error.code === '23505' || /duplicate key/.test(error.message || '');
                 if (!isDuplicate) {
-                    console.warn("Profile sync note:", err);
+                    console.warn("Profile sync note:", error);
                     return;
                 }
             }
+        } catch (err) {
+            console.warn("Profile sync note:", err);
         }
     },
 
@@ -494,29 +510,53 @@ export const auth = {
 
         this.updateAuthUI();
 
-        this.supabase.auth.onAuthStateChange(async (event, session) => {
-            if (session?.user) {
-                this.state.authUser = session.user;
-                const username = session.user.user_metadata?.username || session.user.email?.split('@')[0];
-                if (username) {
-                    this.writeStorage(sessionStorage, 'alexandria_nickname', username);
-                    this.writeStorage(localStorage, 'alexandria_username', username);
-                }
-                this.ensureUserProfile(session.user, username);
-                if (event === 'SIGNED_IN') {
-                    this.showToast(`Welcome back, ${username || 'user'}!`);
-                }
-            } else {
-                this.state.authUser = null;
-                try { sessionStorage.removeItem('alexandria_nickname'); } catch { /* ignore */ }
-                try { localStorage.removeItem('alexandria_username'); } catch { /* ignore */ }
-            }
-            this.updateAuthUI();
-            await this.syncFromCloud();
-            if (this.state.view === 'details' || this.state.view === 'player') {
-                this.refreshCommunity();
-            }
+        // Supabase runs this callback while holding its auth lock, and awaiting
+        // other Supabase calls inside it can deadlock (their docs warn against
+        // it). That could hang session restore on load, so defer the real work.
+        this.supabase.auth.onAuthStateChange((event, session) => {
+            setTimeout(() => this.handleAuthChange(event, session), 0);
         });
+    },
+
+    async handleAuthChange(event, session) {
+        if (session?.user) {
+            this.state.authUser = session.user;
+            const username = session.user.user_metadata?.username || session.user.email?.split('@')[0];
+            if (username) {
+                this.writeStorage(sessionStorage, 'alexandria_nickname', username);
+                this.writeStorage(localStorage, 'alexandria_username', username);
+            }
+            if (event === 'SIGNED_IN') {
+                this.ensureUserProfile(session.user, username);
+                this.showToast(`Welcome back, ${username || 'user'}!`);
+            }
+        } else {
+            this.state.authUser = null;
+            try { sessionStorage.removeItem('alexandria_nickname'); } catch { /* ignore */ }
+            try { localStorage.removeItem('alexandria_username'); } catch { /* ignore */ }
+        }
+        this.updateAuthUI();
+        // Token refreshes fire hourly and don't change the user's lists; they
+        // used to re-run the full cloud sync (4 reads + upserts) every time.
+        if (event === 'TOKEN_REFRESHED') return;
+        await this.syncFromCloud();
+        this.refreshListsInView();
+        if (this.state.view === 'details' || this.state.view === 'player') {
+            this.refreshCommunity();
+        }
+    },
+
+    // The cloud sync can land after the first render now that boot no longer
+    // waits for it, so repaint whatever is showing the lists.
+    refreshListsInView() {
+        if (this.state.view === 'home') {
+            this.renderHistory?.();
+            this.renderWatchlist?.();
+        } else if (this.state.view === 'watchlist') {
+            this.renderWatchlistPage?.();
+        } else if (this.state.view === 'history') {
+            this.renderHistoryPage?.();
+        }
     },
 
 };
