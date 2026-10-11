@@ -63,6 +63,12 @@ export const profiles = {
 
     pruneOldActivity() {
         if (!this.supabase || !this.supabase.from) return;
+        // Only a signed-in user can delete (their own) rows, so for guests
+        // this was a guaranteed 401 on every visit. Runs once per page load,
+        // from boot or from the auth handler if the session lands later.
+        const uid = this.state.authUser?.id;
+        if (!uid || this._activityPruned) return;
+        this._activityPruned = true;
         // Keep stats-critical rows (watching/rated/reviewed feed the watch
         // hours, streaks, and heatmap); drop everything else after 24h so the
         // community feed stays fresh without losing anyone's numbers.
@@ -70,6 +76,7 @@ export const profiles = {
         this.supabase
             .from('activity')
             .delete()
+            .eq('user_id', uid)
             .lt('created_at', cutoff)
             .not('kind', 'in', '("watching","rated","reviewed")')
             .then(res => {

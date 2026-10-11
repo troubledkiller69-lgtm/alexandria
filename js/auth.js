@@ -539,6 +539,7 @@ export const auth = {
         if (event === 'TOKEN_REFRESHED') return;
         await this.syncFromCloud();
         this.refreshListsInView();
+        this.pruneOldActivity();
         if (this.state.view === 'details' || this.state.view === 'player') {
             this.refreshCommunity();
         }
