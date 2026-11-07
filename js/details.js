@@ -203,6 +203,15 @@ export const details = {
             const endpoint = `person/${id}?append_to_response=combined_credits,external_ids`;
             const data = await this.getJson(endpoint);
             if (token !== this._renderToken) return;
+
+            // Curated directors get an editorial layer above the usual dossier.
+            // The lookup resolves to null for everyone else, so actor pages are unchanged.
+            let directorEditorial = null;
+            if (typeof this.getCuratedDirector === 'function') {
+                const curated = await this.getCuratedDirector(id);
+                if (token !== this._renderToken) return;
+                if (curated) directorEditorial = this.buildDirectorEditorial(data, curated);
+            }
             
             const photo = this.imageUrl(data.profile_path, 'h632');
 
@@ -286,6 +295,8 @@ export const details = {
                         </div>
                     </div>` : ''}
 
+                    ${directorEditorial ? directorEditorial.html : ''}
+
                     ${actingCredits.length ? `
                     <div class="view-section person-credits-section">
                         <h3>ACTING (${actingCredits.length})</h3>
@@ -297,12 +308,19 @@ export const details = {
                         <h3>DIRECTING & PRODUCING (${uniqueCrew.length})</h3>
                         <div class="person-credits-grid" id="person-crew"></div>
                     </div>` : ''}
+
+                    ${directorEditorial?.filmography?.length ? `
+                    <div class="view-section person-credits-section director-filmography-section">
+                        <h3>DIRECTED FILMS (${directorEditorial.filmography.length})</h3>
+                        <div class="person-credits-grid" id="director-filmography"></div>
+                    </div>` : ''}
                 </section>
             `;
             
             if (knownFor.length) this.renderResults(knownFor, 'person-known-for');
             if (actingCredits.length) this.renderResults(actingCredits, 'person-acting');
             if (uniqueCrew.length) this.renderResults(uniqueCrew, 'person-crew');
+            if (directorEditorial?.filmography?.length) this.renderResults(directorEditorial.filmography, 'director-filmography');
         } catch(e) {
             console.error("Alexandria Protocol: Person Render Failed", e);
             if (token === this._renderToken) this.renderError('This dossier is unavailable', e.message, 'person');

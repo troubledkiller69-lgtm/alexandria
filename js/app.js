@@ -5,6 +5,7 @@ import { views } from './views.js';
 import { home } from './home.js';
 import { browse } from './browse.js';
 import { franchises } from './franchises.js';
+import { directors } from './directors.js';
 import { search } from './search.js';
 import { details } from './details.js';
 import { profiles } from './profiles.js';
@@ -16,7 +17,6 @@ import { party } from './party.js';
 import { sharedlists } from './sharedlists.js';
 import { settings } from './settings.js';
 import { ui } from './ui.js';
-import { halloween } from './halloween.js';
 import { autopsy } from './autopsy.js';
 
 const Alexandria = Object.assign(
@@ -28,6 +28,7 @@ const Alexandria = Object.assign(
     home,
     browse,
     franchises,
+    directors,
     search,
     details,
     profiles,
@@ -39,7 +40,6 @@ const Alexandria = Object.assign(
     sharedlists,
     settings,
     ui,
-    halloween,
     autopsy
 );
 

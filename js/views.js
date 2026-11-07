@@ -12,7 +12,7 @@ export const views = {
         });
 
         // Update Category Tabs Active State (mobile)
-        const catTabMap = { home: 'home', movies: 'movies', tv: 'tv', anime: 'anime', franchises: 'franchises', halloween: 'halloween', history: 'history', watchlist: 'watchlist' };
+        const catTabMap = { home: 'home', movies: 'movies', tv: 'tv', anime: 'anime', franchises: 'franchises', directors: 'directors', history: 'history', watchlist: 'watchlist' };
         const activeCat = catTabMap[this.state.view] || 'home';
         document.querySelectorAll('.category-tab').forEach(btn => {
             const isActive = btn.dataset.view === activeCat;
@@ -39,6 +39,7 @@ export const views = {
         else if (this.state.view === 'tv') return this.renderFiltered('tv');
         else if (this.state.view === 'anime') return this.renderAnime();
         else if (this.state.view === 'franchises') return this.renderFranchises();
+        else if (this.state.view === 'directors') return this.renderDirectors();
         else if (this.state.view === 'search') return this.renderSearch();
         else if (this.state.view === 'history') return this.renderHistoryPage();
         else if (this.state.view === 'watchlist') return this.renderWatchlistPage();
@@ -50,7 +51,6 @@ export const views = {
         else if (this.state.view === 'party') return this.renderParty();
         else if (this.state.view === 'list') return this.renderList();
         else if (this.state.view === 'settings') return this.renderSettings();
-        else if (this.state.view === 'halloween') return this.renderHalloween();
 
         else {
             this.state.view = 'home';

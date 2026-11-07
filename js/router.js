@@ -84,10 +84,8 @@ export const router = {
         } else if (path === 'roulette') {
             this.openRouletteModal();
             return;
-        } else if (path === 'halloween') {
-            this.setView('halloween');
         } else {
-            const allowedViews = new Set(['home', 'movies', 'tv', 'anime', 'franchises', 'search', 'history', 'watchlist', 'community', 'settings', 'halloween']);
+            const allowedViews = new Set(['home', 'movies', 'tv', 'anime', 'franchises', 'directors', 'search', 'history', 'watchlist', 'community', 'settings']);
             this.setView(allowedViews.has(path) ? path : 'home');
         }
     },
