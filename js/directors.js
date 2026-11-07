@@ -1,10 +1,10 @@
-// Directors archive: a curated gallery plus an editorial layer on top of the
+// Directors archive: a curated portrait index plus an editorial layer on the
 // existing person dossier. Curated entries live in ./director-data.js and are
 // loaded on demand so a missing or broken data file never blocks the app.
 
 const RATING_PRIOR_VOTES = 500;
 const BEST_FILMS_LIMIT = 8;
-const GALLERY_EXAMPLE_LIMIT = 2;
+const PODIUM_SIZE = 3;
 
 function initialsFor(name) {
     const parts = String(name || '').trim().split(/\s+/).filter(Boolean).slice(0, 2);
@@ -92,6 +92,7 @@ export const directors = {
     _directorDataPromise: null,
     _directorRetry: 0,
     _directorPortraits: new Map(),
+    _directorBackdrops: new Map(),
 
     loadDirectors(force = false) {
         if (!force && this._directorData) return Promise.resolve(this._directorData);
@@ -160,50 +161,189 @@ export const directors = {
         }
 
         const eligible = films.filter(film => film.released && film.vote_count > 0 && film.vote_average > 0);
-        const mean = eligible.length
-            ? eligible.reduce((sum, film) => sum + film.vote_average, 0) / eligible.length
+
+        // A director can have a short and a feature under the same title (the
+        // Whiplash short and the Whiplash feature, for instance). Keep the one
+        // with the larger audience so a duplicate title never fills two slots.
+        const byTitle = new Map();
+        for (const film of eligible) {
+            const key = film.title.toLocaleLowerCase().replace(/[^\p{L}\p{N}]+/gu, '');
+            const current = byTitle.get(key);
+            if (!current || film.vote_count > current.vote_count) byTitle.set(key, film);
+        }
+        const unique = Array.from(byTitle.values());
+        const mean = unique.length
+            ? unique.reduce((sum, film) => sum + film.vote_average, 0) / unique.length
             : 0;
 
         // Bayesian average: a high score on a handful of votes should not
         // outrank a slightly lower score backed by a large audience.
-        for (const film of eligible) {
+        for (const film of unique) {
             const weight = film.vote_count / (film.vote_count + RATING_PRIOR_VOTES);
             film.weighted = (weight * film.vote_average) + ((1 - weight) * mean);
         }
 
-        const ranked = eligible
+        const ranked = unique
             .slice()
             .sort((a, b) => b.weighted - a.weighted || b.vote_count - a.vote_count || b.release_date.localeCompare(a.release_date))
             .slice(0, BEST_FILMS_LIMIT);
 
         const filmography = films
+            .filter(film => film.poster_path)
             .slice()
             .sort((a, b) => b.release_date.localeCompare(a.release_date) || a.title.localeCompare(b.title));
 
-        return { ranked, filmography, mean, eligibleCount: eligible.length };
+        return { ranked, filmography, mean, eligibleCount: unique.length };
     },
 
-    directorExamplesHtml(director, limit = 0) {
-        const examples = limit > 0 ? director.examples.slice(0, limit) : director.examples;
-        if (!examples.length) return '';
-        return examples.map(example => `
-            <a class="director-example" href="#details/movie/${example.id}">
-                <strong>${this.escapeHtml(example.title)}</strong>
-                ${example.note ? `<span>${this.escapeHtml(example.note)}</span>` : ''}
-            </a>`).join('');
+    // The two curated frames carry the editorial argument. A backdrop turns
+    // them into film stills instead of another row of links; when TMDB has no
+    // image the plate stays typographic rather than showing a broken frame.
+    async resolveExampleFrames(director) {
+        return Promise.all(director.examples.map(async example => {
+            if (this._directorBackdrops.has(example.id)) {
+                return { ...example, backdrop_path: this._directorBackdrops.get(example.id) };
+            }
+            try {
+                const data = await this.getJson(`movie/${example.id}`);
+                const path = typeof data?.backdrop_path === 'string' ? data.backdrop_path : '';
+                this._directorBackdrops.set(example.id, path);
+                return { ...example, backdrop_path: path };
+            } catch {
+                return { ...example, backdrop_path: '' };
+            }
+        }));
     },
 
-    directorPortraitHtml(director, profilePath = '') {
-        const image = profilePath ? this.imageUrl(profilePath, 'w185') : '';
-        const fallback = `<span class="director-portrait-fallback">${this.escapeHtml(initialsFor(director.name))}</span>`;
-        return `<div class="director-card-portrait" data-director-portrait="${director.id}" aria-hidden="true">
-            ${image
-                ? `<img src="${image}" alt="" loading="lazy" decoding="async">`
-                : fallback}
+    directorFramesHtml(frames) {
+        return frames.map((frame, index) => {
+            const backdrop = this.imageUrl(frame.backdrop_path, 'w780');
+            return `
+            <a class="dir-frame" href="#details/movie/${frame.id}">
+                <span class="dir-frame-media">
+                    ${backdrop
+                        ? `<img src="${backdrop}" alt="" decoding="async">`
+                        : `<span class="dir-frame-plate" aria-hidden="true">${this.escapeHtml(initialsFor(frame.title))}</span>`}
+                    <span class="dir-frame-shade" aria-hidden="true"></span>
+                    <span class="dir-frame-index" aria-hidden="true">${String(index + 1).padStart(2, '0')}</span>
+                </span>
+                <span class="dir-frame-caption">
+                    <span class="dir-frame-title">${this.escapeHtml(frame.title)}</span>
+                    ${frame.note ? `<span class="dir-frame-note">${this.escapeHtml(frame.note)}</span>` : ''}
+                    <span class="dir-frame-open">Open film <span aria-hidden="true">&rarr;</span></span>
+                </span>
+            </a>`;
+        }).join('');
+    },
+
+    directorPodiumHtml(ranked) {
+        const podium = ranked.slice(0, PODIUM_SIZE);
+        if (!podium.length) return '';
+        return `<div class="dir-podium">
+            ${podium.map((film, index) => {
+                const year = film.release_date.slice(0, 4);
+                const poster = this.imageUrl(film.poster_path, 'w342');
+                const href = `#details/movie/${film.id}`;
+                return `
+                <a class="dir-plate" href="${href}">
+                    <span class="dir-plate-frame">
+                        ${poster
+                            ? `<img src="${poster}" alt="" decoding="async">`
+                            : `<span class="dir-plate-fallback" aria-hidden="true">${this.escapeHtml(initialsFor(film.title))}</span>`}
+                    </span>
+                    <span class="dir-plate-rank" aria-hidden="true">${String(index + 1).padStart(2, '0')}</span>
+                    <span class="dir-plate-title">${this.escapeHtml(film.title)}</span>
+                    <span class="dir-plate-meta">${year} <span aria-hidden="true">/</span> ${film.vote_average.toFixed(1)}</span>
+                </a>`;
+            }).join('')}
         </div>`;
     },
 
-    // Portraits are progressive enhancement: the gallery renders and stays
+    directorRanksHtml(ranked) {
+        const rest = ranked.slice(PODIUM_SIZE);
+        if (!rest.length) return '';
+        return `<ol class="dir-ranks">
+            ${rest.map((film, index) => {
+                const year = film.release_date.slice(0, 4);
+                const href = `#details/movie/${film.id}`;
+                return `
+                <li class="dir-rank">
+                    <span class="dir-rank-no" aria-hidden="true">${String(index + PODIUM_SIZE + 1).padStart(2, '0')}</span>
+                    <a class="dir-rank-link" href="${href}">
+                        <span class="dir-rank-title">${this.escapeHtml(film.title)}</span>
+                        <span class="dir-rank-meta">${year} <span aria-hidden="true">/</span> ${film.vote_count.toLocaleString('en-US')} votes</span>
+                    </a>
+                    <span class="dir-rank-score" title="Rating weighted by vote count">${film.weighted.toFixed(1)}</span>
+                </li>`;
+            }).join('')}
+        </ol>`;
+    },
+
+    async buildDirectorEditorial(data, director) {
+        const ranking = this.buildDirectorRanking(data);
+        const frames = await this.resolveExampleFrames(director);
+        const canRank = ranking.ranked.length > 0;
+
+        const sources = director.sources.length
+            ? `<div class="dir-references">
+                    <h4>References</h4>
+                    <ol>${director.sources.map(source => `
+                        <li><a href="${this.escapeHtml(source.url)}" target="_blank" rel="noopener noreferrer">${this.escapeHtml(source.label)}<span aria-hidden="true">&nbsp;&nearr;</span></a></li>`).join('')}
+                    </ol>
+                </div>`
+            : '';
+
+        const html = `
+            <section class="dir-signature" aria-labelledby="director-signature-title">
+                <div class="dir-signature-head">
+                    <p class="dir-eyebrow"><span class="dir-eyebrow-rule" aria-hidden="true"></span>The signature</p>
+                    <h2 id="director-signature-title">${this.escapeHtml(director.technique || 'A visual signature')}</h2>
+                    ${director.tagline ? `<p class="dir-tagline">${this.escapeHtml(director.tagline)}</p>` : ''}
+                </div>
+                <div class="dir-signature-body">
+                    ${director.description ? `<p class="dir-description">${this.escapeHtml(director.description)}</p>` : '<span></span>'}
+                    ${sources}
+                </div>
+                ${frames.length ? `
+                    <div class="dir-frames">
+                        <p class="dir-frames-label">See it in the frame</p>
+                        <div class="dir-frames-grid">${this.directorFramesHtml(frames)}</div>
+                    </div>` : ''}
+            </section>
+
+            <section class="dir-best" aria-labelledby="director-best-title">
+                <div class="dir-section-head">
+                    <div>
+                        <p class="dir-eyebrow"><span class="dir-eyebrow-rule" aria-hidden="true"></span>The essentials</p>
+                        <h3 id="director-best-title">Best films</h3>
+                    </div>
+                    ${canRank ? `<p class="dir-method">Ranked by TMDB rating, weighted for audience size</p>` : ''}
+                </div>
+                ${canRank
+                    ? `${this.directorPodiumHtml(ranking.ranked)}${this.directorRanksHtml(ranking.ranked)}
+                       <p class="dir-method-note">
+                           Each rating is pulled toward this director's ${ranking.mean.toFixed(2)} average by a
+                           ${RATING_PRIOR_VOTES.toLocaleString('en-US')}-vote prior, so a small sample of high scores
+                           cannot outrank a film with a large audience. Unreleased and unrated titles are excluded.
+                       </p>`
+                    : '<p class="dir-empty-note">No released, rated films are recorded for this director yet.</p>'}
+            </section>`;
+
+        return {
+            html,
+            filmography: ranking.filmography.map(cardItem)
+        };
+    },
+
+    directorPortraitHtml(director, profilePath = '') {
+        const image = profilePath ? this.imageUrl(profilePath, 'h632') : '';
+        const fallback = `<span class="dir-card-initials" aria-hidden="true">${this.escapeHtml(initialsFor(director.name))}</span>`;
+        return `<span class="dir-card-media" data-director-portrait="${director.id}">
+            ${image ? `<img src="${image}" alt="" loading="lazy" decoding="async">` : fallback}
+        </span>`;
+    },
+
+    // Portraits are progressive enhancement: the index renders and stays
     // usable immediately, and each plate fills in only if TMDB answers.
     async hydrateDirectorPortraits(list, token) {
         const results = await Promise.all(list.map(async director => {
@@ -222,7 +362,7 @@ export const directors = {
 
         if (token !== this._renderToken) return;
         for (const result of results) {
-            const image = this.imageUrl(result.path, 'w185');
+            const image = this.imageUrl(result.path, 'h632');
             if (!image) continue;
             const slot = document.querySelector(`[data-director-portrait="${result.id}"]`);
             if (!slot) continue;
@@ -234,7 +374,8 @@ export const directors = {
             // should degrade to the typographic fallback, not a broken icon.
             img.addEventListener('error', () => {
                 const fallback = document.createElement('span');
-                fallback.className = 'director-portrait-fallback';
+                fallback.className = 'dir-card-initials';
+                fallback.setAttribute('aria-hidden', 'true');
                 fallback.textContent = initialsFor(result.name);
                 slot.replaceChildren(fallback);
             }, { once: true });
@@ -243,102 +384,9 @@ export const directors = {
         }
     },
 
-    directorRankingHtml(ranking) {
-        if (!ranking.ranked.length) {
-            return '<p class="director-empty-note">No released, rated films are recorded for this director yet.</p>';
-        }
-        return `<ol class="director-ranking">
-            ${ranking.ranked.map((film, index) => {
-                const year = film.release_date.slice(0, 4);
-                const poster = this.imageUrl(film.poster_path, 'w185');
-                const href = `#details/movie/${film.id}`;
-                return `
-                <li class="director-rank-row">
-                    <span class="director-rank-number" aria-hidden="true">${index + 1}</span>
-                    <a class="director-rank-poster" href="${href}" tabindex="-1" aria-hidden="true">
-                        ${poster
-                            ? `<img src="${poster}" alt="" loading="lazy" decoding="async">`
-                            : '<span class="director-rank-poster-placeholder">A</span>'}
-                    </a>
-                    <div class="director-rank-body">
-                        <h4><a href="${href}">${this.escapeHtml(film.title)}</a></h4>
-                        <p class="director-rank-meta">
-                            <span>${year}</span>
-                            <span aria-hidden="true">·</span>
-                            <span>${film.vote_average.toFixed(1)} TMDB</span>
-                            <span aria-hidden="true">·</span>
-                            <span>${film.vote_count.toLocaleString('en-US')} votes</span>
-                        </p>
-                    </div>
-                    <div class="director-rank-score" title="Rating weighted by vote count">
-                        <span>${film.weighted.toFixed(1)}</span>
-                        <small>weighted</small>
-                    </div>
-                </li>`;
-            }).join('')}
-        </ol>`;
-    },
-
-    buildDirectorEditorial(data, director) {
-        const ranking = this.buildDirectorRanking(data);
-        const bestFilms = ranking.ranked.length
-            ? `<section class="director-best" aria-labelledby="director-best-title">
-                    <div class="director-section-head">
-                        <h3 id="director-best-title">Best directed films</h3>
-                        <p>Weighted rating, not raw score</p>
-                    </div>
-                    ${this.directorRankingHtml(ranking)}
-                    <p class="director-ranking-note">
-                        Each TMDB rating is pulled toward this director's ${ranking.mean.toFixed(2)} average by a
-                        ${RATING_PRIOR_VOTES.toLocaleString('en-US')}-vote prior, so a small sample of high scores cannot
-                        outrank a film with a large audience. Unreleased, undated and unrated titles are excluded.
-                    </p>
-                </section>`
-            : `<section class="director-best" aria-labelledby="director-best-title">
-                    <div class="director-section-head"><h3 id="director-best-title">Best directed films</h3></div>
-                    <p class="director-empty-note">No released, rated films are recorded for this director yet.</p>
-                </section>`;
-
-        const sources = director.sources.length
-            ? `<div class="director-sources">
-                    <h4>Sources</h4>
-                    <ul>${director.sources.map(source => `
-                        <li><a href="${this.escapeHtml(source.url)}" target="_blank" rel="noopener noreferrer">${this.escapeHtml(source.label)}</a></li>`).join('')}
-                    </ul>
-                </div>`
-            : '';
-
-        const html = `
-            <section class="director-editorial" aria-labelledby="director-signature-title">
-                <div class="director-signature-column">
-                    <p class="director-kicker">The signature</p>
-                    <h2 id="director-signature-title">${this.escapeHtml(director.technique || 'A visual signature')}</h2>
-                    ${director.tagline ? `<p class="director-editorial-tagline">${this.escapeHtml(director.tagline)}</p>` : ''}
-                </div>
-                <div class="director-editorial-copy">
-                    ${director.description ? `<p>${this.escapeHtml(director.description)}</p>` : ''}
-                    ${director.examples.length ? `
-                        <div class="director-signature-films">
-                            <h3>See it in the frame</h3>
-                            <div class="director-example-list">${this.directorExamplesHtml(director)}</div>
-                        </div>` : ''}
-                    ${sources}
-                </div>
-            </section>
-            ${bestFilms}`;
-
-        return {
-            html,
-            filmography: ranking.filmography.map(cardItem)
-        };
-    },
-
     async renderDirectors() {
         const token = this._renderToken;
-        this.main.innerHTML = `
-            <section class="directors-view">
-                <div class="placeholder-msg"><span class="pulse-dot"></span> OPENING THE DIRECTOR'S ARCHIVE...</div>
-            </section>`;
+        this.main.innerHTML = '<div class="dir-loading"><span class="pulse-dot"></span> Opening the archive</div>';
 
         let list;
         try {
@@ -364,43 +412,32 @@ export const directors = {
             return;
         }
 
-        const filmCount = list.reduce((sum, director) => sum + director.examples.length, 0);
-        const cards = list.map((director, index) => {
-            const extra = director.examples.length > GALLERY_EXAMPLE_LIMIT
-                ? `<span class="director-example-more">+${director.examples.length - GALLERY_EXAMPLE_LIMIT} more</span>`
-                : '';
-            return `
-            <article class="director-card">
-                <a class="director-card-main" href="#person/${director.id}" aria-label="Open the ${this.escapeHtml(director.name)} dossier">
-                    <span class="director-card-index" aria-hidden="true">${String(index + 1).padStart(2, '0')}</span>
+        const cards = list.map((director, index) => `
+            <a class="dir-card" href="#person/${director.id}" aria-label="Open the ${this.escapeHtml(director.name)} dossier">
+                <span class="dir-card-frame">
                     ${this.directorPortraitHtml(director)}
-                    <div class="director-card-copy">
-                        <h2>${this.escapeHtml(director.name)}</h2>
-                        ${director.tagline ? `<p class="director-card-tagline">${this.escapeHtml(director.tagline)}</p>` : ''}
-                        ${director.technique ? `<p class="director-card-technique"><span>Signature</span>${this.escapeHtml(director.technique)}</p>` : ''}
-                        <span class="director-card-open">Open dossier</span>
-                    </div>
-                </a>
-                ${director.examples.length ? `
-                    <div class="director-card-films">
-                        <p class="director-card-films-label">Signature films</p>
-                        <div class="director-example-list">${this.directorExamplesHtml(director, GALLERY_EXAMPLE_LIMIT)}${extra}</div>
-                    </div>` : ''}
-            </article>`;
-        }).join('');
+                    <span class="dir-card-veil" aria-hidden="true"></span>
+                    <span class="dir-card-index" aria-hidden="true">${String(index + 1).padStart(2, '0')}</span>
+                    <span class="dir-card-foot">
+                        <span class="dir-card-name">${this.escapeHtml(director.name)}</span>
+                        ${director.technique ? `<span class="dir-card-signature">${this.escapeHtml(director.technique)}</span>` : ''}
+                    </span>
+                </span>
+            </a>`).join('');
 
         this.main.innerHTML = `
-            <section class="directors-view">
-                <header class="directors-masthead">
-                    <p class="director-kicker">Curated archive</p>
-                    <h1>Directors</h1>
-                    <p class="directors-lede">Careers read as fingerprints — the recurring frame, the cut that gives them away, and the films where the signature is unmistakable.</p>
-                    <dl class="directors-stats">
-                        <div><dt>Directors</dt><dd>${list.length}</dd></div>
-                        <div><dt>Signature films</dt><dd>${filmCount}</dd></div>
-                    </dl>
+            <section class="dir-index">
+                <header class="dir-masthead">
+                    <div>
+                        <p class="dir-eyebrow"><span class="dir-eyebrow-rule" aria-hidden="true"></span>The archive</p>
+                        <h1>Directors</h1>
+                    </div>
+                    <div class="dir-masthead-aside">
+                        <p class="dir-lede">A curated index of the filmmakers whose signatures shaped the frame — and the films where you can see them.</p>
+                        <p class="dir-count"><span>${String(list.length).padStart(2, '0')}</span> filmmakers</p>
+                    </div>
                 </header>
-                <div class="directors-grid">${cards}</div>
+                <div class="dir-wall">${cards}</div>
             </section>`;
 
         this.hydrateDirectorPortraits(list, token).catch(() => { /* portraits are optional */ });

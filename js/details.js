@@ -210,7 +210,7 @@ export const details = {
             if (typeof this.getCuratedDirector === 'function') {
                 const curated = await this.getCuratedDirector(id);
                 if (token !== this._renderToken) return;
-                if (curated) directorEditorial = this.buildDirectorEditorial(data, curated);
+                if (curated) directorEditorial = await this.buildDirectorEditorial(data, curated);
             }
             
             const photo = this.imageUrl(data.profile_path, 'h632');
