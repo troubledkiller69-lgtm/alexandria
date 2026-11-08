@@ -1,3 +1,53 @@
+const PERSON_CREDITS_PAGE_SIZE = 24;
+
+function collectPersonCredits(data) {
+    const credits = new Map();
+    const add = (credit, role) => {
+        if (!credit || !['movie', 'tv'].includes(credit.media_type) || !Number.isInteger(Number(credit.id)) || Number(credit.id) < 1) return;
+        const key = `${credit.media_type}:${credit.id}`;
+        if (!credits.has(key)) credits.set(key, { ...credit, roles: new Set(), jobs: new Set() });
+        const item = credits.get(key);
+        item.roles.add(role);
+        if (role === 'acting') item.jobs.add('Acting');
+        else if (credit.job) item.jobs.add(credit.job);
+        if (!item.poster_path && credit.poster_path) item.poster_path = credit.poster_path;
+    };
+    for (const credit of data.combined_credits?.cast || []) add(credit, 'acting');
+    for (const credit of data.combined_credits?.crew || []) add(credit, credit.job === 'Director' ? 'directing' : 'other');
+    return [...credits.values()].sort((a, b) => {
+        const dateA = a.release_date || a.first_air_date || '';
+        const dateB = b.release_date || b.first_air_date || '';
+        return dateB.localeCompare(dateA) || (a.title || a.name || '').localeCompare(b.title || b.name || '');
+    });
+}
+
+function personKnownFor(data, curatedDirector) {
+    const cast = data.combined_credits?.cast || [];
+    const crew = data.combined_credits?.crew || [];
+    const director = curatedDirector || data.known_for_department === 'Directing';
+    const department = data.known_for_department;
+    const primary = director ? crew.filter(c => c.job === 'Director')
+        : department === 'Acting' ? cast
+        : crew.filter(c => c.department === department);
+    const fallback = director ? [] : [...cast, ...crew];
+    const today = new Date().toISOString().slice(0, 10);
+    const seen = new Set();
+    const select = candidates => candidates.filter(c => {
+        const date = c.release_date || c.first_air_date || '';
+        const character = c.character || '';
+        return ['movie', 'tv'].includes(c.media_type) && c.poster_path && date && date <= today
+            && !(c.genre_ids || []).includes(10767)
+            && !/\b(?:self|himself|herself|themselves|archive footage)\b/i.test(character);
+    }).sort((a, b) => (Number(b.vote_count) || 0) - (Number(a.vote_count) || 0)
+        || (Number(b.popularity) || 0) - (Number(a.popularity) || 0));
+    return [...select(primary), ...select(fallback)].filter(c => {
+        const key = `${c.media_type}:${c.id}`;
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+    }).slice(0, 12);
+}
+
 export const details = {
     async renderDetails() {
         const { id, type } = this.state.activeContent;
@@ -212,6 +262,7 @@ export const details = {
                 if (token !== this._renderToken) return;
                 if (curated) directorEditorial = await this.buildDirectorEditorial(data, curated);
             }
+            if (token !== this._renderToken) return;
             
             const photo = this.imageUrl(data.profile_path, 'h632');
 
@@ -235,39 +286,11 @@ export const details = {
                    <button class="bio-toggle" id="bio-toggle" onclick="Alexandria.toggleBio()">Read More</button>`
                 : `<div class="person-bio">${bioHtml || 'No biography available.'}</div>`;
 
-            // Categorize credits
-            const seenCast = new Set();
-            const castCredits = (data.combined_credits?.cast || [])
-                .filter(c => {
-                    if (!c.poster_path) return false;
-                    if (seenCast.has(c.id)) return false;
-                    seenCast.add(c.id);
-                    return true;
-                })
-                .sort((a, b) => b.popularity - a.popularity);
-            const crewCredits = (data.combined_credits?.crew || [])
-                .filter(c => c.poster_path && ['Director', 'Executive Producer', 'Producer', 'Writer', 'Screenplay', 'Creator'].includes(c.job))
-                .sort((a, b) => b.popularity - a.popularity);
-            // Deduplicate crew by id+job
-            const seenCrew = new Set();
-            const uniqueCrew = crewCredits.filter(c => {
-                const key = `${c.id}-${c.job}`;
-                if (seenCrew.has(key)) return false;
-                seenCrew.add(key);
-                return true;
-            });
-
-            // Known For = top 10 most popular across cast + crew, deduplicated
-            const seenKnown = new Set();
-            const knownFor = [...castCredits, ...uniqueCrew]
-                .sort((a, b) => b.popularity - a.popularity)
-                .filter(c => { if (seenKnown.has(c.id)) return false; seenKnown.add(c.id); return true; })
-                .slice(0, 12);
-
-            // Acting credits chronologically (newest first)
-            const actingCredits = castCredits
-                .sort((a, b) => new Date(b.release_date || b.first_air_date || '0') - new Date(a.release_date || a.first_air_date || '0'))
-                .slice(0, 50);
+            const knownFor = personKnownFor(data, Boolean(directorEditorial));
+            const credits = collectPersonCredits(data);
+            const primaryRole = (Boolean(directorEditorial) || data.known_for_department === 'Directing') ? 'directing'
+                : data.known_for_department === 'Acting' ? 'acting' : 'all';
+            this._personCredits = { items: credits, media: 'movie', role: primaryRole, limit: PERSON_CREDITS_PAGE_SIZE };
 
             this.main.innerHTML = `
                 <section class="person-layout">
@@ -297,34 +320,88 @@ export const details = {
 
                     ${directorEditorial ? directorEditorial.html : ''}
 
-                    ${actingCredits.length ? `
-                    <div class="view-section person-credits-section">
-                        <h3>ACTING (${actingCredits.length})</h3>
-                        <div class="person-credits-grid" id="person-acting"></div>
-                    </div>` : ''}
-
-                    ${uniqueCrew.length ? `
-                    <div class="view-section person-credits-section">
-                        <h3>DIRECTING & PRODUCING (${uniqueCrew.length})</h3>
-                        <div class="person-credits-grid" id="person-crew"></div>
-                    </div>` : ''}
-
-                    ${directorEditorial?.filmography?.length ? `
-                    <div class="view-section person-credits-section director-filmography-section">
-                        <h3>DIRECTED FILMS (${directorEditorial.filmography.length})</h3>
-                        <div class="person-credits-grid" id="director-filmography"></div>
-                    </div>` : ''}
+                    ${credits.length ? `
+                    <section class="person-credits-section person-filmography" aria-labelledby="person-credits-heading">
+                        <div class="person-filmography-heading">
+                            <div><h2 id="person-credits-heading">Filmography</h2><p>Explore the complete credits from TMDB.</p></div>
+                            <span id="person-credits-count" class="person-credits-count" aria-live="polite"></span>
+                        </div>
+                        <div class="person-credit-controls">
+                            <div class="person-credit-tabs" role="group" aria-label="Filter credits by format">
+                                <button type="button" data-credit-media="movie" onclick="Alexandria.filterPersonCredits('media', 'movie')">Movies</button>
+                                <button type="button" data-credit-media="tv" onclick="Alexandria.filterPersonCredits('media', 'tv')">TV</button>
+                                <button type="button" data-credit-media="all" onclick="Alexandria.filterPersonCredits('media', 'all')">All</button>
+                            </div>
+                            <div class="person-credit-roles" role="group" aria-label="Filter credits by role">
+                                <button type="button" data-credit-role="all" onclick="Alexandria.filterPersonCredits('role', 'all')">All roles</button>
+                                <button type="button" data-credit-role="acting" onclick="Alexandria.filterPersonCredits('role', 'acting')">Acting</button>
+                                <button type="button" data-credit-role="directing" onclick="Alexandria.filterPersonCredits('role', 'directing')">Directing</button>
+                                <button type="button" data-credit-role="other" onclick="Alexandria.filterPersonCredits('role', 'other')">Other work</button>
+                            </div>
+                        </div>
+                        <div class="person-credits-grid" id="person-filmography-results"></div>
+                        <p class="person-credits-empty" id="person-credits-empty" hidden>No credits in this category.</p>
+                        <div class="person-credits-more"><button type="button" id="person-credits-more" onclick="Alexandria.showMorePersonCredits()" hidden>Show more</button></div>
+                    </section>` : ''}
                 </section>
             `;
             
             if (knownFor.length) this.renderResults(knownFor, 'person-known-for');
-            if (actingCredits.length) this.renderResults(actingCredits, 'person-acting');
-            if (uniqueCrew.length) this.renderResults(uniqueCrew, 'person-crew');
-            if (directorEditorial?.filmography?.length) this.renderResults(directorEditorial.filmography, 'director-filmography');
+            if (credits.length) this.renderPersonCredits();
         } catch(e) {
             console.error("Alexandria Protocol: Person Render Failed", e);
             if (token === this._renderToken) this.renderError('This dossier is unavailable', e.message, 'person');
         }
+    },
+
+    filterPersonCredits(filter, value) {
+        const credits = this._personCredits;
+        if (!credits) return;
+        if (filter === 'media' && ['movie', 'tv', 'all'].includes(value)) credits.media = value;
+        else if (filter === 'role' && ['all', 'acting', 'directing', 'other'].includes(value)) credits.role = value;
+        else return;
+        credits.limit = PERSON_CREDITS_PAGE_SIZE;
+        this.renderPersonCredits();
+    },
+
+    showMorePersonCredits() {
+        if (!this._personCredits) return;
+        this._personCredits.limit += PERSON_CREDITS_PAGE_SIZE;
+        this.renderPersonCredits();
+    },
+
+    renderPersonCredits() {
+        const state = this._personCredits;
+        const grid = document.getElementById('person-filmography-results');
+        if (!state || !grid) return;
+        const filtered = state.items.filter(item =>
+            (state.media === 'all' || item.media_type === state.media)
+            && (state.role === 'all' || item.roles.has(state.role))
+        );
+        document.querySelectorAll('[data-credit-media]').forEach(button => {
+            button.setAttribute('aria-pressed', String(button.dataset.creditMedia === state.media));
+        });
+        document.querySelectorAll('[data-credit-role]').forEach(button => {
+            button.setAttribute('aria-pressed', String(button.dataset.creditRole === state.role));
+        });
+        const shown = filtered.slice(0, state.limit);
+        grid.hidden = !shown.length;
+        if (shown.length) {
+            this.renderResults(shown, 'person-filmography-results');
+            grid.querySelectorAll('.movie-card').forEach((card, index) => {
+                const item = shown[index];
+                const meta = document.createElement('p');
+                meta.className = 'person-credit-meta';
+                const year = (item.release_date || item.first_air_date || '').slice(0, 4);
+                meta.textContent = [year, [...item.jobs].join(', ')].filter(Boolean).join(' · ');
+                card.querySelector('.card-info')?.appendChild(meta);
+            });
+        } else {
+            grid.replaceChildren();
+        }
+        document.getElementById('person-credits-count').textContent = `${shown.length} of ${filtered.length} titles`;
+        document.getElementById('person-credits-empty').hidden = filtered.length > 0;
+        document.getElementById('person-credits-more').hidden = shown.length >= filtered.length;
     },
 
     // #region Community profiles

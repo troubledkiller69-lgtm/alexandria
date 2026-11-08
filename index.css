@@ -3815,6 +3815,60 @@ h1, h2, h3, h4 {
 .person-credits-section {
     margin-top: 3rem;
 }
+.person-filmography {
+    margin-top: 3rem;
+    padding-top: 3rem;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+.person-filmography-heading {
+    display: flex;
+    align-items: end;
+    justify-content: space-between;
+    gap: 2rem;
+    margin-bottom: 1.25rem;
+}
+.person-filmography-heading h2 { margin: 0; font-family: var(--font-display); font-size: clamp(2rem, 4vw, 3rem); font-weight: 500; letter-spacing: -0.01em; }
+.person-filmography-heading p { margin: 0.35rem 0 0; color: var(--text-secondary); }
+.person-credits-count { color: var(--accent-gold); font-family: var(--font-display); letter-spacing: 0.12em; text-transform: uppercase; font-size: 0.72rem; }
+.person-credit-controls {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    margin-bottom: 1.5rem;
+}
+.person-credit-tabs,
+.person-credit-roles {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+.person-credit-tabs button,
+.person-credit-roles button {
+    background: transparent;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    color: var(--text-secondary);
+    border-radius: 999px;
+    padding: 0.5rem 0.85rem;
+    font-size: 0.72rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: border-color 0.2s ease, color 0.2s ease, background 0.2s ease;
+}
+.person-credit-tabs button[aria-pressed="true"],
+.person-credit-roles button[aria-pressed="true"] {
+    border-color: var(--accent-gold);
+    color: var(--text-primary);
+    background: rgba(212, 175, 55, 0.08);
+}
+.person-credit-meta { margin: 0.4rem 0 0; color: var(--text-muted); font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.08em; }
+.person-credits-more { margin-top: 1.5rem; text-align: center; }
+.person-credits-more button { background: transparent; border: 1px solid rgba(255, 255, 255, 0.14); color: var(--text-primary); border-radius: 999px; padding: 0.75rem 1.25rem; cursor: pointer; text-transform: uppercase; letter-spacing: 0.12em; font-size: 0.72rem; }
+.person-credits-more button:hover { border-color: var(--accent-gold); }
+.person-credits-empty { color: var(--text-muted); margin-top: 1.5rem; }
+@media (max-width: 640px) {
+    .person-filmography-heading { flex-direction: column; align-items: start; gap: 0.5rem; }
+}
 /* Person Bio Expand/Collapse */
 .person-bio-collapsed {
     max-height: 200px;

@@ -148,5 +148,61 @@ export const DIRECTORS = [
             { label: 'ProVideo Coalition: Tom Cross on editing Whiplash', url: 'https://www.provideocoalition.com/art-cut-tom-cross-ace-whiplash-joy-la-la-land/' },
             { label: 'ProVideo Coalition: Tom Cross on editing La La Land', url: 'https://www.provideocoalition.com/art-of-the-cut-tom-cross-la-la-land/' }
         ]
+    },
+    {
+        id: 525,
+        name: 'Christopher Nolan',
+        tagline: 'Time as a mechanism.',
+        technique: 'Parallel timelines cut against each other so past, present and dream share one clock; large-format film and practical action keep impossible scale physically heavy. Exposition is staged as movement, never as a pause.',
+        description: 'Nolan treats structure as the subject: memory that rewrites itself, dreams that nest, time that runs backwards. Restraint in performance lets score, scale and the edit carry the feeling.',
+        examples: [
+            { id: 77, title: 'Memento', note: 'The film runs two timelines in opposite directions and meets in the middle; BFI reads its reversed structure as a way of making the audience share the protagonist\'s broken memory.' },
+            { id: 27205, title: 'Inception', note: 'Nested dream levels are cross-cut on a single escalating clock, so four locations resolve at once; BFI discusses the film\'s layered structure as its real subject.' }
+        ],
+        sources: [
+            { label: 'BFI: Christopher Nolan, a guide to his films', url: 'https://www.bfi.org.uk/features/christopher-nolan-guide-films' }
+        ]
+    },
+    {
+        id: 137427,
+        name: 'Denis Villeneuve',
+        tagline: 'Scale with silence.',
+        technique: 'Wide, patient frames and negative space; monolithic production design and low-frequency sound carry dread before anyone speaks. Faces are held long enough to read as landscape.',
+        description: 'Villeneuve builds atmosphere first and plot second. His science fiction keeps the awe but strips the comfort, leaving rooms, deserts and rain that feel older than the characters in them.',
+        examples: [
+            { id: 329865, title: 'Arrival', note: 'Villeneuve describes shaping the film around communication rather than combat, with the alien language and Louise\'s memory structure designed to converge in the final act.' },
+            { id: 335984, title: 'Blade Runner 2049', note: 'He talks about building the world from Roger Deakins\'s light and fog rather than nostalgia, letting long, quiet frames hold the scale of the city.' }
+        ],
+        sources: [
+            { label: 'Interview Magazine: Denis Villeneuve', url: 'https://www.interviewmagazine.com/film/denis-villeneuve' }
+        ]
+    },
+    {
+        id: 45400,
+        name: 'Greta Gerwig',
+        tagline: 'Coming of age, out loud.',
+        technique: 'Overlapping, conversational dialogue and warm framing that follows the actors instead of leading them; literary or chronological structure is broken into episodic memory, then reassembled around a feeling.',
+        description: 'Gerwig writes people who talk too much and mean all of it. Her films let humor and humiliation sit in the same scene, and the camera stays close enough that neither gets away.',
+        examples: [
+            { id: 391713, title: 'Lady Bird', note: 'Gerwig describes writing the mother-daughter arguments from lived rhythm, letting the actors\' overlapping timing carry the love underneath the fight.' },
+            { id: 331482, title: 'Little Women', note: 'She restructures the novel\'s chronology around memory and authorship, so the sisters\' timelines comment on each other rather than simply follow the book.' }
+        ],
+        sources: [
+            { label: 'Film Independent: Greta Gerwig on Lady Bird', url: 'https://www.filmindependent.org/blog/greta-gerwig-on-lady-bird/' }
+        ]
+    },
+    {
+        id: 21684,
+        name: 'Bong Joon Ho',
+        tagline: 'Genre as a pressure cooker.',
+        technique: 'Tonal pivots inside single scenes; wide-angle compositions and vertical staging — stairs, basements, hills — map class onto geography. Comedy, horror and melodrama share the frame until one wins.',
+        description: 'Bong builds machines that switch genre mid-scene without losing the thread. The absurdity is funny until the architecture of the story reveals what it has been holding down.',
+        examples: [
+            { id: 496243, title: 'Parasite', note: 'Bong describes designing the two houses so that stairs and sightlines encode class before dialogue does, then letting the tone slide from comedy to horror in the same space.' },
+            { id: 110415, title: 'Snowpiercer', note: 'The train\'s linear, vertical geography is the social order; Bong stages each carriage as a different genre until the structure itself becomes the antagonist.' }
+        ],
+        sources: [
+            { label: 'Walker Art Center: Bong Joon Ho in conversation', url: 'https://walkerart.org/magazine/bong-joon-ho-parasite-conversation' }
+        ]
     }
 ];

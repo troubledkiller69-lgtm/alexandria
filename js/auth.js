@@ -54,6 +54,18 @@ export const auth = {
     // not an archive.
     CHANGELOG: [
         {
+            key: 'v1.15.0',
+            date: 'Nov 8, 2026',
+            title: 'Person Pages Get a Full Filmography',
+            items: [
+                'Every person page now has one filmography browser with Movies, TV and All tabs, plus role filters for Acting, Directing and other work',
+                'Credits load a page at a time instead of stopping at the first twenty, so you can walk an entire career',
+                '"Known for" now pulls from a person\'s primary credits and skips talk shows, cameos and unreleased titles — no more Late Show in Steven Spielberg\'s highlights',
+                'Four directors join the Directors gallery: Christopher Nolan, Denis Villeneuve, Greta Gerwig and Bong Joon Ho'
+            ],
+            credit: 'Changes made by Yuntoe'
+        },
+        {
             key: 'v1.14.3',
             date: 'Oct 11, 2026',
             title: 'Bug Fixes & Security',
