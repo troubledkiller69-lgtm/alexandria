@@ -54,6 +54,18 @@ export const auth = {
     // not an archive.
     CHANGELOG: [
         {
+            key: 'v1.15.1',
+            date: 'Nov 9, 2026',
+            title: 'A Cleaner Director Dossier',
+            items: [
+                'Director dossiers open on Films, with Highlights and Style & craft in their own keyboard-accessible tabs',
+                'A quieter portrait gallery, collapsible biographies and ranking notes keep the films in focus',
+                'Filmography filters and loaded credits stay put when you switch dossier tabs',
+                'Known for now also excludes credits explicitly marked as cameos, uncredited roles or guest appearances'
+            ],
+            credit: 'Changes made by Yuntoe'
+        },
+        {
             key: 'v1.15.0',
             date: 'Nov 8, 2026',
             title: 'Person Pages Get a Full Filmography',

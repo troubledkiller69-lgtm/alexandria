@@ -216,7 +216,7 @@ export const directors = {
     },
 
     directorFramesHtml(frames) {
-        return frames.map((frame, index) => {
+        return frames.map(frame => {
             const backdrop = this.imageUrl(frame.backdrop_path, 'w780');
             return `
             <a class="dir-frame" href="#details/movie/${frame.id}">
@@ -225,7 +225,6 @@ export const directors = {
                         ? `<img src="${backdrop}" alt="" decoding="async">`
                         : `<span class="dir-frame-plate" aria-hidden="true">${this.escapeHtml(initialsFor(frame.title))}</span>`}
                     <span class="dir-frame-shade" aria-hidden="true"></span>
-                    <span class="dir-frame-index" aria-hidden="true">${String(index + 1).padStart(2, '0')}</span>
                 </span>
                 <span class="dir-frame-caption">
                     <span class="dir-frame-title">${this.escapeHtml(frame.title)}</span>
@@ -293,12 +292,11 @@ export const directors = {
                 </div>`
             : '';
 
-        const html = `
+        const craftHtml = `
             <section class="dir-signature" aria-labelledby="director-signature-title">
                 <div class="dir-signature-head">
-                    <p class="dir-eyebrow"><span class="dir-eyebrow-rule" aria-hidden="true"></span>The signature</p>
-                    <h2 id="director-signature-title">${this.escapeHtml(director.technique || 'A visual signature')}</h2>
-                    ${director.tagline ? `<p class="dir-tagline">${this.escapeHtml(director.tagline)}</p>` : ''}
+                    <h2 id="director-signature-title">Style &amp; craft</h2>
+                    ${director.technique ? `<p class="dir-technique">${this.escapeHtml(director.technique)}</p>` : ''}
                 </div>
                 <div class="dir-signature-body">
                     ${director.description ? `<p class="dir-description">${this.escapeHtml(director.description)}</p>` : '<span></span>'}
@@ -309,28 +307,28 @@ export const directors = {
                         <p class="dir-frames-label">See it in the frame</p>
                         <div class="dir-frames-grid">${this.directorFramesHtml(frames)}</div>
                     </div>` : ''}
-            </section>
-
+            </section>`;
+        const highlightsHtml = `
             <section class="dir-best" aria-labelledby="director-best-title">
                 <div class="dir-section-head">
-                    <div>
-                        <p class="dir-eyebrow"><span class="dir-eyebrow-rule" aria-hidden="true"></span>The essentials</p>
-                        <h3 id="director-best-title">Best films</h3>
-                    </div>
-                    ${canRank ? `<p class="dir-method">Ranked by TMDB rating, weighted for audience size</p>` : ''}
+                    <h2 id="director-best-title">Best films</h2>
                 </div>
                 ${canRank
                     ? `${this.directorPodiumHtml(ranking.ranked)}${this.directorRanksHtml(ranking.ranked)}
-                       <p class="dir-method-note">
-                           Each rating is pulled toward this director's ${ranking.mean.toFixed(2)} average by a
-                           ${RATING_PRIOR_VOTES.toLocaleString('en-US')}-vote prior, so a small sample of high scores
-                           cannot outrank a film with a large audience. Unreleased and unrated titles are excluded.
-                       </p>`
+                       <details class="dir-ranking-method">
+                       <summary>How these films are ranked</summary>
+                        <p class="dir-method-note">
+                            Ranked by TMDB rating, weighted for audience size.
+                            Each rating is pulled toward this director's ${ranking.mean.toFixed(2)} average by a
+                            ${RATING_PRIOR_VOTES.toLocaleString('en-US')}-vote prior, so a small sample of high scores
+                            cannot outrank a film with a large audience. Unreleased and unrated titles are excluded.
+                        </p></details>`
                     : '<p class="dir-empty-note">No released, rated films are recorded for this director yet.</p>'}
             </section>`;
 
         return {
-            html,
+            craftHtml,
+            highlightsHtml,
             filmography: ranking.filmography.map(cardItem)
         };
     },
@@ -412,16 +410,14 @@ export const directors = {
             return;
         }
 
-        const cards = list.map((director, index) => `
+        const cards = list.map(director => `
             <a class="dir-card" href="#person/${director.id}" aria-label="Open the ${this.escapeHtml(director.name)} dossier">
                 <span class="dir-card-frame">
                     ${this.directorPortraitHtml(director)}
-                    <span class="dir-card-veil" aria-hidden="true"></span>
-                    <span class="dir-card-index" aria-hidden="true">${String(index + 1).padStart(2, '0')}</span>
-                    <span class="dir-card-foot">
-                        <span class="dir-card-name">${this.escapeHtml(director.name)}</span>
-                        ${director.technique ? `<span class="dir-card-signature">${this.escapeHtml(director.technique)}</span>` : ''}
-                    </span>
+                </span>
+                <span class="dir-card-foot">
+                    <span class="dir-card-name">${this.escapeHtml(director.name)}</span>
+                    ${director.tagline ? `<span class="dir-card-signature">${this.escapeHtml(director.tagline)}</span>` : ''}
                 </span>
             </a>`).join('');
 
@@ -429,12 +425,11 @@ export const directors = {
             <section class="dir-index">
                 <header class="dir-masthead">
                     <div>
-                        <p class="dir-eyebrow"><span class="dir-eyebrow-rule" aria-hidden="true"></span>The archive</p>
                         <h1>Directors</h1>
                     </div>
                     <div class="dir-masthead-aside">
-                        <p class="dir-lede">A curated index of the filmmakers whose signatures shaped the frame — and the films where you can see them.</p>
-                        <p class="dir-count"><span>${String(list.length).padStart(2, '0')}</span> filmmakers</p>
+                        <p class="dir-lede">Distinct voices. Essential films. Find your next director.</p>
+                        <p class="dir-count">${list.length} filmmakers</p>
                     </div>
                 </header>
                 <div class="dir-wall">${cards}</div>

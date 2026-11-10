@@ -9528,8 +9528,8 @@ h1, h2, h3, h4 {
 }
 
 /* ══ Directors archive ─────────────────────────────────────────────────────
-   A portrait index and an editorial dossier. Black field, bone type, one
-   red mark per section, gold reserved for rank. No panel chrome: the
+   A portrait index and a tabbed dossier. Black field, bone type, a
+   blood-red active tab and restrained gold. No panel chrome: the
    photography and the typography carry the hierarchy. */
 
 .dir-loading {
@@ -9550,66 +9550,36 @@ h1, h2, h3, h4 {
     position: relative;
     max-width: 1560px;
     margin: 0 auto;
-    padding: 7.5rem 3rem 6rem;
-}
-
-.dir-index::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 8%;
-    width: 70%;
-    height: 420px;
-    pointer-events: none;
-    background: radial-gradient(60% 100% at 30% 0%, rgba(138, 3, 3, 0.16), transparent 70%);
+    padding: 6rem 3rem 5rem;
 }
 
 .dir-masthead {
     position: relative;
     display: grid;
-    grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.85fr);
+    grid-template-columns: auto minmax(0, 1fr);
     gap: 2rem 3rem;
     align-items: end;
-    padding-bottom: 2.4rem;
+    padding-bottom: 1.5rem;
     border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-    margin-bottom: 2.6rem;
-}
-
-.dir-eyebrow {
-    display: flex;
-    align-items: center;
-    gap: 0.75rem;
-    margin: 0 0 1.15rem;
-    font-family: var(--font-body);
-    font-size: 0.65rem;
-    font-weight: 600;
-    letter-spacing: 0.24em;
-    text-transform: uppercase;
-    color: var(--text-muted);
-}
-
-.dir-eyebrow-rule {
-    width: 26px;
-    height: 1px;
-    background: var(--accent-primary);
+    margin-bottom: 2rem;
 }
 
 .dir-masthead h1 {
     margin: 0;
     font-family: var(--font-display);
-    font-size: clamp(3.6rem, 7.5vw, 7rem);
+    font-size: clamp(2.8rem, 5vw, 4.5rem);
     font-weight: 600;
-    line-height: 0.9;
+    line-height: 1.05;
     letter-spacing: 0.005em;
-    text-transform: uppercase;
+    text-transform: none;
     color: var(--text-primary);
 }
 
 .dir-masthead-aside {
     display: flex;
     flex-direction: column;
-    align-items: flex-start;
-    gap: 1.5rem;
+    align-items: flex-end;
+    gap: 0.25rem;
     padding-bottom: 0.35rem;
 }
 
@@ -9626,17 +9596,8 @@ h1, h2, h3, h4 {
     align-items: baseline;
     gap: 0.65rem;
     margin: 0;
-    font-size: 0.64rem;
-    letter-spacing: 0.22em;
-    text-transform: uppercase;
-    color: var(--text-muted);
-}
-
-.dir-count span {
-    font-family: var(--font-display);
-    font-size: 1.75rem;
-    letter-spacing: 0.02em;
-    color: var(--accent-gold);
+    font-size: 0.78rem;
+    color: var(--text-secondary);
 }
 
 .dir-wall {
@@ -9685,38 +9646,19 @@ h1, h2, h3, h4 {
     color: rgba(212, 175, 55, 0.5);
 }
 
-.dir-card-veil {
-    position: absolute;
-    inset: 0;
-    background: linear-gradient(180deg, rgba(3, 3, 3, 0.06) 0%, rgba(3, 3, 3, 0) 34%, rgba(3, 3, 3, 0.88) 100%);
-}
-
-.dir-card-index {
-    position: absolute;
-    top: 0.85rem;
-    left: 1rem;
-    font-family: var(--font-display);
-    font-size: 0.72rem;
-    letter-spacing: 0.2em;
-    color: rgba(248, 250, 252, 0.72);
-}
-
 .dir-card-foot {
-    position: absolute;
-    left: 1rem;
-    right: 1rem;
-    bottom: 1rem;
     display: flex;
     flex-direction: column;
     gap: 0.4rem;
+    padding-top: 0.8rem;
 }
 
 .dir-card-name {
     font-family: var(--font-display);
     font-size: clamp(1.02rem, 1.45vw, 1.42rem);
-    line-height: 1.02;
+    line-height: 1.2;
     letter-spacing: 0.02em;
-    text-transform: uppercase;
+    text-transform: none;
     color: #fff;
 }
 
@@ -9725,9 +9667,9 @@ h1, h2, h3, h4 {
     -webkit-line-clamp: 2;
     -webkit-box-orient: vertical;
     overflow: hidden;
-    font-size: 0.7rem;
-    line-height: 1.45;
-    color: rgba(248, 250, 252, 0.62);
+    font-size: 0.78rem;
+    line-height: 1.5;
+    color: var(--text-secondary);
 }
 
 .dir-card-frame::after {
@@ -9761,44 +9703,30 @@ h1, h2, h3, h4 {
 /* ── Dossier: signature ────────────────────────────────────────────────── */
 
 .dir-signature {
-    position: relative;
-    margin: 3.5rem 0 0;
-    padding: 3.4rem 0 3.6rem;
-    border-top: 1px solid rgba(255, 255, 255, 0.1);
-    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-}
-
-.dir-signature::before {
-    content: '';
-    position: absolute;
-    top: 3.4rem;
-    left: -3rem;
-    width: 2px;
-    height: 3.6rem;
-    background: var(--accent-primary);
+    padding: 0 0 2rem;
 }
 
 .dir-signature-head {
-    margin-bottom: 2.3rem;
+    margin-bottom: 1.5rem;
 }
 
 .dir-signature h2 {
-    max-width: 30ch;
+    max-width: 100%;
     margin: 0 0 1rem;
     font-family: var(--font-display);
-    font-size: clamp(1.65rem, 3vw, 2.6rem);
+    font-size: 1.8rem;
     font-weight: 500;
     line-height: 1.16;
     letter-spacing: -0.005em;
     color: var(--text-primary);
 }
 
-.dir-tagline {
+.dir-technique {
     margin: 0;
-    font-size: 0.92rem;
-    line-height: 1.6;
-    letter-spacing: 0.02em;
-    color: var(--accent-gold);
+    max-width: 72ch;
+    font-size: 1rem;
+    line-height: 1.8;
+    color: var(--text-primary);
 }
 
 .dir-signature-body {
@@ -9921,16 +9849,6 @@ h1, h2, h3, h4 {
     background: linear-gradient(180deg, rgba(3, 3, 3, 0.05) 40%, rgba(3, 3, 3, 0.6) 100%);
 }
 
-.dir-frame-index {
-    position: absolute;
-    top: 0.9rem;
-    left: 1rem;
-    font-family: var(--font-display);
-    font-size: 0.7rem;
-    letter-spacing: 0.2em;
-    color: rgba(255, 255, 255, 0.8);
-}
-
 .dir-frame-caption {
     display: flex;
     flex-direction: column;
@@ -9981,7 +9899,8 @@ h1, h2, h3, h4 {
 /* ── Dossier: best films ───────────────────────────────────────────────── */
 
 .dir-best {
-    padding: 3.2rem 0 1rem;
+    max-width: 840px;
+    padding: 1.5rem 0 1rem;
 }
 
 .dir-section-head {
@@ -9989,35 +9908,25 @@ h1, h2, h3, h4 {
     align-items: flex-end;
     justify-content: space-between;
     gap: 2rem;
-    margin-bottom: 2rem;
+    margin-bottom: 1.5rem;
 }
 
-.dir-section-head h3 {
+.dir-section-head h2 {
     margin: 0;
     font-family: var(--font-display);
-    font-size: clamp(1.8rem, 3.3vw, 2.9rem);
+    font-size: 1.8rem;
     font-weight: 600;
     line-height: 1;
     letter-spacing: 0.02em;
-    text-transform: uppercase;
+    text-transform: none;
     color: var(--text-primary);
-}
-
-.dir-method {
-    max-width: 30ch;
-    margin: 0 0 0.25rem;
-    text-align: right;
-    font-size: 0.64rem;
-    letter-spacing: 0.08em;
-    line-height: 1.5;
-    text-transform: uppercase;
-    color: var(--text-muted);
 }
 
 .dir-podium {
     display: grid;
     grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 1.6rem;
+    gap: 1.25rem;
+    max-width: 640px;
     margin-bottom: 2.3rem;
 }
 
@@ -10180,10 +10089,10 @@ h1, h2, h3, h4 {
 .dir-method-note {
     max-width: 78ch;
     margin: 1rem 0 0;
-    font-size: 0.68rem;
+    font-size: 0.82rem;
     line-height: 1.65;
     letter-spacing: 0.01em;
-    color: var(--text-muted);
+    color: var(--text-secondary);
 }
 
 .dir-empty-note {
@@ -10192,45 +10101,191 @@ h1, h2, h3, h4 {
     font-size: 0.9rem;
 }
 
-/* Existing person-page section that follows the editorial block. */
-.director-filmography-section h3 {
-    border-top: 1px solid rgba(255, 255, 255, 0.1);
-    padding-top: 2rem;
+/* Curated dossiers: one compact portrait, one visible reading surface. */
+.director-person {
+    max-width: 1440px;
+    margin: 0 auto;
+    padding: 5.5rem 3rem 5rem;
+    background: #050505;
+}
+.director-back {
+    display: inline-block;
+    margin-bottom: 1.5rem;
+    color: var(--text-secondary);
+    font-size: 0.82rem;
+    text-decoration: none;
+}
+.director-back:hover { color: var(--text-primary); }
+.director-person .person-header {
+    display: grid;
+    grid-template-columns: 124px minmax(0, 1fr);
+    gap: 1.75rem;
+    margin-bottom: 2rem;
+}
+.director-person .person-photo {
+    width: 124px;
+    min-width: 0;
+    margin: 0;
+    border-radius: 2px;
+    box-shadow: none;
+    filter: grayscale(1);
+}
+.director-person .person-info { min-width: 0; }
+.director-person .person-info h1 {
+    margin: 0 0 0.5rem;
+    font-family: var(--font-display);
+    font-size: clamp(2.1rem, 4.5vw, 3.8rem);
+    font-weight: 500;
+    line-height: 1.12;
+    text-align: left;
+    overflow-wrap: anywhere;
+}
+.director-person-tagline {
+    margin: 0 0 0.8rem;
+    color: var(--accent-gold);
+    font-size: 0.92rem;
+}
+.director-person .person-meta {
+    flex-wrap: wrap;
+    gap: 0.25rem 1rem;
+    margin-bottom: 0.8rem;
+    font-size: 0.76rem;
+}
+.director-person .person-bio {
+    max-width: 78ch;
+    padding-top: 0.75rem;
+    font-size: 0.92rem;
+    line-height: 1.8;
+    color: var(--text-secondary);
+}
+.director-biography summary,
+.dir-ranking-method summary {
+    width: fit-content;
+    color: var(--text-secondary);
+    font-size: 0.82rem;
+    cursor: pointer;
+}
+.director-tabs {
+    display: flex;
+    gap: 1.75rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    margin-bottom: 1.75rem;
+}
+.director-tabs [role="tab"] {
+    padding: 0.8rem 0;
+    border: 0;
+    border-bottom: 3px solid transparent;
+    background: none;
+    color: var(--text-secondary);
+    font-size: 0.92rem;
+    white-space: nowrap;
+    cursor: pointer;
+}
+.director-tabs [aria-selected="true"] {
+    color: var(--text-primary);
+    border-bottom-color: var(--accent-primary);
+}
+.director-person .director-panel[hidden],
+.director-person .person-credits-grid[hidden],
+.director-person .person-credits-empty[hidden],
+.director-person #person-credits-more[hidden] { display: none; }
+.director-person .person-filmography {
+    margin-top: 0;
+    padding-top: 0;
+    border: 0;
+}
+.director-person .person-filmography-heading h2 { font-size: 1.8rem; }
+.director-person .person-filmography-heading p { font-size: 0.82rem; }
+.director-person .person-credits-count {
+    color: var(--text-secondary);
+    font-family: var(--font-body);
+    letter-spacing: 0;
+    text-transform: none;
+    font-size: 0.78rem;
+}
+.director-person .person-credit-controls {
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.75rem 1.5rem;
+}
+.director-person .person-credit-tabs { gap: 0; }
+.director-person .person-credit-tabs button {
+    border-radius: 2px;
+    padding: 0.5rem 0.85rem;
+    font-size: 0.8rem;
+    letter-spacing: 0;
+    text-transform: none;
+}
+.director-person .person-credit-tabs button[aria-pressed="true"] {
+    border-color: var(--accent-primary);
+    background: rgba(138, 3, 3, 0.2);
+}
+.director-role-filter {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    color: var(--text-secondary);
+    font-size: 0.8rem;
+}
+.director-role-filter select {
+    max-width: 100%;
+    min-height: 38px;
+    padding: 0.4rem 1.5rem 0.4rem 0.6rem;
+    background: var(--bg-base);
+    color: var(--text-primary);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 2px;
+}
+.director-person .director-known-for { margin: 0 0 1.5rem; padding: 0; }
+.director-person .director-known-for > h3 {
+    font-size: 1.8rem;
+    letter-spacing: 0;
+    text-transform: none;
+}
+.director-person .person-credit-meta { text-transform: none; letter-spacing: 0; }
+.director-person .person-credits-more button { border-radius: 2px; text-transform: none; letter-spacing: 0; }
+.director-tabs button:focus-visible,
+.director-role-filter select:focus-visible,
+.director-biography summary:focus-visible,
+.dir-ranking-method summary:focus-visible,
+.director-back:focus-visible,
+.director-panel:focus-visible,
+.director-person .person-credit-tabs button:focus-visible,
+.director-person .person-credits-more button:focus-visible {
+    outline: 2px solid var(--accent-gold);
+    outline-offset: 4px;
 }
 
 /* ── Responsive ────────────────────────────────────────────────────────── */
 
 @media (max-width: 1280px) {
-    .dir-index { padding: 7rem 2.2rem 5rem; }
+    .dir-index { padding: 5.5rem 2.2rem 5rem; }
     .dir-wall { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 }
 
 @media (max-width: 1024px) {
     .dir-wall { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 2rem 1.1rem; }
     .dir-signature-body { grid-template-columns: minmax(0, 1.5fr) minmax(0, 0.7fr); gap: 2rem 2.5rem; }
-    .dir-signature::before { left: -1.5rem; }
 }
 
 @media (max-width: 860px) {
-    .dir-masthead { grid-template-columns: minmax(0, 1fr); gap: 1.6rem; }
-    .dir-masthead-aside { gap: 1rem; }
+    .dir-masthead { grid-template-columns: minmax(0, 1fr); gap: 0.8rem; }
+    .dir-masthead-aside { align-items: flex-start; gap: 0.25rem; }
     .dir-signature-body { grid-template-columns: minmax(0, 1fr); gap: 1.8rem; }
     .dir-references { padding-left: 0; padding-top: 1.2rem; border-left: 0; border-top: 1px solid rgba(255, 255, 255, 0.1); }
     .dir-frames-grid { grid-template-columns: minmax(0, 1fr); gap: 1.8rem; }
     .dir-section-head { flex-direction: column; align-items: flex-start; gap: 0.8rem; }
-    .dir-method { text-align: left; max-width: 42ch; }
 }
 
 @media (max-width: 640px) {
     .dir-index { padding: 5.2rem 1.15rem 4rem; }
-    .dir-index::before { left: 0; width: 100%; height: 300px; }
     .dir-masthead { padding-bottom: 1.8rem; margin-bottom: 2rem; }
     .dir-wall { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1.5rem 0.75rem; }
-    .dir-card-foot { left: 0.75rem; right: 0.75rem; bottom: 0.75rem; gap: 0.3rem; }
-    .dir-card-index { top: 0.7rem; left: 0.75rem; }
-    .dir-card-signature { font-size: 0.64rem; -webkit-line-clamp: 2; }
-    .dir-signature { padding: 2.6rem 0 2.8rem; }
-    .dir-signature::before { left: -0.9rem; top: 2.6rem; height: 2.8rem; }
+    .dir-card-foot { gap: 0.3rem; }
+    .dir-card-signature { font-size: 0.72rem; -webkit-line-clamp: 2; }
+    .dir-signature { padding-bottom: 1.5rem; }
     .dir-signature h2 { max-width: 100%; }
     .dir-frames { margin-top: 0; }
     .dir-podium { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.9rem; }
@@ -10240,6 +10295,14 @@ h1, h2, h3, h4 {
     .dir-rank-link { flex-direction: column; gap: 0.2rem; }
     .dir-rank-title { font-size: 1rem; }
     .dir-rank-score { font-size: 1rem; }
+    .director-person { padding: 4.5rem 1.15rem 3rem; }
+    .director-person .person-header { grid-template-columns: 76px minmax(0, 1fr); gap: 1rem; margin-bottom: 1.5rem; }
+    .director-person .person-photo { width: 76px; }
+    .director-person .person-info h1 { font-size: clamp(1.7rem, 7vw, 2.5rem); }
+    .director-person-tagline { font-size: 0.8rem; }
+    .director-tabs { gap: 1.2rem; }
+    .director-tabs [role="tab"] { font-size: 0.82rem; }
+    .director-person .person-credits-grid { gap: 1.25rem 0.75rem; }
 }
 
 @media (prefers-reduced-motion: reduce) {
